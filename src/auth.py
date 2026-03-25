@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 import streamlit as st
+import streamlit.components.v1 as components
 import yaml
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,6 @@ def hash_password(password: str) -> str:
 
 def _load_users() -> dict:
     """Load users from Streamlit secrets (production) or users.yaml (local dev)."""
-    # 1. Streamlit secrets (Streamlit Cloud)
     try:
         if hasattr(st, "secrets") and "users" in st.secrets:
             result = {}
@@ -29,7 +29,6 @@ def _load_users() -> dict:
     except Exception as e:
         logger.debug("Secrets load skipped: %s", e)
 
-    # 2. Local users.yaml (local development)
     if _USERS_FILE.exists():
         try:
             with open(_USERS_FILE, encoding="utf-8") as f:
@@ -75,49 +74,32 @@ def logout():
 
 
 # ---------------------------------------------------------------------------
-# Login page — Blackstone / BlackRock style (black & gold)
+# Login page rendering
 # ---------------------------------------------------------------------------
 
-_LOGIN_CSS = """
+def _inject_page_css():
+    """Inject CSS to style the page and Streamlit widgets."""
+    st.markdown("""
 <style>
-/* Hide default Streamlit chrome */
-#MainMenu { visibility: hidden; }
-header { visibility: hidden; }
-footer { visibility: hidden; }
-[data-testid="stSidebar"] { display: none !important; }
-[data-testid="collapsedControl"] { display: none !important; }
-
-/* Full-screen dark background */
-.stApp {
-    background-color: #08080C;
+#MainMenu {visibility: hidden;}
+header {visibility: hidden;}
+footer {visibility: hidden;}
+[data-testid="stSidebar"] {display: none !important;}
+[data-testid="collapsedControl"] {display: none !important;}
+.stApp {background-color: #08080C !important;}
+.block-container {
+    max-width: 420px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin: auto !important;
 }
-
-/* Center the login card */
-[data-testid="stAppViewContainer"] > .main {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-}
-
-[data-testid="stAppViewContainer"] > .main .block-container {
-    width: 100%;
-    max-width: 420px;
-    padding: 0 32px;
-    margin: auto;
-}
-
-/* Input labels */
 div[data-testid="stTextInput"] label p {
     font-size: 0.62rem;
     letter-spacing: 3px;
     color: #5A5A6A;
-    font-weight: 400;
     text-transform: uppercase;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
-
-/* Input boxes */
 div[data-testid="stTextInput"] input {
     background-color: #0F0F16 !important;
     border: 1px solid #252530 !important;
@@ -125,16 +107,11 @@ div[data-testid="stTextInput"] input {
     color: #E8E8F0 !important;
     font-size: 0.9rem !important;
     padding: 13px 16px !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
-
 div[data-testid="stTextInput"] input:focus {
     border-color: #C9A962 !important;
     box-shadow: 0 0 0 2px rgba(201,169,98,0.15) !important;
-    outline: none !important;
 }
-
-/* Sign In button */
 div[data-testid="stButton"] > button {
     width: 100% !important;
     background: #C9A962 !important;
@@ -147,99 +124,163 @@ div[data-testid="stButton"] > button {
     border-radius: 2px !important;
     padding: 14px 0 !important;
     margin-top: 6px !important;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
-    cursor: pointer !important;
-    transition: background 0.2s !important;
 }
-
 div[data-testid="stButton"] > button:hover {
     background: #B89440 !important;
 }
+</style>
+""", unsafe_allow_html=True)
 
-/* Error alert */
-div[data-testid="stAlert"] {
-    background-color: #180808 !important;
-    border: 1px solid #3A1010 !important;
-    border-radius: 2px !important;
-    color: #FF6B6B !important;
+
+def _render_logo():
+    """Render the logo header using components.html (bypasses markdown parser)."""
+    html = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    background: #08080C;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 32px 0 24px;
 }
-
-/* Remove extra padding */
-.block-container {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
+.wrap { text-align: center; }
+.diamond-outer {
+    display: inline-block;
+    width: 56px;
+    height: 56px;
+    background: #C9A962;
+    transform: rotate(45deg);
+    margin-bottom: 32px;
+    box-shadow: 0 0 32px rgba(201,169,98,0.25);
+    position: relative;
+}
+.diamond-inner {
+    position: absolute;
+    inset: 0;
+    transform: rotate(-45deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    color: #08080C;
+    font-weight: 900;
+    line-height: 1;
+}
+.label {
+    font-size: 0.5rem;
+    letter-spacing: 5px;
+    color: #C9A962;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 12px;
+}
+.brand-light {
+    font-size: 1.7rem;
+    font-weight: 200;
+    color: #E8E8F0;
+    letter-spacing: 7px;
+    text-transform: uppercase;
+    line-height: 1.1;
+    margin-bottom: 4px;
+}
+.brand-bold {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: #C9A962;
+    letter-spacing: 7px;
+    text-transform: uppercase;
+    line-height: 1.1;
+    margin-bottom: 28px;
+}
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 280px;
+    margin: 0 auto;
+}
+.divider-line {
+    flex: 1;
+    height: 1px;
+    background: #252530;
+}
+.divider-text {
+    font-size: 0.5rem;
+    color: #303040;
+    letter-spacing: 2px;
+    white-space: nowrap;
 }
 </style>
-"""
-
-_LOGO_HTML = """
-<div style="text-align:center; padding:48px 0 36px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-
-    <!-- Diamond mark -->
-    <div style="
-        display:inline-block;
-        width:56px; height:56px;
-        background:#C9A962;
-        transform:rotate(45deg);
-        margin-bottom:28px;
-        box-shadow:0 0 32px rgba(201,169,98,0.25);
-    ">
-        <div style="
-            transform:rotate(-45deg);
-            display:flex; align-items:center; justify-content:center;
-            width:100%; height:100%;
-            font-size:1.4rem; color:#08080C; font-weight:900; line-height:1;
-        ">B</div>
+</head>
+<body>
+<div class="wrap">
+    <div class="diamond-outer">
+        <div class="diamond-inner">B</div>
     </div>
-
-    <!-- Platform label -->
-    <div style="
-        font-size:0.52rem; letter-spacing:5px; color:#C9A962;
-        text-transform:uppercase; font-weight:500; margin-bottom:12px;
-    ">Value Intelligence Platform</div>
-
-    <!-- Brand name -->
-    <div style="
-        font-size:1.75rem; font-weight:200; color:#E8E8F0;
-        letter-spacing:7px; text-transform:uppercase; line-height:1.1;
-        margin-bottom:4px;
-    ">BUFFETT</div>
-    <div style="
-        font-size:1.75rem; font-weight:700; color:#C9A962;
-        letter-spacing:7px; text-transform:uppercase; line-height:1.1;
-        margin-bottom:28px;
-    ">RESEARCH</div>
-
-    <!-- Divider -->
-    <div style="
-        display:flex; align-items:center; gap:10px;
-        margin:0 auto; max-width:280px;
-    ">
-        <div style="flex:1; height:1px; background:linear-gradient(to right,transparent,#252530);"></div>
-        <div style="font-size:0.52rem; color:#34343F; letter-spacing:2px; white-space:nowrap;">
-            AUTHORIZED ACCESS ONLY
-        </div>
-        <div style="flex:1; height:1px; background:linear-gradient(to left,transparent,#252530);"></div>
+    <div class="label">Value Intelligence Platform</div>
+    <div class="brand-light">BUFFETT</div>
+    <div class="brand-bold">RESEARCH</div>
+    <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">AUTHORIZED ACCESS ONLY</div>
+        <div class="divider-line"></div>
     </div>
 </div>
+</body>
+</html>
 """
+    components.html(html, height=300, scrolling=False)
 
-_FOOTER_HTML = """
-<div style="
-    text-align:center; margin-top:40px; padding-bottom:32px;
-    font-size:0.52rem; color:#252530;
-    letter-spacing:2px; text-transform:uppercase; line-height:2;
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-">
+
+def _render_footer():
+    """Render footer using components.html."""
+    html = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    background: #08080C;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 24px 0;
+}
+.footer {
+    text-align: center;
+    font-size: 0.5rem;
+    color: #252530;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    line-height: 2;
+}
+</style>
+</head>
+<body>
+<div class="footer">
     &copy; 2025 BUFFETT RESEARCH &nbsp;&middot;&nbsp; CONFIDENTIAL
 </div>
+</body>
+</html>
 """
+    components.html(html, height=80, scrolling=False)
 
 
 def render_login_page():
     """Render the Blackstone-style login page."""
-    st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
-    st.markdown(_LOGO_HTML, unsafe_allow_html=True)
+    _inject_page_css()
+    _render_logo()
 
     username = st.text_input(
         "Username",
@@ -253,7 +294,7 @@ def render_login_page():
         key="login_password",
     )
 
-    st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     if st.button("SIGN  IN", key="login_btn"):
         if not username or not password:
@@ -267,4 +308,4 @@ def render_login_page():
             else:
                 st.error("Invalid credentials. Contact admin for access.")
 
-    st.markdown(_FOOTER_HTML, unsafe_allow_html=True)
+    _render_footer()
