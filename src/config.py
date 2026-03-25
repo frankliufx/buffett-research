@@ -84,7 +84,7 @@ class ApiConfig(BaseModel):
             name="OpenRouter (默认)",
             provider="openai_compatible",
             base_url="https://openrouter.ai/api/v1",
-            model="anthropic/claude-haiku-4-5-20251001",
+            model="deepseek/deepseek-chat-v3-0324",
             is_active=True,
         ),
         ApiProvider(
