@@ -2,7 +2,7 @@
 
 import streamlit as st
 from src.config import ApiProvider, save_config, get_active_provider
-from src.output.notify import send_notification
+from src.output.notify import send_notification, format_daily_push
 from src.ui_theme import get_global_css, COLORS
 
 from src.config import load_config
@@ -167,23 +167,33 @@ with tab_notify:
 
         st.divider()
 
-        if st.button("Send Test Push", type="primary"):
-            test_title = "Buffett Research — Test"
-            test_content = "Test notification. Time: {}".format(
-                __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-            success = send_notification(test_title, test_content, notify)
-            if success:
-                st.success("Test push sent successfully")
-            else:
-                st.error("Send failed — check configuration")
+        col_test, col_push = st.columns(2)
+        with col_test:
+            if st.button("Send Test Push", type="secondary"):
+                test_title = "Buffett Research — Test"
+                test_content = "Test notification. Time: {}".format(
+                    __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                success = send_notification(test_title, test_content, notify)
+                if success:
+                    st.success("Test push sent successfully")
+                else:
+                    st.error("Send failed — check configuration")
+
+        with col_push:
+            if st.button("▶ Push Now (Full Analysis)", type="primary"):
+                with st.spinner("Analyzing watchlist and pushing..."):
+                    try:
+                        from src.scheduler import run_and_push
+                        run_and_push()
+                        st.success("Analysis complete, push sent!")
+                    except Exception as e:
+                        st.error("Push failed: {}".format(e))
 
         st.divider()
-        st.markdown("""
+        st.caption("""
+**Automated daily push:** run the scheduler as a background process on your server or local machine:
 ```bash
-# Start scheduled push daemon
-cd ~/stock-analyst
-source .venv/bin/activate
-python -m src.scheduler
+cd ~/stock-analyst && .venv/bin/python -m src.scheduler
 ```
 """)
     else:
@@ -295,3 +305,16 @@ with tab_watchlist:
                     st.rerun()
 
         st.divider()
+
+# ===== 全局保存按钮（固定在页面底部）=====
+st.markdown("---")
+col_save, col_info = st.columns([1, 3])
+with col_save:
+    if st.button("💾 Save All Settings", type="primary", use_container_width=True):
+        try:
+            save_config(config)
+            st.success("Settings saved to config.yaml")
+        except Exception as e:
+            st.error("Save failed: {}".format(e))
+with col_info:
+    st.caption("Settings are stored in `config.yaml`. API keys are session-only by default (not written to file) — use environment variables for persistent key storage.")

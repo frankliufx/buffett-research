@@ -7,11 +7,30 @@
 import json
 import logging
 import os
+import time
 import urllib.request
 from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+_REQUEST_TIMEOUT = 5
+_MAX_RETRIES = 2
+
+
+def _urlopen_with_retry(req) -> bytes:
+    """带重试的 urllib 请求，返回响应体字节"""
+    last_err = None
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+                return resp.read()
+        except Exception as e:
+            last_err = e
+            if attempt < _MAX_RETRIES:
+                time.sleep(0.5 * (2 ** attempt))
+                logger.debug("Macro retry %d/%d: %s", attempt + 1, _MAX_RETRIES, e)
+    raise last_err
 
 # ── GDP 数据（最新年度，手动更新）───────────────────────────────
 # 来源：国家统计局 / BEA / 香港统计处
@@ -79,8 +98,7 @@ def _fetch_cn_market_cap():
             "User-Agent": "Mozilla/5.0",
             "Referer": "https://www.eastmoney.com/",
         })
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read().decode())
+        data = json.loads(_urlopen_with_retry(req).decode())
 
         items = data.get("data", {}).get("diff", [])
         if not items:
@@ -110,8 +128,7 @@ def _fetch_hk_market_cap():
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0",
         })
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            text = resp.read().decode("gbk", errors="replace")
+        text = _urlopen_with_retry(req).decode("gbk", errors="replace")
 
         import re
         match = re.search(r'="([^"]*)"', text)
@@ -146,8 +163,7 @@ def _fetch_us_market_cap():
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0",
         })
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            text = resp.read().decode()
+        text = _urlopen_with_retry(req).decode()
 
         # CSV 格式: DATE,WILL5000IND
         lines = text.strip().split("\n")

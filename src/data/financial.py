@@ -5,6 +5,7 @@ import logging
 import math
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import requests
@@ -54,7 +55,30 @@ _SINA_HEADERS = {
     "Referer": "https://finance.sina.com.cn",
 }
 
-_REQUEST_TIMEOUT = 15
+_REQUEST_TIMEOUT = 10
+_MAX_RETRIES = 2
+
+
+def _fetch_with_retry(url: str, headers: dict = None, params: dict = None,
+                      encoding: str = None) -> requests.Response:
+    """带指数退避重试的 HTTP GET（最多重试 _MAX_RETRIES 次）"""
+    last_err = None
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            resp = requests.get(
+                url,
+                headers=headers or _HEADERS,
+                params=params,
+                timeout=_REQUEST_TIMEOUT,
+            )
+            resp.raise_for_status()
+            return resp
+        except Exception as e:
+            last_err = e
+            if attempt < _MAX_RETRIES:
+                time.sleep(0.5 * (2 ** attempt))  # 0.5s, 1s
+                logger.debug("Retry %d/%d for %s: %s", attempt + 1, _MAX_RETRIES, url[:80], e)
+    raise last_err
 
 
 def _safe_float(val, default=None):
@@ -134,7 +158,7 @@ def _fetch_sina_fundamentals(stock_id: str, year: int = 2024) -> dict:
     url = (f"https://money.finance.sina.com.cn/corp/go.php/vFD_FinancialGuideLine/"
            f"stockid/{stock_id}/ctrl/{year}/displaytype/4.phtml")
     try:
-        resp = requests.get(url, headers=_SINA_HEADERS, timeout=_REQUEST_TIMEOUT)
+        resp = _fetch_with_retry(url, headers=_SINA_HEADERS)
         html = resp.content.decode("gbk", errors="replace")
         return _parse_sina_financial_table(html)
     except Exception as e:
@@ -143,7 +167,7 @@ def _fetch_sina_fundamentals(stock_id: str, year: int = 2024) -> dict:
 
 
 def _fetch_roe_history(stock_id: str, years: list = None) -> list:
-    """获取多年 ROE 数据用于一致性检查
+    """并发获取多年 ROE 数据用于一致性检查（ThreadPoolExecutor 加速）
 
     Returns list of ROE values in percentage form (e.g., [15.2, 16.3, 14.8])
     matching the format that _normalize_fundamentals expects (already %).
@@ -151,22 +175,28 @@ def _fetch_roe_history(stock_id: str, years: list = None) -> list:
     if years is None:
         years = [2024, 2023, 2022, 2021, 2020]
 
-    roe_history = []
-    for year in years:
+    def _fetch_one(year: int):
         try:
             data = _fetch_sina_fundamentals(stock_id, year)
             roe_str = data.get("roe")
             if roe_str is not None:
                 roe_val = _safe_float(roe_str)
                 if roe_val is not None:
-                    # Sina returns "15.2" meaning 15.2%, store as 15.2 (percentage number)
-                    # This matches what _normalize_fundamentals expects for roe_history
-                    roe_history.append(round(roe_val, 2))
+                    return year, round(roe_val, 2)
         except Exception as e:
             logger.debug("ROE history fetch failed for year %d: %s", year, e)
-            continue
+        return year, None
 
-    return roe_history
+    results = {}
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(_fetch_one, y): y for y in years}
+        for future in as_completed(futures):
+            year, val = future.result()
+            if val is not None:
+                results[year] = val
+
+    # 保持年份降序排列
+    return [results[y] for y in sorted(results.keys(), reverse=True)]
 
 
 # ── 东方财富美股/港股基本面数据 ────────────────────────────────────────
@@ -178,13 +208,48 @@ _EASTMONEY_HEADERS = {
 }
 
 # 美股交易所映射表（symbol -> 东方财富 SECUCODE 后缀: .O=纳斯达克, .N=纽交所, .A=美交所）
-_US_EXCHANGE_MAP = {
+# 内置已知映射（启动快），运行时自动学习并持久化到缓存文件
+_US_EXCHANGE_MAP_BUILTIN = {
     # 纳斯达克
     "AAPL": "O", "MSFT": "O", "GOOGL": "O", "AMZN": "O", "META": "O",
     "NVDA": "O", "TSLA": "O", "WMT": "O",
     # 纽交所
     "BRK-B": "N", "KO": "N", "V": "N", "JPM": "N", "JNJ": "N",
 }
+
+_EXCHANGE_CACHE_FILE = _CACHE_DIR / "us_exchange_map.json"
+_us_exchange_runtime: dict = {}  # 运行时内存缓存（避免重复读文件）
+
+
+def _load_exchange_map() -> dict:
+    """从持久化文件加载已学习的交易所映射"""
+    global _us_exchange_runtime
+    if _us_exchange_runtime:
+        return _us_exchange_runtime
+    result = dict(_US_EXCHANGE_MAP_BUILTIN)
+    try:
+        if _EXCHANGE_CACHE_FILE.exists():
+            learned = json.loads(_EXCHANGE_CACHE_FILE.read_text())
+            result.update(learned)
+    except Exception:
+        pass
+    _us_exchange_runtime = result
+    return result
+
+
+def _save_exchange_suffix(symbol: str, suffix: str):
+    """将成功确认的交易所后缀持久化，供后续请求直接使用"""
+    global _us_exchange_runtime
+    _us_exchange_runtime[symbol] = suffix
+    try:
+        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        existing = {}
+        if _EXCHANGE_CACHE_FILE.exists():
+            existing = json.loads(_EXCHANGE_CACHE_FILE.read_text())
+        existing[symbol] = suffix
+        _EXCHANGE_CACHE_FILE.write_text(json.dumps(existing, ensure_ascii=False))
+    except Exception:
+        pass
 
 
 def _to_eastmoney_secucode(symbol: str, market: str) -> str:
@@ -195,7 +260,8 @@ def _to_eastmoney_secucode(symbol: str, market: str) -> str:
     """
     if market == "us":
         base = symbol.replace("-", ".")
-        suffix = _US_EXCHANGE_MAP.get(symbol, "O")  # 默认猜测纳斯达克
+        exchange_map = _load_exchange_map()
+        suffix = exchange_map.get(symbol, "O")  # 默认猜测纳斯达克
         return "{}.{}".format(base, suffix)
     elif market == "hk":
         code = symbol.replace(".HK", "").replace(".hk", "")
@@ -243,7 +309,7 @@ def _fetch_eastmoney_fundamentals(symbol: str, market: str) -> dict:
     }
 
     try:
-        resp = requests.get(url, params=params, headers=_EASTMONEY_HEADERS, timeout=_REQUEST_TIMEOUT)
+        resp = _fetch_with_retry(url, headers=_EASTMONEY_HEADERS, params=params)
         data = resp.json()
         rows = (data.get("result") or {}).get("data") or []
         if not rows:
@@ -252,9 +318,12 @@ def _fetch_eastmoney_fundamentals(symbol: str, market: str) -> dict:
                 alt_suffix = "N" if secucode.endswith(".O") else "O"
                 alt_code = secucode.rsplit(".", 1)[0] + "." + alt_suffix
                 params["filter"] = '(SECUCODE="{}")'.format(alt_code)
-                resp = requests.get(url, params=params, headers=_EASTMONEY_HEADERS, timeout=_REQUEST_TIMEOUT)
+                resp = _fetch_with_retry(url, headers=_EASTMONEY_HEADERS, params=params)
                 data = resp.json()
                 rows = (data.get("result") or {}).get("data") or []
+                if rows:
+                    # 学习到正确的交易所后缀，持久化避免下次二次请求
+                    _save_exchange_suffix(symbol, alt_suffix)
             if not rows:
                 return {}
 
@@ -292,7 +361,7 @@ def _fetch_eastmoney_roe_history(symbol: str, market: str) -> list:
     }
 
     try:
-        resp = requests.get(url, params=params, headers=_EASTMONEY_HEADERS, timeout=_REQUEST_TIMEOUT)
+        resp = _fetch_with_retry(url, headers=_EASTMONEY_HEADERS, params=params)
         data = resp.json()
         rows = (data.get("result") or {}).get("data") or []
 
@@ -300,9 +369,11 @@ def _fetch_eastmoney_roe_history(symbol: str, market: str) -> list:
             alt_suffix = "N" if secucode.endswith(".O") else "O"
             alt_code = secucode.rsplit(".", 1)[0] + "." + alt_suffix
             params["filter"] = '(SECUCODE="{}")'.format(alt_code)
-            resp = requests.get(url, params=params, headers=_EASTMONEY_HEADERS, timeout=_REQUEST_TIMEOUT)
+            resp = _fetch_with_retry(url, headers=_EASTMONEY_HEADERS, params=params)
             data = resp.json()
             rows = (data.get("result") or {}).get("data") or []
+            if rows:
+                _save_exchange_suffix(symbol, alt_suffix)
 
         # 取年报数据（每年一条），最多5年
         seen_years = set()

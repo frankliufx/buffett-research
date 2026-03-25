@@ -9,8 +9,14 @@ from src.data.macro import get_buffett_indicator
 
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _load_buffett_indicator():
+    return get_buffett_indicator()
+
+
 # ── 数据准备 ─────────────────────────────────────────────────────
-bi_data = get_buffett_indicator()
+bi_data = _load_buffett_indicator()
 buffett_q = random.choice(BUFFETT_QUOTES)
 duan_q = random.choice(DUAN_YONGPING_QUOTES)
 

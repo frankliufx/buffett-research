@@ -1243,32 +1243,89 @@ for tab, market_key, market_name in [
 
         st.divider()
         if st.button("Scan All {}".format(market_name), key="refresh_{}".format(market_key)):
+            from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
             overview_data = []
-            progress = st.progress(0)
-            for i, stock in enumerate(stocks):
+            progress_bar = st.progress(0)
+            total = len(stocks)
+
+            def _scan_one(stock):
                 try:
                     r, _, _, _, moat = run_analysis(stock.symbol, stock.name, market_key, config)
-                    overview_data.append({
+                    return {
+                        "ok": True, "r": r, "moat": moat,
                         "Symbol": r.symbol, "Name": r.name,
                         "Price": "{:.2f}".format(r.price) if r.price else "-",
                         "Grade": moat["grade"],
-                        "Score": "{:.0f}".format(moat["percentage"]),
+                        "Score": moat["percentage"],
                         "ROE": _fmt_pct(_normalize_fundamentals(r.fundamentals).get("roe")),
                         "Trend": _trend_label(r.tech_signal.get("trend")),
                         "Verdict": moat["label"],
-                    })
-                    all_results.append((r, moat))
+                    }
                 except Exception as e:
-                    overview_data.append({"Symbol": stock.symbol, "Name": stock.name,
-                                         "Price": "-", "Grade": "-", "Score": "-",
-                                         "ROE": "-", "Trend": "-", "Verdict": str(e)[:20]})
-                progress.progress((i + 1) / len(stocks))
-            if overview_data:
-                st.dataframe(pd.DataFrame(overview_data), use_container_width=True, hide_index=True)
+                    return {"ok": False, "Symbol": stock.symbol, "Name": stock.name,
+                            "Price": "-", "Grade": "-", "Score": 0,
+                            "ROE": "-", "Trend": "-", "Verdict": str(e)[:30]}
+
+            with ThreadPoolExecutor(max_workers=4) as exe:
+                futures = {exe.submit(_scan_one, s): s for s in stocks}
+                done = 0
+                for future in _as_completed(futures):
+                    row = future.result()
+                    overview_data.append(row)
+                    if row.get("ok") and "r" in row:
+                        all_results.append((row["r"], row["moat"]))
+                    done += 1
+                    progress_bar.progress(done / total)
+
+            overview_data.sort(key=lambda x: x.get("Score", 0), reverse=True)
+            display_cols = ["Symbol", "Name", "Price", "Grade", "Score", "ROE", "Trend", "Verdict"]
+            display_df = pd.DataFrame([{c: r[c] for c in display_cols} for r in overview_data])
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 with tab_overview:
+    # 一键扫描全部三市场
+    if st.button("⚡ Scan All Markets (Parallel)", type="primary"):
+        from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed2
+        all_stocks = []
+        for mkey in ("us", "hk", "a_share"):
+            for s in getattr(config.watchlist, mkey, []):
+                all_stocks.append((s, mkey))
+        if all_stocks:
+            scan_progress = st.progress(0)
+            scan_status = st.empty()
+            scan_results = []
+            total_scan = len(all_stocks)
+
+            def _scan_stock(stock_market):
+                s, mkey = stock_market
+                try:
+                    r, _, _, _, moat = run_analysis(s.symbol, s.name, mkey, config)
+                    return {"ok": True, "r": r, "moat": moat}
+                except Exception as e:
+                    return {"ok": False, "symbol": s.symbol, "name": s.name,
+                            "market": mkey, "error": str(e)[:40]}
+
+            with ThreadPoolExecutor(max_workers=6) as exe:
+                futs = {exe.submit(_scan_stock, sm): sm for sm in all_stocks}
+                done_c = 0
+                for fut in _as_completed2(futs):
+                    res = fut.result()
+                    scan_results.append(res)
+                    done_c += 1
+                    scan_progress.progress(done_c / total_scan)
+                    scan_status.caption("Scanned {}/{}...".format(done_c, total_scan))
+
+            scan_status.empty()
+            for res in scan_results:
+                if res.get("ok"):
+                    all_results.append((res["r"], res["moat"]))
+            st.success("Scan complete — {} stocks".format(total_scan))
+
+    # 排行榜显示
     if all_results:
         ml = {"us": "US", "hk": "HK", "a_share": "CN"}
+        grade_colors = {"A+": "#3ECF8E", "A": "#3ECF8E", "B": "#60A5FA",
+                        "C": "#C9A962", "D": "#F5A623", "F": "#EF4444"}
         rank = []
         for item in all_results:
             r, moat = item if isinstance(item, tuple) else (item, {})
@@ -1277,16 +1334,46 @@ with tab_overview:
             rank.append({
                 "Market": ml.get(r.market, ""),
                 "Symbol": r.symbol, "Name": r.name,
-                "Grade": "{} {}".format(moat["grade"], moat["label"]),
+                "Grade": moat["grade"],
                 "Score": moat["percentage"],
-                "Overall": r.overall_score,
-                "Verdict": moat["verdict"][:30],
+                "Label": moat["label"],
+                "ROE": _fmt_pct(_normalize_fundamentals(r.fundamentals).get("roe")),
+                "Verdict": moat.get("verdict", "")[:40],
             })
+
         if rank:
             rank.sort(key=lambda x: x["Score"], reverse=True)
-            for i, r in enumerate(rank):
-                r["#"] = i + 1
-            st.dataframe(pd.DataFrame(rank), use_container_width=True, hide_index=True)
+            st.markdown("### Watchlist Ranking")
+            for i, row in enumerate(rank):
+                medal = ["🥇", "🥈", "🥉"][i] if i < 3 else "  {}".format(i + 1)
+                g = row["Grade"]
+                gc = grade_colors.get(g, "#8A8A96")
+                score_bar = int(row["Score"] / 100 * 20)
+                bar_html = (
+                    '<span style="color:{gc};">{"█" * score_bar}{"░" * (20 - score_bar)}</span>'
+                ).format(gc=gc)
+                col_rank, col_sym, col_score, col_meta = st.columns([1, 3, 5, 4])
+                with col_rank:
+                    st.markdown(medal)
+                with col_sym:
+                    st.markdown("**{}** <span style='color:#5A5A68; font-size:0.8rem;'>[{}] {}</span>".format(
+                        row["Symbol"], row["Market"], row["Name"][:12]), unsafe_allow_html=True)
+                with col_score:
+                    filled = int(row["Score"] / 100 * 20)
+                    bar = "█" * filled + "░" * (20 - filled)
+                    st.markdown(
+                        '<span style="color:{gc}; font-family:monospace;">{bar}</span>'
+                        ' <span style="color:{gc}; font-weight:700;">{score:.0f}</span>'
+                        '<span style="color:#5A5A68; font-size:0.8rem;">/{grade}</span>'.format(
+                            gc=gc, bar=bar, score=row["Score"], grade=g),
+                        unsafe_allow_html=True)
+                with col_meta:
+                    st.markdown(
+                        '<span style="color:#8A8A96; font-size:0.82rem;">{label} · ROE {roe}</span>'.format(
+                            label=row["Label"], roe=row["ROE"]),
+                        unsafe_allow_html=True)
+    else:
+        st.info("Analyze individual stocks or click **Scan All Markets** to build the ranking.")
     else:
         st.markdown(render_empty_state("--",
             "No data yet",
