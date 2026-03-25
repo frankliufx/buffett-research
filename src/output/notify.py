@@ -163,6 +163,62 @@ def format_daily_push(results: list, market_overview: str = "") -> tuple:
     return title, content
 
 
+def check_and_send_price_alerts(config) -> list:
+    """Check each enabled price alert; send notification for triggered ones.
+
+    Returns list of triggered alert dicts.
+    """
+    from src.data.price import fetch_quote
+
+    if not config.notify.enabled:
+        return []
+
+    alerts = getattr(config.notify, "price_alerts", []) or []
+    triggered = []
+
+    for alert in alerts:
+        if not alert.enabled:
+            continue
+        try:
+            quote = fetch_quote(alert.symbol, alert.market)
+            price = float(quote.get("price") or 0)
+            if price <= 0:
+                continue
+            hit = (alert.direction == "below" and price <= alert.target_price) or \
+                  (alert.direction == "above" and price >= alert.target_price)
+            if hit:
+                triggered.append({
+                    "symbol": alert.symbol,
+                    "name": alert.name or alert.symbol,
+                    "market": alert.market,
+                    "price": price,
+                    "target": alert.target_price,
+                    "direction": alert.direction,
+                    "note": alert.note,
+                })
+        except Exception as e:
+            logger.warning(f"Price alert check failed for {alert.symbol}: {e}")
+
+    if triggered:
+        title, content = _format_price_alert_message(triggered)
+        send_notification(title, content, config.notify)
+
+    return triggered
+
+
+def _format_price_alert_message(triggered: list) -> tuple:
+    from datetime import datetime
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    lines = [f"**价格提醒 — {now}**\n"]
+    for t in triggered:
+        arrow = "↓" if t["direction"] == "below" else "↑"
+        lines.append(
+            f"- **{t['symbol']}** ({t['name']}) 当前 {t['price']:.2f} {arrow} 目标 {t['target']:.2f}"
+            + (f" — {t['note']}" if t["note"] else "")
+        )
+    return f"⚠️ 价格提醒触发 ({len(triggered)}只)", "\n".join(lines)
+
+
 def _markdown_to_simple_html(md: str) -> str:
     """简单的 Markdown -> HTML 转换（不依赖外部库）"""
     import re

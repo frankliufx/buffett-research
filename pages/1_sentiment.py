@@ -102,11 +102,18 @@ def _show_sentiment_loading():
 # ── 缓存 ──
 @st.cache_data(ttl=300, show_spinner=False)
 def cached_sentiment():
-    return get_market_sentiment()
+    try:
+        return get_market_sentiment()
+    except Exception as e:
+        return {"fear_greed_score": 50, "mood": "Unknown", "mood_color": "#5A5A6A",
+                "_error": str(e)}
 
 @st.cache_data(ttl=600, show_spinner=False)
 def cached_news(market, limit=10):
-    return fetch_market_news(market, limit)
+    try:
+        return fetch_market_news(market, limit)
+    except Exception:
+        return []
 
 # ── 载入数据（带动画）──
 _loading_el = st.empty()
@@ -115,6 +122,9 @@ with _loading_el.container():
 
 data = cached_sentiment()
 _loading_el.empty()
+
+if data.get("_error"):
+    st.warning(f"Sentiment data temporarily unavailable: {data['_error']}")
 
 # ═══════════════════════════════════════════════════════════════════
 # HEADER

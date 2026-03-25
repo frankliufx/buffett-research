@@ -65,6 +65,16 @@ class ApiConfig(BaseModel):
     ]
 
 
+class PriceAlert(BaseModel):
+    symbol: str
+    name: str = ""
+    market: str = "us"          # us / hk / a_share
+    target_price: float = 0.0
+    direction: str = "below"    # "below": alert when price <= target; "above": when >= target
+    enabled: bool = True
+    note: str = ""
+
+
 class NotifyConfig(BaseModel):
     enabled: bool = False
     method: str = "email"             # email / webhook
@@ -83,6 +93,8 @@ class NotifyConfig(BaseModel):
     push_grade_change: bool = True    # 评级变化时推送
     push_daily_summary: bool = True   # 每日摘要
     push_alert_threshold: float = 80  # 评分超过此值时特别提醒
+    # 价格提醒
+    price_alerts: List[PriceAlert] = []
 
 
 class BuffettStrategy(BaseModel):

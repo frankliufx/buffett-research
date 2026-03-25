@@ -118,30 +118,54 @@ def _show_ai_loading(text="AI 正在深入分析这支股票"):
         unsafe_allow_html=True,
     )
 
-# ===== 缓存 =====
+# ===== 缓存（含错误边界：单项失败不影响整页）=====
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_fetch_history(symbol, market, days):
-    return fetch_history(symbol, market, days)
+    try:
+        return fetch_history(symbol, market, days)
+    except Exception as e:
+        logging.warning("fetch_history failed %s: %s", symbol, e)
+        return pd.DataFrame()
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def cached_fetch_quote(symbol, market):
-    return fetch_quote(symbol, market)
+    try:
+        return fetch_quote(symbol, market)
+    except Exception as e:
+        logging.warning("fetch_quote failed %s: %s", symbol, e)
+        return {}
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_fetch_fundamentals(symbol, market):
-    return fetch_fundamentals(symbol, market)
+    try:
+        return fetch_fundamentals(symbol, market)
+    except Exception as e:
+        logging.warning("fetch_fundamentals failed %s: %s", symbol, e)
+        return {}
 
 @st.cache_data(ttl=900, show_spinner=False)
 def cached_fetch_news(symbol, market, limit=8):
-    return fetch_stock_news(symbol, market, limit)
+    try:
+        return fetch_stock_news(symbol, market, limit)
+    except Exception as e:
+        logging.warning("fetch_news failed %s: %s", symbol, e)
+        return []
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_fetch_calendar(symbol, market):
-    return fetch_earnings_calendar(symbol, market)
+    try:
+        return fetch_earnings_calendar(symbol, market)
+    except Exception as e:
+        logging.warning("fetch_calendar failed %s: %s", symbol, e)
+        return []
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def cached_fetch_market_news(market, limit=6):
-    return fetch_market_news(market, limit)
+    try:
+        return fetch_market_news(market, limit)
+    except Exception as e:
+        logging.warning("fetch_market_news failed %s: %s", market, e)
+        return []
 
 
 def run_analysis(symbol, name, market, config):

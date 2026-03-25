@@ -27,6 +27,14 @@ if "config" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+# Auto-start background scheduler if notifications are enabled
+if st.session_state.config.notify.enabled:
+    try:
+        from src.scheduler import start_background_scheduler
+        start_background_scheduler()
+    except Exception:
+        pass
+
 # ── 侧边栏顶部：用户信息 + 登出 ──────────────────────────────────
 user = get_current_user()
 if user:

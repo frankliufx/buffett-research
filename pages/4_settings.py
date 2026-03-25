@@ -19,8 +19,8 @@ st.markdown("""
 </div>
 """.format(text=COLORS["text"], muted=COLORS["text_muted"], border=COLORS["border"]), unsafe_allow_html=True)
 
-tab_api, tab_notify, tab_strategy, tab_watchlist = st.tabs(
-    ["API", "NOTIFICATIONS", "STRATEGY", "WATCHLIST"]
+tab_api, tab_notify, tab_alerts, tab_strategy, tab_watchlist = st.tabs(
+    ["API", "NOTIFICATIONS", "PRICE ALERTS", "STRATEGY", "WATCHLIST"]
 )
 
 # ===== Tab 1: API =====
@@ -201,7 +201,121 @@ cd ~/stock-analyst && .venv/bin/python -m src.scheduler
             COLORS["text_muted"]), unsafe_allow_html=True)
 
 
-# ===== Tab 3: Strategy =====
+# ===== Tab 3: Price Alerts =====
+with tab_alerts:
+    st.markdown('<div style="color:{}; font-size:0.75rem; letter-spacing:1px; margin-bottom:0.8rem;">PRICE ALERT RULES</div>'.format(
+        COLORS["text_muted"]), unsafe_allow_html=True)
+    st.caption("Set target prices for your watchlist stocks. Alerts are sent via your configured notification channel when triggered.")
+
+    alerts = config.notify.price_alerts
+
+    # ── Existing alerts ──
+    if alerts:
+        for idx, alert in enumerate(alerts):
+            dir_icon = "↓" if alert.direction == "below" else "↑"
+            dir_label = "≤" if alert.direction == "below" else "≥"
+            col_sym, col_price, col_tog, col_del = st.columns([2, 2, 1, 1])
+            with col_sym:
+                st.markdown(
+                    f'<span style="font-weight:600;color:{COLORS["text"]}">{alert.symbol}</span>'
+                    f'<span style="color:{COLORS["text_muted"]};font-size:0.8rem"> [{alert.market}]</span>'
+                    + (f'<br><span style="color:{COLORS["text_muted"]};font-size:0.75rem">{alert.note}</span>' if alert.note else ""),
+                    unsafe_allow_html=True,
+                )
+            with col_price:
+                st.markdown(
+                    f'<span style="color:{COLORS["gold"]}">{dir_icon} {dir_label} {alert.target_price:.2f}</span>',
+                    unsafe_allow_html=True,
+                )
+            with col_tog:
+                new_enabled = st.toggle("On", value=alert.enabled, key=f"alert_tog_{idx}", label_visibility="collapsed")
+                if new_enabled != alert.enabled:
+                    alert.enabled = new_enabled
+            with col_del:
+                if st.button("✕", key=f"alert_del_{idx}"):
+                    alerts.pop(idx)
+                    st.rerun()
+        st.divider()
+    else:
+        st.markdown(f'<div style="color:{COLORS["text_muted"]};font-size:0.85rem;padding:0.5rem 0;">No alerts set.</div>',
+                    unsafe_allow_html=True)
+
+    # ── Add new alert ──
+    with st.expander("＋ Add New Alert", expanded=len(alerts) == 0):
+        # Build options from watchlist
+        all_stocks = (
+            [(s.symbol, s.name, "us") for s in config.watchlist.us]
+            + [(s.symbol, s.name, "hk") for s in config.watchlist.hk]
+            + [(s.symbol, s.name, "a_share") for s in config.watchlist.a_share]
+        )
+        if all_stocks:
+            options = [f"{sym} — {name} [{mkt}]" for sym, name, mkt in all_stocks]
+            selected = st.selectbox("Stock (from watchlist)", options, key="alert_stock_sel")
+            sel_idx = options.index(selected)
+            sel_sym, sel_name, sel_mkt = all_stocks[sel_idx]
+        else:
+            sel_sym = st.text_input("Symbol", placeholder="e.g. AAPL", key="alert_sym_manual")
+            sel_name = ""
+            sel_mkt = st.selectbox("Market", ["us", "hk", "a_share"], key="alert_mkt_manual")
+
+        col_dir, col_price = st.columns(2)
+        with col_dir:
+            direction = st.selectbox(
+                "Direction",
+                ["below", "above"],
+                format_func=lambda x: "↓ Alert when price ≤ target" if x == "below" else "↑ Alert when price ≥ target",
+                key="alert_dir",
+            )
+        with col_price:
+            target = st.number_input("Target Price", min_value=0.01, value=100.0, step=0.5, key="alert_target")
+
+        note = st.text_input("Note (optional)", placeholder="e.g. Buy zone, stop-loss level", key="alert_note")
+
+        if st.button("Add Alert", key="alert_add_btn", type="primary"):
+            if sel_sym:
+                from src.config import PriceAlert
+                alerts.append(PriceAlert(
+                    symbol=sel_sym.strip().upper(),
+                    name=sel_name,
+                    market=sel_mkt,
+                    target_price=float(target),
+                    direction=direction,
+                    enabled=True,
+                    note=note,
+                ))
+                st.success(f"Alert added for {sel_sym}")
+                st.rerun()
+
+    st.divider()
+
+    # ── Manual check ──
+    col_check, col_info = st.columns([1, 2])
+    with col_check:
+        if st.button("🔔 Check Alerts Now", type="secondary", use_container_width=True):
+            if not config.notify.enabled:
+                st.warning("Enable notifications first (Notifications tab).")
+            elif not alerts:
+                st.info("No alerts configured.")
+            else:
+                with st.spinner("Checking prices…"):
+                    try:
+                        from src.scheduler import check_price_alerts_now
+                        triggered = check_price_alerts_now()
+                        if triggered:
+                            st.success(f"🚨 {len(triggered)} alert(s) triggered and sent!")
+                            for t in triggered:
+                                st.markdown(f"- **{t['symbol']}**: {t['price']:.2f} (target {t['target']:.2f})")
+                        else:
+                            st.info("No alerts triggered at current prices.")
+                    except Exception as e:
+                        st.error(f"Check failed: {e}")
+    with col_info:
+        from src.scheduler import get_last_run_time
+        st.caption(f"Last scheduled run: **{get_last_run_time()}**")
+        st.caption("Alerts are also checked automatically during each scheduled daily push.")
+
+
+# ===== Tab 4: Strategy =====
 with tab_strategy:
     st.markdown('<div style="color:{}; font-size:0.75rem; letter-spacing:1px; margin-bottom:0.8rem;">BUFFETT VALUE INVESTING PARAMETERS</div>'.format(
         COLORS["text_muted"]), unsafe_allow_html=True)

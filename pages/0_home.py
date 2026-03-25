@@ -12,11 +12,19 @@ st.markdown(get_global_css(), unsafe_allow_html=True)
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _load_buffett_indicator():
-    return get_buffett_indicator()
+    try:
+        return get_buffett_indicator()
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # ── 数据准备 ─────────────────────────────────────────────────────
 bi_data = _load_buffett_indicator()
+if isinstance(bi_data, dict) and "error" in bi_data and not any(
+    k in bi_data for k in ("us", "hk", "a_share")
+):
+    st.warning(f"Macro data temporarily unavailable — {bi_data['error']}")
+    bi_data = {}
 buffett_q = random.choice(BUFFETT_QUOTES)
 duan_q = random.choice(DUAN_YONGPING_QUOTES)
 

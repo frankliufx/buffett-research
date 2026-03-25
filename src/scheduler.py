@@ -1,8 +1,10 @@
 """定时推送调度器"""
 
 import logging
+import threading
 import time
-from datetime import datetime
+from datetime import datetime, date
+from pathlib import Path
 
 import schedule
 
@@ -13,10 +15,15 @@ from src.analysis.technical import compute_indicators, generate_technical_signal
 from src.analysis.fundamental import analyze_buffett
 from src.analysis.signals import AnalysisResult
 from src.ai.summarizer import analyze_stock, generate_market_overview
-from src.output.notify import send_notification, format_daily_push
+from src.output.notify import send_notification, format_daily_push, check_and_send_price_alerts
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+# ── Background thread state ────────────────────────────────────────────────
+_bg_thread: threading.Thread | None = None
+_bg_lock = threading.Lock()
+_LAST_RUN_FILE = Path(__file__).parent.parent / "data" / "cache" / "last_scheduler_run.txt"
 
 
 def run_and_push():
@@ -70,12 +77,83 @@ def run_and_push():
     # 格式化推送内容
     title, content = format_daily_push(all_results, overview)
 
-    # 发送
+    # 发送每日报告
     success = send_notification(title, content, config.notify)
     if success:
         logger.info("推送发送成功")
     else:
         logger.warning("推送发送失败")
+
+    # 价格提醒检查
+    try:
+        triggered = check_and_send_price_alerts(config)
+        if triggered:
+            logger.info(f"价格提醒已触发并发送: {[t['symbol'] for t in triggered]}")
+    except Exception as e:
+        logger.error(f"价格提醒检查失败: {e}")
+
+    # 记录最后运行时间
+    try:
+        _LAST_RUN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _LAST_RUN_FILE.write_text(datetime.now().isoformat())
+    except Exception:
+        pass
+
+
+def check_price_alerts_now() -> list:
+    """独立执行价格提醒检查（不触发每日报告），供 Settings 页手动调用"""
+    config = load_config()
+    return check_and_send_price_alerts(config)
+
+
+def get_last_run_time() -> str:
+    """返回最后一次调度运行的时间字符串，或 'Never'"""
+    try:
+        if _LAST_RUN_FILE.exists():
+            raw = _LAST_RUN_FILE.read_text().strip()
+            dt = datetime.fromisoformat(raw)
+            return dt.strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        pass
+    return "Never"
+
+
+def _bg_scheduler_loop():
+    """Background thread: rebuild schedule from config and run pending jobs."""
+    logger.info("Background scheduler loop started")
+    while True:
+        try:
+            config = load_config()
+            notify = config.notify
+            if not notify.enabled:
+                time.sleep(300)
+                continue
+
+            schedule.clear()
+            if notify.schedule_days == "mon-fri":
+                for day in (schedule.every().monday, schedule.every().tuesday,
+                            schedule.every().wednesday, schedule.every().thursday,
+                            schedule.every().friday):
+                    day.at(notify.schedule_time).do(run_and_push)
+            else:
+                schedule.every().day.at(notify.schedule_time).do(run_and_push)
+
+            schedule.run_pending()
+        except Exception as e:
+            logger.error(f"Background scheduler error: {e}")
+        time.sleep(60)
+
+
+def start_background_scheduler():
+    """Start the background scheduler thread (idempotent — safe to call on every page load)."""
+    global _bg_thread
+    with _bg_lock:
+        if _bg_thread is None or not _bg_thread.is_alive():
+            _bg_thread = threading.Thread(
+                target=_bg_scheduler_loop, daemon=True, name="buffett-scheduler"
+            )
+            _bg_thread.start()
+            logger.info("Background scheduler thread started")
 
 
 def main():
