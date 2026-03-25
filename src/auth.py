@@ -1,4 +1,4 @@
-"""认证模块 — 登录验证 + 用户管理"""
+"""Authentication module — login verification and user management"""
 
 import hashlib
 import logging
@@ -18,19 +18,21 @@ def hash_password(password: str) -> str:
 
 
 def _load_users() -> dict:
-    """加载用户列表，优先级：Streamlit secrets > users.yaml"""
-    # 1. Streamlit Cloud secrets（生产环境）
+    """Load users from Streamlit secrets (production) or users.yaml (local dev)."""
+    # 1. Streamlit secrets (Streamlit Cloud)
     try:
         if hasattr(st, "secrets") and "users" in st.secrets:
-            return {k: dict(v) if hasattr(v, "keys") else {"password": v}
-                    for k, v in st.secrets["users"].items()}
-    except Exception:
-        pass
+            result = {}
+            for k, v in st.secrets["users"].items():
+                result[str(k).lower()] = dict(v) if hasattr(v, "keys") else {"password": str(v)}
+            return result
+    except Exception as e:
+        logger.debug("Secrets load skipped: %s", e)
 
-    # 2. 本地 users.yaml（本地开发）
+    # 2. Local users.yaml (local development)
     if _USERS_FILE.exists():
         try:
-            with open(_USERS_FILE) as f:
+            with open(_USERS_FILE, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
             return data.get("users", {})
         except Exception as e:
@@ -40,7 +42,7 @@ def _load_users() -> dict:
 
 
 def authenticate(username: str, password: str) -> Optional[dict]:
-    """验证用户名密码，返回用户信息 dict 或 None"""
+    """Verify credentials. Returns user info dict or None."""
     if not username or not password:
         return None
     users = _load_users()
@@ -72,178 +74,197 @@ def logout():
     st.rerun()
 
 
-# ── 登录页面 CSS ──────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Login page — Blackstone / BlackRock style (black & gold)
+# ---------------------------------------------------------------------------
 
 _LOGIN_CSS = """
 <style>
-/* ── 隐藏 Streamlit 默认 UI ── */
-#MainMenu, header, footer,
-[data-testid="stToolbar"],
-[data-testid="stDecoration"],
-[data-testid="stStatusWidget"],
-.stDeployButton { display: none !important; }
-
+/* Hide default Streamlit chrome */
+#MainMenu { visibility: hidden; }
+header { visibility: hidden; }
+footer { visibility: hidden; }
 [data-testid="stSidebar"] { display: none !important; }
+[data-testid="collapsedControl"] { display: none !important; }
 
-/* ── 全屏黑色背景 ── */
-.stApp, [data-testid="stAppViewContainer"] {
-    background: #08080C !important;
+/* Full-screen dark background */
+.stApp {
+    background-color: #08080C;
 }
 
-/* ── 登录容器居中 ── */
-.main .block-container {
-    max-width: 460px !important;
-    margin: 0 auto !important;
-    padding: 0 24px !important;
-    min-height: 100vh;
+/* Center the login card */
+[data-testid="stAppViewContainer"] > .main {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     justify-content: center;
+    min-height: 100vh;
 }
 
-/* ── 输入框 ── */
-[data-testid="stTextInput"] label {
-    font-size: 0.6rem !important;
-    letter-spacing: 3px !important;
-    color: #5A5A68 !important;
-    font-weight: 400 !important;
-    text-transform: uppercase !important;
+[data-testid="stAppViewContainer"] > .main .block-container {
+    width: 100%;
+    max-width: 420px;
+    padding: 0 32px;
+    margin: auto;
 }
-[data-testid="stTextInput"] input {
-    background: #0F0F14 !important;
-    border: 1px solid #2A2A35 !important;
+
+/* Input labels */
+div[data-testid="stTextInput"] label p {
+    font-size: 0.62rem;
+    letter-spacing: 3px;
+    color: #5A5A6A;
+    font-weight: 400;
+    text-transform: uppercase;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Input boxes */
+div[data-testid="stTextInput"] input {
+    background-color: #0F0F16 !important;
+    border: 1px solid #252530 !important;
     border-radius: 2px !important;
-    color: #EAEAEA !important;
-    font-size: 0.92rem !important;
-    padding: 14px 16px !important;
-    transition: border-color 0.2s !important;
-}
-[data-testid="stTextInput"] input:focus {
-    border-color: #C9A962 !important;
-    box-shadow: 0 0 0 1px #C9A96230 !important;
+    color: #E8E8F0 !important;
+    font-size: 0.9rem !important;
+    padding: 13px 16px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
 
-/* ── 登录按钮 ── */
-[data-testid="stButton"] button {
+div[data-testid="stTextInput"] input:focus {
+    border-color: #C9A962 !important;
+    box-shadow: 0 0 0 2px rgba(201,169,98,0.15) !important;
+    outline: none !important;
+}
+
+/* Sign In button */
+div[data-testid="stButton"] > button {
     width: 100% !important;
-    background: linear-gradient(135deg, #C9A962, #B8954F) !important;
+    background: #C9A962 !important;
     color: #08080C !important;
     font-weight: 700 !important;
     letter-spacing: 3px !important;
-    font-size: 0.75rem !important;
+    font-size: 0.72rem !important;
     text-transform: uppercase !important;
     border: none !important;
     border-radius: 2px !important;
     padding: 14px 0 !important;
-    margin-top: 8px !important;
+    margin-top: 6px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
     cursor: pointer !important;
-    transition: opacity 0.2s !important;
-}
-[data-testid="stButton"] button:hover {
-    opacity: 0.9 !important;
+    transition: background 0.2s !important;
 }
 
-/* ── 错误提示 ── */
-[data-testid="stAlert"] {
-    background: #1A0A0A !important;
-    border: 1px solid #3A1A1A !important;
+div[data-testid="stButton"] > button:hover {
+    background: #B89440 !important;
+}
+
+/* Error alert */
+div[data-testid="stAlert"] {
+    background-color: #180808 !important;
+    border: 1px solid #3A1010 !important;
     border-radius: 2px !important;
-    color: #EF4444 !important;
+    color: #FF6B6B !important;
 }
 
-/* ── 分割线 ── */
-hr { border-color: #1E1E26 !important; }
+/* Remove extra padding */
+.block-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
 </style>
 """
 
-_LOGIN_HEADER_HTML = """
-<div style="text-align:center; padding: 0 0 40px; user-select:none;">
+_LOGO_HTML = """
+<div style="text-align:center; padding:48px 0 36px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 
-    <!-- 钻石 Logo 动画 -->
-    <div style="position:relative; display:inline-block; margin-bottom:32px;">
+    <!-- Diamond mark -->
+    <div style="
+        display:inline-block;
+        width:56px; height:56px;
+        background:#C9A962;
+        transform:rotate(45deg);
+        margin-bottom:28px;
+        box-shadow:0 0 32px rgba(201,169,98,0.25);
+    ">
         <div style="
-            width:72px; height:72px;
-            background: linear-gradient(135deg, #C9A962 0%, #8A6A2A 50%, #C9A962 100%);
-            clip-path: polygon(50% 0%, 100% 35%, 80% 100%, 20% 100%, 0% 35%);
-            margin: 0 auto;
-            box-shadow: 0 0 40px #C9A96240;
-        "></div>
-        <div style="
-            position:absolute; top:50%; left:50%;
-            transform:translate(-50%,-50%);
-            font-size:1.6rem; color:#08080C; font-weight:700; line-height:1;
-        ">◆</div>
+            transform:rotate(-45deg);
+            display:flex; align-items:center; justify-content:center;
+            width:100%; height:100%;
+            font-size:1.4rem; color:#08080C; font-weight:900; line-height:1;
+        ">B</div>
     </div>
 
-    <!-- Brand -->
+    <!-- Platform label -->
     <div style="
-        font-size:0.5rem; letter-spacing:6px; color:#C9A962;
-        text-transform:uppercase; font-weight:500; margin-bottom:14px;
+        font-size:0.52rem; letter-spacing:5px; color:#C9A962;
+        text-transform:uppercase; font-weight:500; margin-bottom:12px;
     ">Value Intelligence Platform</div>
 
+    <!-- Brand name -->
     <div style="
-        font-size:1.9rem; font-weight:200; color:#EAEAEA;
-        letter-spacing:8px; text-transform:uppercase; line-height:1.1;
-        margin-bottom:6px;
+        font-size:1.75rem; font-weight:200; color:#E8E8F0;
+        letter-spacing:7px; text-transform:uppercase; line-height:1.1;
+        margin-bottom:4px;
     ">BUFFETT</div>
     <div style="
-        font-size:1.9rem; font-weight:700; color:#C9A962;
-        letter-spacing:8px; text-transform:uppercase; line-height:1.1;
+        font-size:1.75rem; font-weight:700; color:#C9A962;
+        letter-spacing:7px; text-transform:uppercase; line-height:1.1;
         margin-bottom:28px;
     ">RESEARCH</div>
 
-    <!-- 装饰线 -->
-    <div style="display:flex; align-items:center; gap:12px; margin: 0 auto; max-width:260px;">
-        <div style="flex:1; height:1px; background:linear-gradient(to right, transparent, #2A2A35);"></div>
-        <div style="font-size:0.55rem; color:#3A3A46; letter-spacing:3px; white-space:nowrap;">AUTHORIZED ACCESS ONLY</div>
-        <div style="flex:1; height:1px; background:linear-gradient(to left, transparent, #2A2A35);"></div>
+    <!-- Divider -->
+    <div style="
+        display:flex; align-items:center; gap:10px;
+        margin:0 auto; max-width:280px;
+    ">
+        <div style="flex:1; height:1px; background:linear-gradient(to right,transparent,#252530);"></div>
+        <div style="font-size:0.52rem; color:#34343F; letter-spacing:2px; white-space:nowrap;">
+            AUTHORIZED ACCESS ONLY
+        </div>
+        <div style="flex:1; height:1px; background:linear-gradient(to left,transparent,#252530);"></div>
     </div>
 </div>
 """
 
-_LOGIN_FOOTER_HTML = """
+_FOOTER_HTML = """
 <div style="
-    text-align:center; margin-top:48px;
-    font-size:0.55rem; color:#2A2A35;
-    letter-spacing:2px; text-transform:uppercase;
-    line-height:2;
+    text-align:center; margin-top:40px; padding-bottom:32px;
+    font-size:0.52rem; color:#252530;
+    letter-spacing:2px; text-transform:uppercase; line-height:2;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 ">
-    © 2025 BUFFETT RESEARCH&nbsp;&nbsp;·&nbsp;&nbsp;CONFIDENTIAL<br>
-    FOR AUTHORIZED SUBSCRIBERS ONLY
+    &copy; 2025 BUFFETT RESEARCH &nbsp;&middot;&nbsp; CONFIDENTIAL
 </div>
 """
 
 
 def render_login_page():
-    """渲染黑金风格登录页面"""
+    """Render the Blackstone-style login page."""
     st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
-    st.markdown(_LOGIN_HEADER_HTML, unsafe_allow_html=True)
-
-    # 表单容器
-    st.markdown('<div style="margin-top:8px;">', unsafe_allow_html=True)
+    st.markdown(_LOGO_HTML, unsafe_allow_html=True)
 
     username = st.text_input(
         "Username",
-        placeholder="输入用户名",
+        placeholder="Enter username",
         key="login_username",
     )
     password = st.text_input(
         "Password",
         type="password",
-        placeholder="输入密码",
+        placeholder="Enter password",
         key="login_password",
     )
 
-    st.markdown('<div style="margin-top:4px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
 
-    if st.button("SIGN IN", key="login_btn"):
-        user = authenticate(username, password)
-        if user:
-            st.session_state["authenticated"] = True
-            st.session_state["auth_user"] = user
-            st.rerun()
+    if st.button("SIGN  IN", key="login_btn"):
+        if not username or not password:
+            st.error("Please enter username and password.")
         else:
-            st.error("用户名或密码错误，请联系管理员获取访问权限。")
+            user = authenticate(username, password)
+            if user:
+                st.session_state["authenticated"] = True
+                st.session_state["auth_user"] = user
+                st.rerun()
+            else:
+                st.error("Invalid credentials. Contact admin for access.")
 
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown(_LOGIN_FOOTER_HTML, unsafe_allow_html=True)
+    st.markdown(_FOOTER_HTML, unsafe_allow_html=True)
