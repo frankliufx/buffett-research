@@ -309,3 +309,28 @@ def format_indicator_summary() -> str:
             )
         )
     return "\n".join(lines)
+
+
+def get_macro_overview() -> dict:
+    """Flat dict of macro indicators for the Dashboard Market Compass.
+    Returns buffett indicator ratios + placeholders for other indicators."""
+    try:
+        bi = get_buffett_indicator()
+    except Exception:
+        bi = {}
+    return {
+        "buffett_indicator_pct": (bi.get("us") or {}).get("ratio"),
+        "cn_buffett_pct":        (bi.get("cn") or {}).get("ratio"),
+        "hk_buffett_pct":        (bi.get("hk") or {}).get("ratio"),
+        "us_buffett_label":      (bi.get("us") or {}).get("label"),
+        "cn_buffett_label":      (bi.get("cn") or {}).get("label"),
+        "hk_buffett_label":      (bi.get("hk") or {}).get("label"),
+        # Additional macro fields (not available from current data sources)
+        "sp500": None,
+        "sp500_pe": None,
+        "vix": None,
+        "dxy": None,
+        "us_10y_yield": None,
+        "cn_10y_yield": None,
+        "cn_gdp_growth": None,
+    }

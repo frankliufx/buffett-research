@@ -139,98 +139,101 @@ def _render_logo():
 <html>
 <head>
 <meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
-    background: #08080C;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    background: #06060A;
+    font-family: 'Inter', -apple-system, sans-serif;
     display: flex;
     align-items: center;
     justify-content: center;
     height: 100%;
-    padding: 32px 0 24px;
+    padding: 36px 0 28px;
 }
 .wrap { text-align: center; }
-.diamond-outer {
-    display: inline-block;
-    width: 56px;
-    height: 56px;
-    background: #C9A962;
-    transform: rotate(45deg);
-    margin-bottom: 32px;
-    box-shadow: 0 0 32px rgba(201,169,98,0.25);
-    position: relative;
-}
-.diamond-inner {
-    position: absolute;
-    inset: 0;
-    transform: rotate(-45deg);
-    display: flex;
+
+/* Logo mark — minimal square with letter */
+.logo-mark {
+    width: 52px;
+    height: 52px;
+    border: 1.5px solid #C9A962;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.3rem;
-    color: #08080C;
-    font-weight: 900;
-    line-height: 1;
+    margin-bottom: 24px;
+    position: relative;
 }
-.label {
-    font-size: 0.5rem;
-    letter-spacing: 5px;
-    color: #C9A962;
-    text-transform: uppercase;
-    font-weight: 500;
-    margin-bottom: 12px;
+.logo-mark::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 1px solid rgba(201,169,98,0.25);
 }
-.brand-light {
-    font-size: 1.7rem;
-    font-weight: 200;
-    color: #E8E8F0;
-    letter-spacing: 7px;
-    text-transform: uppercase;
-    line-height: 1.1;
-    margin-bottom: 4px;
-}
-.brand-bold {
-    font-size: 1.7rem;
+.logo-mark-letter {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.6rem;
     font-weight: 700;
     color: #C9A962;
-    letter-spacing: 7px;
+    line-height: 1;
+}
+
+.brand-name {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.9rem;
+    font-weight: 300;
+    color: #E8E8F0;
+    letter-spacing: 8px;
     text-transform: uppercase;
-    line-height: 1.1;
-    margin-bottom: 28px;
+    line-height: 1;
+    margin-bottom: 6px;
+}
+.brand-sub {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: #C9A962;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    line-height: 1;
+    margin-bottom: 24px;
 }
 .divider {
     display: flex;
     align-items: center;
-    gap: 10px;
-    max-width: 280px;
+    gap: 12px;
+    max-width: 260px;
     margin: 0 auto;
 }
 .divider-line {
     flex: 1;
     height: 1px;
-    background: #252530;
+    background: linear-gradient(90deg, transparent, #C9A962);
+}
+.divider-line.right {
+    background: linear-gradient(90deg, #C9A962, transparent);
 }
 .divider-text {
-    font-size: 0.5rem;
-    color: #303040;
-    letter-spacing: 2px;
+    font-size: 0.48rem;
+    color: #2A2A36;
+    letter-spacing: 3px;
+    text-transform: uppercase;
     white-space: nowrap;
+    font-family: 'Inter', sans-serif;
 }
 </style>
 </head>
 <body>
 <div class="wrap">
-    <div class="diamond-outer">
-        <div class="diamond-inner">B</div>
+    <div class="logo-mark">
+        <div class="logo-mark-letter">B</div>
     </div>
-    <div class="label">Value Intelligence Platform</div>
-    <div class="brand-light">BUFFETT</div>
-    <div class="brand-bold">RESEARCH</div>
+    <div class="brand-name">BUFFETT</div>
+    <div class="brand-sub">RESEARCH</div>
     <div class="divider">
         <div class="divider-line"></div>
         <div class="divider-text">AUTHORIZED ACCESS ONLY</div>
-        <div class="divider-line"></div>
+        <div class="divider-line right"></div>
     </div>
 </div>
 </body>

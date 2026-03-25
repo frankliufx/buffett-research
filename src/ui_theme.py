@@ -36,11 +36,12 @@ def get_global_css():
 <style>
     /* ===== 高端金融风 — 极简黑底 ===== */
 
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600;700;800&display=swap');
 
     .stApp {
         background-color: %(bg)s;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        letter-spacing: 0.01em;
         color: %(text)s;
     }
 
