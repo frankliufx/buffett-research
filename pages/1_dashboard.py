@@ -1,11 +1,11 @@
 """Personal Dashboard — Watchlist · Investment Journal · Market Compass"""
 
-import json
 import datetime
 import streamlit as st
 import streamlit.components.v1 as components
 from src.ui_theme import get_global_css, COLORS
 from src.auth import get_current_user
+from src.journal import load_journal, save_journal, export_json, import_json
 
 # ── Session defaults ──────────────────────────────────────────────────────────
 if "config" not in st.session_state:
@@ -15,8 +15,12 @@ if "config" not in st.session_state:
 if "dashboard_watchlist" not in st.session_state:
     st.session_state.dashboard_watchlist = ["BRK.B", "AAPL", "KO", "BAC", "OXY"]
 
-if "journal_entries" not in st.session_state:
-    st.session_state.journal_entries = []   # list of dicts
+# Load journal from disk on first visit (not on every rerun)
+if "journal_loaded" not in st.session_state:
+    st.session_state.journal_entries = load_journal()
+    st.session_state.journal_loaded = True
+elif "journal_entries" not in st.session_state:
+    st.session_state.journal_entries = []
 
 # ── Global CSS ────────────────────────────────────────────────────────────────
 st.markdown(get_global_css(), unsafe_allow_html=True)
@@ -214,6 +218,7 @@ with journal_tab1:
                     "conviction": d_conviction,
                 }
                 st.session_state.journal_entries.insert(0, entry)
+                save_journal(st.session_state.journal_entries)
                 st.success("Decision saved.")
                 st.rerun()
 
@@ -273,6 +278,7 @@ with journal_tab2:
                     "lesson": r_lesson,
                 }
                 st.session_state.journal_entries.insert(0, entry)
+                save_journal(st.session_state.journal_entries)
                 st.success("Review saved.")
                 st.rerun()
 
@@ -328,6 +334,7 @@ with journal_tab3:
                     "impact": n_impact,
                 }
                 st.session_state.journal_entries.insert(0, entry)
+                save_journal(st.session_state.journal_entries)
                 st.success("Note saved.")
                 st.rerun()
 
@@ -449,15 +456,60 @@ else:
         st.json(macro)
 
 # ── Footer ────────────────────────────────────────────────────────────────────
-st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:24px;border-top:1px solid #1A1A22;margin-top:20px'></div>",
+            unsafe_allow_html=True)
+
+# ── Journal export / import ───────────────────────────────────────────────────
 components.html("""
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:#08080C; font-family:-apple-system,BlinkMacSystemFont,sans-serif;
-    display:flex; align-items:center; justify-content:center; padding:12px 0; }
-.footer { font-size:0.5rem; color:#1E1E26; letter-spacing:3px; text-transform:uppercase; }
+body { background:#08080C; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; padding:8px 0 4px; }
+.section-label { font-size:0.5rem; letter-spacing:4px; color:#C9A962; text-transform:uppercase; }
+.section-title { font-size:1.05rem; font-weight:600; color:#E8E8F0; letter-spacing:1px; margin-top:2px; }
 </style></head><body>
-<div class="footer">Journal data is session-only &nbsp;&middot;&nbsp; Refresh to reset</div>
+<div class="section-label">Data Management</div>
+<div class="section-title">Journal Backup</div>
 </body></html>
-""", height=48, scrolling=False)
+""", height=52, scrolling=False)
+
+ex_col, im_col, cl_col = st.columns(3)
+
+with ex_col:
+    entries = st.session_state.journal_entries
+    if entries:
+        st.download_button(
+            label="⬇ Export Journal (JSON)",
+            data=export_json(entries),
+            file_name=f"journal_{datetime.date.today()}.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+    else:
+        st.button("⬇ Export (empty)", disabled=True, use_container_width=True)
+
+with im_col:
+    uploaded = st.file_uploader("⬆ Import Journal", type=["json"], key="journal_import",
+                                label_visibility="collapsed")
+    if uploaded is not None:
+        try:
+            imported = import_json(uploaded.read().decode("utf-8"))
+            st.session_state.journal_entries = imported
+            save_journal(imported)
+            st.success(f"Imported {len(imported)} entries.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Import failed: {e}")
+
+with cl_col:
+    if st.button("🗑 Clear All Entries", use_container_width=True):
+        if st.session_state.get("confirm_clear_journal"):
+            st.session_state.journal_entries = []
+            save_journal([])
+            st.session_state.confirm_clear_journal = False
+            st.rerun()
+        else:
+            st.session_state.confirm_clear_journal = True
+            st.warning("Click again to confirm deletion.")
+
+st.caption(f"Journal auto-saved · {len(st.session_state.journal_entries)} entries stored")

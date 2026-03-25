@@ -285,7 +285,7 @@ def _fetch_eastmoney_fundamentals(symbol: str, market: str) -> dict:
                    "ROE_AVG,GROSS_PROFIT_RATIO,NET_PROFIT_RATIO,"
                    "DEBT_ASSET_RATIO,CURRENT_RATIO,SPEED_RATIO,"
                    "OPERATE_INCOME_YOY,PARENT_HOLDER_NETPROFIT_YOY,"
-                   "OPERATE_INCOME")
+                   "OPERATE_INCOME,NETCASH_OPERATE,FREE_CASH_FLOW")
     elif market == "hk":
         report_name = "RPT_HKF10_FN_MAININDICATOR"
         columns = ("SECUCODE,SECURITY_NAME_ABBR,REPORT_DATE,"
@@ -525,11 +525,16 @@ def fetch_fundamentals(symbol: str, market: str) -> dict:
                 if eg is not None:
                     result["earnings_growth"] = eg / 100.0
 
-                # Operating cashflow (HK)
+                # Cash flow (US + HK: NETCASH_OPERATE; US also has FREE_CASH_FLOW)
                 ocf = _safe_float(em_data.get("NETCASH_OPERATE"))
-                if ocf is not None:
-                    result["free_cashflow"] = ocf  # use operating CF as proxy
+                if ocf is not None and ocf != 0:
                     result["operating_cashflow"] = ocf
+                    result["free_cashflow"] = ocf  # use OCF as FCF proxy unless overridden
+
+                if market == "us":
+                    fcf = _safe_float(em_data.get("FREE_CASH_FLOW"))
+                    if fcf is not None and fcf != 0:
+                        result["free_cashflow"] = fcf
 
                 # Revenue
                 rev = _safe_float(em_data.get("OPERATE_INCOME"))

@@ -1355,41 +1355,77 @@ with tab_overview:
             r, moat = item if isinstance(item, tuple) else (item, {})
             if not isinstance(moat, dict) or "grade" not in moat:
                 continue
+            norm = _normalize_fundamentals(r.fundamentals)
             rank.append({
                 "Market": ml.get(r.market, ""),
                 "Symbol": r.symbol, "Name": r.name,
                 "Grade": moat["grade"],
                 "Score": moat["percentage"],
                 "Label": moat["label"],
-                "ROE": _fmt_pct(_normalize_fundamentals(r.fundamentals).get("roe")),
+                "ROE": _fmt_pct(norm.get("roe")),
+                "FCF": norm.get("free_cashflow"),
                 "Verdict": moat.get("verdict", "")[:40],
             })
 
         if rank:
             rank.sort(key=lambda x: x["Score"], reverse=True)
+
+            # ── Filters ──────────────────────────────────────────────────────
             st.markdown("### Watchlist Ranking")
-            for i, row in enumerate(rank):
-                medal = ["🥇", "🥈", "🥉"][i] if i < 3 else "  {}".format(i + 1)
+            f1, f2, f3, f4 = st.columns([2, 2, 2, 1])
+            with f1:
+                all_grades = ["A+", "A", "B", "C", "D", "F"]
+                sel_grades = st.multiselect(
+                    "Grade", all_grades, default=all_grades, key="ov_grades",
+                    label_visibility="collapsed",
+                    placeholder="Filter by grade…",
+                )
+            with f2:
+                all_markets = sorted({r["Market"] for r in rank})
+                sel_markets = st.multiselect(
+                    "Market", all_markets, default=all_markets, key="ov_markets",
+                    label_visibility="collapsed",
+                    placeholder="Filter by market…",
+                )
+            with f3:
+                min_score = st.slider("Min score", 0, 100, 0, key="ov_minscore",
+                                      label_visibility="collapsed")
+            with f4:
+                fcf_only = st.toggle("FCF+", value=False, key="ov_fcf",
+                                     help="Only show stocks with positive free cashflow")
+
+            # Apply filters
+            filtered = [
+                r for r in rank
+                if r["Grade"] in (sel_grades or all_grades)
+                and r["Market"] in (sel_markets or all_markets)
+                and r["Score"] >= min_score
+                and (not fcf_only or (r["FCF"] is not None and r["FCF"] > 0))
+            ]
+            st.caption(f"Showing **{len(filtered)}** of {len(rank)} stocks")
+
+            for i, row in enumerate(filtered):
                 g = row["Grade"]
                 gc = grade_colors.get(g, "#8A8A96")
-                score_bar = int(row["Score"] / 100 * 20)
-                bar_html = (
-                    '<span style="color:{gc};">{"█" * score_bar}{"░" * (20 - score_bar)}</span>'
-                ).format(gc=gc)
+                medal = ["🥇", "🥈", "🥉"][i] if i < 3 else "&nbsp;{}".format(i + 1)
                 col_rank, col_sym, col_score, col_meta = st.columns([1, 3, 5, 4])
                 with col_rank:
-                    st.markdown(medal)
+                    st.markdown(medal, unsafe_allow_html=True)
                 with col_sym:
                     st.markdown("**{}** <span style='color:#5A5A68; font-size:0.8rem;'>[{}] {}</span>".format(
                         row["Symbol"], row["Market"], row["Name"][:12]), unsafe_allow_html=True)
                 with col_score:
                     filled = int(row["Score"] / 100 * 20)
                     bar = "█" * filled + "░" * (20 - filled)
+                    fcf_tag = (
+                        ' <span style="color:#3ECF8E; font-size:0.7rem;">FCF✓</span>'
+                        if row["FCF"] and row["FCF"] > 0 else ""
+                    )
                     st.markdown(
                         '<span style="color:{gc}; font-family:monospace;">{bar}</span>'
                         ' <span style="color:{gc}; font-weight:700;">{score:.0f}</span>'
-                        '<span style="color:#5A5A68; font-size:0.8rem;">/{grade}</span>'.format(
-                            gc=gc, bar=bar, score=row["Score"], grade=g),
+                        '<span style="color:#5A5A68; font-size:0.8rem;">/{grade}</span>{fcf}'.format(
+                            gc=gc, bar=bar, score=row["Score"], grade=g, fcf=fcf_tag),
                         unsafe_allow_html=True)
                 with col_meta:
                     st.markdown(
