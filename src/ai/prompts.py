@@ -137,6 +137,32 @@ PE: {pe} | PB: {pb} | ROE: {roe} | 净利率: {profit_margin} | 毛利率: {gros
 注意：用中文，语气专业但平易近人。建议必须明确，不能模棱两可。数据不足时坦诚说明。
 """
 
+INSIGHT_CARDS_PROMPT = """你是一位精通巴菲特和段永平投资体系的首席分析师。基于以下{symbol}({name})的完整数据，为6个维度各写一句精炼的AI判断。
+
+## 数据摘要
+价格: {price} | PE: {pe} | PB: {pb} | ROE: {roe}
+毛利率: {gross_margin} | 净利率: {profit_margin}
+负债权益比: {debt_to_equity} | 流动比率: {current_ratio}
+营收增速: {revenue_growth} | 利润增速: {earnings_growth}
+自由现金流: {free_cashflow} | 股息率: {dividend_yield}
+RSI: {rsi} | 趋势: {trend} | 动量: {momentum}
+内在价值(DCF): {intrinsic_value} | 安全边际: {safety_margin}
+分析师目标价: {analyst_target}
+{data_quality_warning}
+## 数据完整性约束
+- N/A 字段禁止推断或编造，直接说明"数据不可用"
+- 只基于有效数据给判断
+
+请严格输出以下JSON格式，不输出其他内容：
+{{
+  "timing": "15-20字，买入时机判断理由（结合RSI、趋势、安全边际）",
+  "return_outlook": "15-20字，持有回报前景（结合增速、估值修复空间）",
+  "risk_assessment": "15-20字，核心风险点（具体到负债/估值/竞争哪个）",
+  "dividend_view": "15-20字，股息评价（现金回报质量、可持续性）",
+  "analyst_consensus": "15-20字，分析师共识解读（与你判断是否一致）",
+  "buffett_verdict": "15-20字，巴菲特视角总结（这家公司是否值得拥有）"
+}}"""
+
 MARKET_OVERVIEW_PROMPT = """你是一位巴菲特风格的首席策略分析师。根据以下关注股票的综合分析结果，输出今日市场研判。
 
 ## 关注列表分析摘要

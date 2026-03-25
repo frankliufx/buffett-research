@@ -529,21 +529,23 @@ body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:0}
 </body></html>'''.format(symbol=symbol, name=name, missing=missing)
 
 
-def render_insight_cards(price, fundamentals, normalized, tech_signal, dcf, quote, currency="$") -> str:
-    """智能洞察卡片组 — 6 张高价值卡片，2×3 网格布局
+def render_insight_cards(price, fundamentals, normalized, tech_signal, dcf, quote,
+                         currency="$", ai_insights=None) -> str:
+    """智能洞察卡片组 — 6 张大卡片，2 列布局，AI 分析文字
 
-    综合 DCF/技术面/基本面/分析师共识给出可执行的参考信号。
+    ai_insights: AI 返回的 dict (timing/return_outlook/risk_assessment/...)
     """
     cards = []
 
     # ── 1. 买入时机评分 ──────────────────────────────────────────────────
-    timing_score, timing_color, timing_label, timing_detail = _calc_timing(
+    timing_score, timing_color, timing_label, timing_tags = _calc_timing(
         price, dcf, tech_signal, normalized)
-    cards.append(_insight_card(
-        icon="&#x23F1;", title="Entry Timing",
+    cards.append(_insight_card_v2(
+        icon="&#x23F1;", title="ENTRY TIMING",
         value="{}/100".format(timing_score),
         color=timing_color, label=timing_label,
-        detail=timing_detail,
+        tags=timing_tags,
+        ai_text=ai_insights.get("timing", "") if ai_insights else "",
     ))
 
     # ── 2. 持有回报预测 ──────────────────────────────────────────────────
@@ -554,57 +556,61 @@ def render_insight_cards(price, fundamentals, normalized, tech_signal, dcf, quot
         r1 = (1 + growth / 100) ** 1 - 1
         r3 = (1 + growth / 100) ** 3 - 1
         r5 = (1 + growth / 100) ** 5 - 1
-        # 加上安全边际回归（如果低估，额外获得估值修复收益）
         sm = dcf.get("safety_margin_pct", 0) if dcf and dcf.get("method") != "insufficient" else 0
-        sm_boost = max(0, sm) / 5  # 安全边际越大，每年额外收益越多（上限）
+        sm_boost = max(0, sm) / 5
         r1_adj = r1 + sm_boost / 100
         r3_adj = r3 + sm_boost * 3 / 100
         r5_adj = r5 + sm_boost * 5 / 100
         ret_color = "#00C853" if r3_adj > 0.3 else ("#C9A962" if r3_adj > 0 else "#F44336")
-        cards.append(_insight_card(
-            icon="&#x1F4C8;", title="Hold Return Est.",
+        ret_tags = "1Y {:+.0f}%&ensp;&middot;&ensp;3Y {:+.0f}%&ensp;&middot;&ensp;5Y {:+.0f}%".format(
+            r1_adj * 100, r3_adj * 100, r5_adj * 100)
+        cards.append(_insight_card_v2(
+            icon="&#x1F4C8;", title="HOLD RETURN EST.",
             value="{:+.0f}%".format(r3_adj * 100),
             color=ret_color, label="3Y Projection",
-            detail="1Y {:+.0f}%&ensp;·&ensp;3Y {:+.0f}%&ensp;·&ensp;5Y {:+.0f}%".format(
-                r1_adj * 100, r3_adj * 100, r5_adj * 100),
+            tags=ret_tags,
+            ai_text=ai_insights.get("return_outlook", "") if ai_insights else "",
         ))
     else:
-        cards.append(_insight_card(
-            icon="&#x1F4C8;", title="Hold Return Est.",
-            value="--", color="#3A3A4A", label="Insufficient Data",
-            detail="Growth rate unavailable",
+        cards.append(_insight_card_v2(
+            icon="&#x1F4C8;", title="HOLD RETURN EST.",
+            value="--", color="#3A3A4A", label="Data Insufficient",
+            tags="", ai_text="",
         ))
 
     # ── 3. 风险雷达 ──────────────────────────────────────────────────────
-    risk_score, risk_color, risk_label, risk_detail = _calc_risk(normalized, tech_signal)
-    cards.append(_insight_card(
-        icon="&#x1F6E1;", title="Risk Level",
+    risk_score, risk_color, risk_label, risk_tags = _calc_risk(normalized, tech_signal)
+    cards.append(_insight_card_v2(
+        icon="&#x1F6E1;", title="RISK LEVEL",
         value=risk_label, color=risk_color, label="{}/100".format(risk_score),
-        detail=risk_detail,
+        tags=risk_tags,
+        ai_text=ai_insights.get("risk_assessment", "") if ai_insights else "",
     ))
 
     # ── 4. 股息收益 ──────────────────────────────────────────────────────
     div_yield = fundamentals.get("dividend_yield") if fundamentals else None
     div_rate = fundamentals.get("dividend_rate") if fundamentals else None
     if div_yield and div_yield > 0:
-        annual_per_100k = 100000 * div_yield  # dividend_yield 已是 decimal
+        annual_per_100k = 100000 * div_yield
         if annual_per_100k < 100:
-            # 可能 div_yield 已经是百分比了
             annual_per_100k = 100000 * div_yield / 100
         div_color = "#00C853" if div_yield > 0.03 else ("#C9A962" if div_yield > 0.01 else "#5A5A6A")
-        cards.append(_insight_card(
-            icon="&#x1F4B0;", title="Dividend Income",
+        div_tags = "Yield {:.2f}%".format(div_yield * 100 if div_yield < 1 else div_yield)
+        if div_rate:
+            div_tags += "&ensp;&middot;&ensp;{}{:.2f}/share".format(currency, div_rate)
+        cards.append(_insight_card_v2(
+            icon="&#x1F4B0;", title="DIVIDEND INCOME",
             value="{}{:,.0f}".format(currency, annual_per_100k),
             color=div_color, label="Per {}100K / Year".format(currency),
-            detail="Yield {:.2f}%{}".format(
-                div_yield * 100 if div_yield < 1 else div_yield,
-                "&ensp;·&ensp;{}{:.2f}/share".format(currency, div_rate) if div_rate else ""),
+            tags=div_tags,
+            ai_text=ai_insights.get("dividend_view", "") if ai_insights else "",
         ))
     else:
-        cards.append(_insight_card(
-            icon="&#x1F4B0;", title="Dividend Income",
-            value="No Div", color="#3A3A4A", label="No Dividend",
-            detail="This stock does not pay dividends",
+        cards.append(_insight_card_v2(
+            icon="&#x1F4B0;", title="DIVIDEND INCOME",
+            value="N/A", color="#3A3A4A", label="No Dividend",
+            tags="",
+            ai_text=ai_insights.get("dividend_view", "") if ai_insights else "",
         ))
 
     # ── 5. 分析师目标价 ──────────────────────────────────────────────────
@@ -612,79 +618,114 @@ def render_insight_cards(price, fundamentals, normalized, tech_signal, dcf, quot
     if target and target > 0 and price:
         upside = (target - price) / price * 100
         tgt_color = "#00C853" if upside > 15 else ("#C9A962" if upside > 0 else "#F44336")
-        cards.append(_insight_card(
-            icon="&#x1F3AF;", title="Analyst Target",
+        cards.append(_insight_card_v2(
+            icon="&#x1F3AF;", title="ANALYST TARGET",
             value=_fmt_price(target, currency),
             color=tgt_color, label="{:+.1f}% Upside".format(upside),
-            detail="Consensus mean from analyst coverage",
+            tags="Consensus mean target",
+            ai_text=ai_insights.get("analyst_consensus", "") if ai_insights else "",
         ))
     else:
-        cards.append(_insight_card(
-            icon="&#x1F3AF;", title="Analyst Target",
+        cards.append(_insight_card_v2(
+            icon="&#x1F3AF;", title="ANALYST TARGET",
             value="--", color="#3A3A4A", label="No Coverage",
-            detail="No analyst target data available",
+            tags="",
+            ai_text=ai_insights.get("analyst_consensus", "") if ai_insights else "",
         ))
 
     # ── 6. 巴菲特快检 ──────────────────────────────────────────────────
-    pass_count, total_count, checks_detail = _buffett_quick_check(normalized, dcf)
+    pass_count, total_count, checks_html = _buffett_quick_check(normalized, dcf)
     bq_color = "#00C853" if pass_count >= 4 else ("#C9A962" if pass_count >= 2 else "#F44336")
-    cards.append(_insight_card(
-        icon="&#x1F9D0;", title="Buffett Check",
+    cards.append(_insight_card_v2(
+        icon="&#x1F9D0;", title="BUFFETT CHECK",
         value="{}/{}".format(pass_count, total_count),
         color=bq_color, label="Criteria Passed",
-        detail=checks_detail,
+        tags=checks_html,
+        ai_text=ai_insights.get("buffett_verdict", "") if ai_insights else "",
     ))
 
     # ── 组装 HTML ────────────────────────────────────────────────────────
     cards_html = "\n".join(cards)
 
     return '''<!DOCTYPE html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:8px 0 0}}
+body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:12px 0 0}}
 
-.insight-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}}
+.ins-section-label{{
+    font-size:0.5rem;letter-spacing:5px;color:#C9A962;
+    text-transform:uppercase;margin-bottom:14px;
+    padding-left:2px;
+}}
+
+.insight-grid{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
 
 .ins-card{{
-    background:#0D0D14;border:1px solid #1E1E2A;border-radius:4px;
-    padding:16px 18px;position:relative;overflow:hidden;
-    transition:border-color 0.2s;
+    background:linear-gradient(135deg,#0D0D14 0%,#101018 100%);
+    border:1px solid #1E1E2A;border-radius:4px;
+    padding:22px 24px;position:relative;overflow:hidden;
+    transition:border-color 0.25s,box-shadow 0.25s;
 }}
-.ins-card:hover{{border-color:#C9A962}}
-.ins-card::after{{
-    content:'';position:absolute;top:0;left:0;width:100%;height:2px;
-    background:var(--accent);opacity:0.6;
+.ins-card:hover{{border-color:#C9A962;box-shadow:0 0 20px rgba(201,169,98,0.06)}}
+.ins-card::before{{
+    content:'';position:absolute;top:0;left:0;width:3px;height:100%;
+    background:var(--accent);opacity:0.6;border-radius:4px 0 0 4px;
 }}
 
-.ins-top{{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}}
-.ins-icon{{font-size:1rem;opacity:0.6}}
-.ins-title{{font-size:0.5rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase}}
+.ins-head{{display:flex;align-items:center;gap:10px;margin-bottom:14px}}
+.ins-icon{{font-size:1.1rem;opacity:0.7}}
+.ins-title{{font-size:0.6rem;letter-spacing:4px;color:#5A5A6A;text-transform:uppercase;font-weight:500}}
 
+.ins-body{{display:flex;align-items:flex-end;gap:16px;margin-bottom:10px}}
 .ins-value{{
     font-family:'Cormorant Garamond',Georgia,serif;
-    font-size:1.5rem;font-weight:700;line-height:1;
-    margin-bottom:4px;
+    font-size:2rem;font-weight:700;line-height:1;
+    letter-spacing:1px;
 }}
-.ins-label{{font-size:0.6rem;font-weight:600;letter-spacing:1px;margin-bottom:8px}}
-.ins-detail{{font-size:0.55rem;color:#5A5A6A;line-height:1.5;letter-spacing:0.3px}}
+.ins-label{{
+    font-size:0.65rem;font-weight:600;letter-spacing:1.5px;
+    padding-bottom:4px;
+}}
+
+.ins-tags{{
+    font-size:0.6rem;color:#6A6A80;line-height:1.6;
+    letter-spacing:0.3px;margin-bottom:6px;
+}}
+
+.ins-ai{{
+    font-size:0.7rem;color:#AAAABC;line-height:1.6;
+    font-style:italic;padding:8px 12px;
+    background:rgba(201,169,98,0.04);
+    border-left:2px solid rgba(201,169,98,0.2);
+    border-radius:0 3px 3px 0;
+    letter-spacing:0.2px;
+}}
+.ins-ai:empty{{display:none}}
 </style></head><body>
+<div class="ins-section-label">AI-Powered Intelligence</div>
 <div class="insight-grid">
 {cards}
 </div>
 </body></html>'''.format(cards=cards_html)
 
 
-def _insight_card(icon, title, value, color, label, detail):
+def _insight_card_v2(icon, title, value, color, label, tags="", ai_text=""):
+    ai_html = '<div class="ins-ai">{}</div>'.format(ai_text) if ai_text else ""
+    tags_html = '<div class="ins-tags">{}</div>'.format(tags) if tags else ""
     return '''<div class="ins-card" style="--accent:{color}">
-    <div class="ins-top">
+    <div class="ins-head">
         <span class="ins-icon">{icon}</span>
         <span class="ins-title">{title}</span>
     </div>
-    <div class="ins-value" style="color:{color}">{value}</div>
-    <div class="ins-label" style="color:{color}">{label}</div>
-    <div class="ins-detail">{detail}</div>
-</div>'''.format(icon=icon, title=title, value=value, color=color, label=label, detail=detail)
+    <div class="ins-body">
+        <div class="ins-value" style="color:{color}">{value}</div>
+        <div class="ins-label" style="color:{color}">{label}</div>
+    </div>
+    {tags_html}
+    {ai_html}
+</div>'''.format(icon=icon, title=title, value=value, color=color,
+                 label=label, tags_html=tags_html, ai_html=ai_html)
 
 
 def _calc_timing(price, dcf, tech_signal, normalized):

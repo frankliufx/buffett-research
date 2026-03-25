@@ -6,7 +6,8 @@ import re
 from typing import Optional, List
 
 from src.ai.prompts import (BUFFETT_ANALYSIS_PROMPT, MARKET_OVERVIEW_PROMPT,
-                             CHAT_SYSTEM_PROMPT, DIMENSION_BRIEF_PROMPT)
+                             CHAT_SYSTEM_PROMPT, DIMENSION_BRIEF_PROMPT,
+                             INSIGHT_CARDS_PROMPT)
 from src.config import ApiProvider
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,55 @@ def get_ai_brief(result, moat: dict, provider: Optional[ApiProvider] = None) -> 
         return json.loads(text)
     except Exception as e:
         logger.warning("AI brief failed for %s: %s", result.symbol, e)
+        return None
+
+
+def get_ai_insights(symbol: str, name: str, price: float,
+                     fundamentals: dict, normalized: dict,
+                     tech_signal: dict, dcf: dict,
+                     provider: Optional[ApiProvider] = None) -> Optional[dict]:
+    """AI 驱动的 6 维度洞察 — 返回 JSON dict 或 None
+
+    Returns: {"timing": "...", "return_outlook": "...", "risk_assessment": "...",
+              "dividend_view": "...", "analyst_consensus": "...", "buffett_verdict": "..."}
+    """
+    if not provider or not provider.api_key:
+        return None
+
+    dq = _check_data_quality(normalized or {})
+    sm = dcf.get("safety_margin_pct", "N/A") if dcf and dcf.get("method") != "insufficient" else "N/A"
+    iv = dcf.get("intrinsic_value", "N/A") if dcf and dcf.get("method") != "insufficient" else "N/A"
+
+    prompt = INSIGHT_CARDS_PROMPT.format(
+        symbol=symbol, name=name, price=price,
+        pe=_fmt(normalized.get("pe_trailing") if normalized else None),
+        pb=_fmt(normalized.get("pb") if normalized else None),
+        roe=_fmt(normalized.get("roe") if normalized else None, pct=True),
+        gross_margin=_fmt(normalized.get("gross_margin") if normalized else None, pct=True),
+        profit_margin=_fmt(normalized.get("profit_margin") if normalized else None, pct=True),
+        debt_to_equity=_fmt(normalized.get("debt_to_equity") if normalized else None),
+        current_ratio=_fmt(normalized.get("current_ratio") if normalized else None),
+        revenue_growth=_fmt(normalized.get("revenue_growth") if normalized else None, pct=True),
+        earnings_growth=_fmt(normalized.get("earnings_growth") if normalized else None, pct=True),
+        free_cashflow=_fmt(fundamentals.get("free_cashflow") if fundamentals else None),
+        dividend_yield=_fmt(fundamentals.get("dividend_yield") if fundamentals else None, pct=True),
+        rsi=_fmt(tech_signal.get("rsi") if tech_signal else None),
+        trend=tech_signal.get("trend", "N/A") if tech_signal else "N/A",
+        momentum=tech_signal.get("momentum", "N/A") if tech_signal else "N/A",
+        intrinsic_value=iv,
+        safety_margin=sm,
+        analyst_target=_fmt(fundamentals.get("target_mean_price") if fundamentals else None),
+        data_quality_warning=dq["warning_block"],
+    )
+
+    try:
+        text = _call_llm(provider, [{"role": "user", "content": prompt}], max_tokens=500)
+        text = text.strip()
+        text = re.sub(r'^```\w*\n?', '', text)
+        text = re.sub(r'\n?```$', '', text).strip()
+        return json.loads(text)
+    except Exception as e:
+        logger.warning("AI insights failed for %s: %s", symbol, e)
         return None
 
 

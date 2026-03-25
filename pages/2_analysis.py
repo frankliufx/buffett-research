@@ -15,7 +15,7 @@ from src.analysis.technical import compute_indicators, generate_technical_signal
 from src.analysis.fundamental import analyze_buffett, _normalize_fundamentals
 from src.analysis.moat import score_moat
 from src.analysis.signals import AnalysisResult
-from src.ai.summarizer import analyze_stock, generate_market_overview, get_ai_brief
+from src.ai.summarizer import analyze_stock, generate_market_overview, get_ai_brief, get_ai_insights
 from src.ai.knowledge_base import BUFFETT_PHILOSOPHY, DUAN_YONGPING_PHILOSOPHY
 from src.analysis.valuation import calc_dcf
 from src.ui_valuation import (render_valuation_verdict, render_price_spectrum,
@@ -474,8 +474,9 @@ def render_stock_analysis(symbol, name, market, config):
     ), unsafe_allow_html=True)
 
     # ===== 估值决策中枢（核心差异化 — 头部直接展示）=====
+    provider = get_active_provider(config)
     _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote,
-                           tech_signal=result.tech_signal)
+                           tech_signal=result.tech_signal, provider=provider)
 
     # ===== Tabs =====
     tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai = st.tabs(
@@ -777,7 +778,7 @@ def _generate_trend_report(symbol, name, market, price, change, pct_5d, pct_20d,
 
 
 def _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote,
-                           tech_signal=None):
+                           tech_signal=None, provider=None):
     """估值决策中枢 — 直接在头部下方展示，用户第一眼看到"""
     import streamlit.components.v1 as components
 
@@ -795,12 +796,24 @@ def _render_valuation_hero(symbol, name, market, price, fundamentals, normalized
     if spectrum_html:
         components.html(spectrum_html, height=200, scrolling=False)
 
-    # 3. 智能洞察卡片 — 6 维度快速决策参考
-    insight_html = render_insight_cards(
-        price, fundamentals, normalized, tech_signal or {}, dcf, quote, currency)
-    components.html(insight_html, height=200, scrolling=False)
+    # 3. AI 洞察（缓存，避免重复请求）
+    insights_key = "ai_insights_{}".format(symbol)
+    if insights_key not in st.session_state:
+        if provider and provider.api_key:
+            st.session_state[insights_key] = get_ai_insights(
+                symbol, name, price, fundamentals, normalized,
+                tech_signal or {}, dcf, provider)
+        else:
+            st.session_state[insights_key] = None
+    ai_insights = st.session_state.get(insights_key)
 
-    # 4. 三情景 + 假设 — 展开看细节
+    # 4. 智能洞察卡片 — 6 维度 + AI 分析
+    insight_html = render_insight_cards(
+        price, fundamentals, normalized, tech_signal or {}, dcf, quote,
+        currency, ai_insights=ai_insights)
+    components.html(insight_html, height=620, scrolling=False)
+
+    # 5. 三情景 + 假设 — 展开看细节
     if dcf and dcf.get("method") != "insufficient":
         with st.expander("Scenario Analysis & Assumptions", expanded=False):
             scenario_html = render_scenario_cards(dcf, currency)
