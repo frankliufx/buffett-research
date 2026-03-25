@@ -13,6 +13,7 @@ __pycache__/
 .env
 config.yaml
 .streamlit/secrets.toml
+users.yaml
 
 # 日志
 logs/

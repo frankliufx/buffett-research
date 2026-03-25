@@ -1,0 +1,22 @@
+# 用户配置模板
+# 复制此文件为 users.yaml 并填入真实信息（users.yaml 已在 .gitignore 中）
+#
+# ── 生成密码哈希 ──────────────────────────────────────────────────
+# python3 -c "import hashlib; print(hashlib.sha256('你的密码'.encode()).hexdigest())"
+#
+# ── Streamlit Cloud 部署时，在 Secrets 中添加以下格式 ─────────────
+# [users.用户名]
+# password = "哈希值"
+# name = "显示名称"
+# role = "admin"   # admin / viewer
+
+users:
+  frank:
+    password: "在此填入密码的SHA256哈希值"
+    name: "Frank Liu"
+    role: "admin"
+
+  guest:
+    password: "在此填入密码的SHA256哈希值"
+    name: "Guest"
+    role: "viewer"
