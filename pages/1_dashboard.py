@@ -1,24 +1,63 @@
 """Personal Dashboard — Watchlist · Investment Journal · Market Compass"""
 
 import datetime
+import json
 import streamlit as st
 import streamlit.components.v1 as components
 from src.ui_theme import get_global_css, COLORS
 from src.auth import get_current_user
-from src.journal import load_journal, save_journal, export_json, import_json
+from src.user_data import (
+    load_watchlist, add_to_watchlist, remove_from_watchlist,
+    load_journal, save_journal_entry, save_all_journal,
+)
 
 # ── Session defaults ──────────────────────────────────────────────────────────
 if "config" not in st.session_state:
     from src.config import load_config
     st.session_state.config = load_config()
 
-if "dashboard_watchlist" not in st.session_state:
-    st.session_state.dashboard_watchlist = ["BRK.B", "AAPL", "KO", "BAC", "OXY"]
+user = get_current_user()
+_uid = (user or {}).get("username", "anonymous")
 
-# Load journal from disk on first visit (not on every rerun)
-if "journal_loaded" not in st.session_state:
-    st.session_state.journal_entries = load_journal()
+
+def _detect_market(symbol: str) -> str:
+    s = symbol.lower()
+    if s.startswith("sh") or s.startswith("sz") or s.endswith(".ss") or s.endswith(".sz"):
+        return "a_share"
+    if s.endswith(".hk"):
+        return "hk"
+    return "us"
+
+
+def _flat_watchlist(wl_dict: dict) -> list:
+    """将 {market: [{symbol, name}]} 摊平为 symbol 列表"""
+    result = []
+    for market in ("us", "hk", "a_share"):
+        for item in wl_dict.get(market, []):
+            result.append(item["symbol"])
+    return result
+
+
+# 首次加载时从 Supabase/文件读取 per-user 数据
+if "user_watchlist_loaded" not in st.session_state or st.session_state.get("_last_uid") != _uid:
+    raw_wl = load_watchlist(_uid)
+    # 若用户在 Supabase 无数据，使用 config 默认关注列表
+    if not any(raw_wl.values()):
+        config_wl = st.session_state.config.watchlist
+        raw_wl = {
+            "us": [{"symbol": s.symbol, "name": s.name} for s in config_wl.us],
+            "hk": [{"symbol": s.symbol, "name": s.name} for s in config_wl.hk],
+            "a_share": [{"symbol": s.symbol, "name": s.name} for s in config_wl.a_share],
+        }
+    st.session_state.user_watchlist = raw_wl
+    st.session_state.dashboard_watchlist = _flat_watchlist(raw_wl)
+    st.session_state.user_watchlist_loaded = True
+    st.session_state._last_uid = _uid
+
+if "journal_loaded" not in st.session_state or st.session_state.get("_journal_uid") != _uid:
+    st.session_state.journal_entries = load_journal(_uid)
     st.session_state.journal_loaded = True
+    st.session_state._journal_uid = _uid
 elif "journal_entries" not in st.session_state:
     st.session_state.journal_entries = []
 
@@ -26,8 +65,7 @@ elif "journal_entries" not in st.session_state:
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
 # ── Page header ───────────────────────────────────────────────────────────────
-user = get_current_user()
-display_name = user.get("name", "Investor") if user else "Investor"
+display_name = (user or {}).get("name", "Investor")
 
 components.html(f"""
 <!DOCTYPE html><html><head><meta charset="utf-8">
@@ -84,7 +122,10 @@ with wl_col2:
     if st.button("＋ Add", key="wl_add_btn", use_container_width=True):
         t = new_ticker.strip().upper()
         if t and t not in st.session_state.dashboard_watchlist:
+            mkt = _detect_market(t)
+            add_to_watchlist(_uid, mkt, t, t)
             st.session_state.dashboard_watchlist.append(t)
+            st.session_state.user_watchlist.setdefault(mkt, []).append({"symbol": t, "name": t})
             st.rerun()
 
 # Display watchlist chips + remove buttons
@@ -116,7 +157,12 @@ body {{ background:#08080C; font-family:-apple-system,BlinkMacSystemFont,sans-se
     )
     if remove_ticker and remove_ticker != "— select to remove —":
         if st.button(f"✕ Remove {remove_ticker}", key="wl_remove_btn"):
+            mkt = _detect_market(remove_ticker)
+            remove_from_watchlist(_uid, mkt, remove_ticker)
             st.session_state.dashboard_watchlist.remove(remove_ticker)
+            wl = st.session_state.user_watchlist
+            if mkt in wl:
+                wl[mkt] = [s for s in wl[mkt] if s["symbol"] != remove_ticker]
             st.rerun()
 
     # Quick snapshot via Analysis
@@ -217,8 +263,8 @@ with journal_tab1:
                     "thesis": d_thesis,
                     "conviction": d_conviction,
                 }
+                save_journal_entry(_uid, entry)
                 st.session_state.journal_entries.insert(0, entry)
-                save_journal(st.session_state.journal_entries)
                 st.success("Decision saved.")
                 st.rerun()
 
@@ -277,8 +323,8 @@ with journal_tab2:
                     "mistakes": r_mistakes,
                     "lesson": r_lesson,
                 }
+                save_journal_entry(_uid, entry)
                 st.session_state.journal_entries.insert(0, entry)
-                save_journal(st.session_state.journal_entries)
                 st.success("Review saved.")
                 st.rerun()
 
@@ -333,8 +379,8 @@ with journal_tab3:
                     "body": n_body,
                     "impact": n_impact,
                 }
+                save_journal_entry(_uid, entry)
                 st.session_state.journal_entries.insert(0, entry)
-                save_journal(st.session_state.journal_entries)
                 st.success("Note saved.")
                 st.rerun()
 
@@ -480,7 +526,7 @@ with ex_col:
     if entries:
         st.download_button(
             label="⬇ Export Journal (JSON)",
-            data=export_json(entries),
+            data=json.dumps(entries, ensure_ascii=False, indent=2),
             file_name=f"journal_{datetime.date.today()}.json",
             mime="application/json",
             use_container_width=True,
@@ -493,9 +539,11 @@ with im_col:
                                 label_visibility="collapsed")
     if uploaded is not None:
         try:
-            imported = import_json(uploaded.read().decode("utf-8"))
+            imported = json.loads(uploaded.read().decode("utf-8"))
+            if not isinstance(imported, list):
+                raise ValueError("Expected a JSON array")
+            save_all_journal(_uid, imported)
             st.session_state.journal_entries = imported
-            save_journal(imported)
             st.success(f"Imported {len(imported)} entries.")
             st.rerun()
         except Exception as e:
@@ -504,8 +552,8 @@ with im_col:
 with cl_col:
     if st.button("🗑 Clear All Entries", use_container_width=True):
         if st.session_state.get("confirm_clear_journal"):
+            save_all_journal(_uid, [])
             st.session_state.journal_entries = []
-            save_journal([])
             st.session_state.confirm_clear_journal = False
             st.rerun()
         else:
