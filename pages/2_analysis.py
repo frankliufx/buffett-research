@@ -472,9 +472,12 @@ def render_stock_analysis(symbol, name, market, config):
         moat["grade"], moat["label"], moat["color"], moat["percentage"]
     ), unsafe_allow_html=True)
 
+    # ===== 估值决策中枢（核心差异化 — 头部直接展示）=====
+    _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote)
+
     # ===== Tabs =====
-    tab_moat, tab_val, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai = st.tabs(
-        ["MOAT", "VALUATION", "TREND", "CHART", "FINANCIALS", "TECHNICAL", "AI REPORT"]
+    tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai = st.tabs(
+        ["MOAT", "TREND", "CHART", "FINANCIALS", "TECHNICAL", "AI REPORT"]
     )
 
     with tab_moat:
@@ -482,9 +485,6 @@ def render_stock_analysis(symbol, name, market, config):
 
         # ── 巴菲特估值参考面板 ──
         _render_valuation_reference(symbol, normalized, moat)
-
-    with tab_val:
-        _render_valuation_tab(symbol, name, market, price, fundamentals, normalized, quote)
 
     with tab_trend:
         _render_trend_analysis(symbol, name, market, price, change, df, normalized, moat, result, provider)
@@ -774,8 +774,8 @@ def _generate_trend_report(symbol, name, market, price, change, pct_5d, pct_20d,
         return None
 
 
-def _render_valuation_tab(symbol, name, market, price, fundamentals, normalized, quote):
-    """VALUATION tab — 估值决策中枢，核心差异化功能"""
+def _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote):
+    """估值决策中枢 — 直接在头部下方展示，用户第一眼看到"""
     import streamlit.components.v1 as components
 
     currency_map = {"us": "$", "hk": "HK$", "a_share": "¥"}
@@ -783,25 +783,24 @@ def _render_valuation_tab(symbol, name, market, price, fundamentals, normalized,
 
     dcf = calc_dcf(price, fundamentals, normalized)
 
-    # 1. 决策横幅
+    # 1. 决策横幅 — 最显眼
     verdict_html = render_valuation_verdict(dcf, symbol, name, currency)
     components.html(verdict_html, height=200, scrolling=False)
 
-    # 2. 价格定位轴
+    # 2. 价格定位轴 — 一眼看到"我在哪"
     spectrum_html = render_price_spectrum(dcf, quote, currency)
     if spectrum_html:
         components.html(spectrum_html, height=200, scrolling=False)
 
-    # 3. 三情景估值卡
-    scenario_html = render_scenario_cards(dcf, currency)
-    if scenario_html:
-        components.html(scenario_html, height=260, scrolling=False)
-
-    # 4. 核心假设面板
-    assumptions_html = render_assumptions_panel(dcf)
-    if assumptions_html:
-        with st.expander("Core Assumptions & Data Quality", expanded=False):
-            components.html(assumptions_html, height=300, scrolling=False)
+    # 3. 三情景 + 假设 — 展开看细节
+    if dcf and dcf.get("method") != "insufficient":
+        with st.expander("Scenario Analysis & Assumptions", expanded=False):
+            scenario_html = render_scenario_cards(dcf, currency)
+            if scenario_html:
+                components.html(scenario_html, height=260, scrolling=False)
+            assumptions_html = render_assumptions_panel(dcf)
+            if assumptions_html:
+                components.html(assumptions_html, height=300, scrolling=False)
 
 
 def _render_valuation_reference(symbol, normalized, moat):
