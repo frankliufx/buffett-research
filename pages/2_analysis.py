@@ -17,6 +17,9 @@ from src.analysis.moat import score_moat
 from src.analysis.signals import AnalysisResult
 from src.ai.summarizer import analyze_stock, generate_market_overview, get_ai_brief
 from src.ai.knowledge_base import BUFFETT_PHILOSOPHY, DUAN_YONGPING_PHILOSOPHY
+from src.analysis.valuation import calc_dcf
+from src.ui_valuation import (render_valuation_verdict, render_price_spectrum,
+                               render_scenario_cards, render_assumptions_panel)
 from src.ui_theme import (get_global_css, render_hero_header, render_buffett_quote,
                           render_grade_badge, render_moat_bar, render_detail_item,
                           render_stock_header, render_moat_dimension,
@@ -191,7 +194,7 @@ def run_analysis(symbol, name, market, config):
         fundamentals=fundamentals,
     )
     result.compute_overall()
-    return result, df, fundamentals, normalized, moat_result
+    return result, df, fundamentals, normalized, moat_result, quote
 
 
 # ===== K线图 (暗色主题) =====
@@ -437,7 +440,7 @@ def render_stock_analysis(symbol, name, market, config):
         unsafe_allow_html=True,
     )
     try:
-        result, df, fundamentals, normalized, moat = run_analysis(symbol, name, market, config)
+        result, df, fundamentals, normalized, moat, quote = run_analysis(symbol, name, market, config)
     except Exception as e:
         loading_placeholder.empty()
         st.error("Error: {} — {}".format(symbol, e))
@@ -470,8 +473,8 @@ def render_stock_analysis(symbol, name, market, config):
     ), unsafe_allow_html=True)
 
     # ===== Tabs =====
-    tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai = st.tabs(
-        ["MOAT", "TREND", "CHART", "FINANCIALS", "TECHNICAL", "AI REPORT"]
+    tab_moat, tab_val, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai = st.tabs(
+        ["MOAT", "VALUATION", "TREND", "CHART", "FINANCIALS", "TECHNICAL", "AI REPORT"]
     )
 
     with tab_moat:
@@ -479,6 +482,9 @@ def render_stock_analysis(symbol, name, market, config):
 
         # ── 巴菲特估值参考面板 ──
         _render_valuation_reference(symbol, normalized, moat)
+
+    with tab_val:
+        _render_valuation_tab(symbol, name, market, price, fundamentals, normalized, quote)
 
     with tab_trend:
         _render_trend_analysis(symbol, name, market, price, change, df, normalized, moat, result, provider)
@@ -766,6 +772,36 @@ def _generate_trend_report(symbol, name, market, price, change, pct_5d, pct_20d,
         import logging
         logging.getLogger(__name__).warning("Trend report failed for %s: %s", symbol, e)
         return None
+
+
+def _render_valuation_tab(symbol, name, market, price, fundamentals, normalized, quote):
+    """VALUATION tab — 估值决策中枢，核心差异化功能"""
+    import streamlit.components.v1 as components
+
+    currency_map = {"us": "$", "hk": "HK$", "a_share": "¥"}
+    currency = currency_map.get(market, "$")
+
+    dcf = calc_dcf(price, fundamentals, normalized)
+
+    # 1. 决策横幅
+    verdict_html = render_valuation_verdict(dcf, symbol, name, currency)
+    components.html(verdict_html, height=200, scrolling=False)
+
+    # 2. 价格定位轴
+    spectrum_html = render_price_spectrum(dcf, quote, currency)
+    if spectrum_html:
+        components.html(spectrum_html, height=200, scrolling=False)
+
+    # 3. 三情景估值卡
+    scenario_html = render_scenario_cards(dcf, currency)
+    if scenario_html:
+        components.html(scenario_html, height=260, scrolling=False)
+
+    # 4. 核心假设面板
+    assumptions_html = render_assumptions_panel(dcf)
+    if assumptions_html:
+        with st.expander("Core Assumptions & Data Quality", expanded=False):
+            components.html(assumptions_html, height=300, scrolling=False)
 
 
 def _render_valuation_reference(symbol, normalized, moat):
@@ -1274,7 +1310,7 @@ for tab, market_key, market_name in [
 
             def _scan_one(stock):
                 try:
-                    r, _, _, _, moat = run_analysis(stock.symbol, stock.name, market_key, config)
+                    r, _, _, _, moat, _ = run_analysis(stock.symbol, stock.name, market_key, config)
                     return {
                         "ok": True, "r": r, "moat": moat,
                         "Symbol": r.symbol, "Name": r.name,
@@ -1323,7 +1359,7 @@ with tab_overview:
             def _scan_stock(stock_market):
                 s, mkey = stock_market
                 try:
-                    r, _, _, _, moat = run_analysis(s.symbol, s.name, mkey, config)
+                    r, _, _, _, moat, _ = run_analysis(s.symbol, s.name, mkey, config)
                     return {"ok": True, "r": r, "moat": moat}
                 except Exception as e:
                     return {"ok": False, "symbol": s.symbol, "name": s.name,
