@@ -19,7 +19,8 @@ from src.ai.summarizer import analyze_stock, generate_market_overview, get_ai_br
 from src.ai.knowledge_base import BUFFETT_PHILOSOPHY, DUAN_YONGPING_PHILOSOPHY
 from src.analysis.valuation import calc_dcf
 from src.ui_valuation import (render_valuation_verdict, render_price_spectrum,
-                               render_scenario_cards, render_assumptions_panel)
+                               render_scenario_cards, render_assumptions_panel,
+                               render_insight_cards)
 from src.ui_theme import (get_global_css, render_hero_header, render_buffett_quote,
                           render_grade_badge, render_moat_bar, render_detail_item,
                           render_stock_header, render_moat_dimension,
@@ -473,7 +474,8 @@ def render_stock_analysis(symbol, name, market, config):
     ), unsafe_allow_html=True)
 
     # ===== 估值决策中枢（核心差异化 — 头部直接展示）=====
-    _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote)
+    _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote,
+                           tech_signal=result.tech_signal)
 
     # ===== Tabs =====
     tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai = st.tabs(
@@ -774,7 +776,8 @@ def _generate_trend_report(symbol, name, market, price, change, pct_5d, pct_20d,
         return None
 
 
-def _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote):
+def _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote,
+                           tech_signal=None):
     """估值决策中枢 — 直接在头部下方展示，用户第一眼看到"""
     import streamlit.components.v1 as components
 
@@ -792,7 +795,12 @@ def _render_valuation_hero(symbol, name, market, price, fundamentals, normalized
     if spectrum_html:
         components.html(spectrum_html, height=200, scrolling=False)
 
-    # 3. 三情景 + 假设 — 展开看细节
+    # 3. 智能洞察卡片 — 6 维度快速决策参考
+    insight_html = render_insight_cards(
+        price, fundamentals, normalized, tech_signal or {}, dcf, quote, currency)
+    components.html(insight_html, height=200, scrolling=False)
+
+    # 4. 三情景 + 假设 — 展开看细节
     if dcf and dcf.get("method") != "insufficient":
         with st.expander("Scenario Analysis & Assumptions", expanded=False):
             scenario_html = render_scenario_cards(dcf, currency)

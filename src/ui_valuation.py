@@ -529,6 +529,353 @@ body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:0}
 </body></html>'''.format(symbol=symbol, name=name, missing=missing)
 
 
+def render_insight_cards(price, fundamentals, normalized, tech_signal, dcf, quote, currency="$") -> str:
+    """智能洞察卡片组 — 6 张高价值卡片，2×3 网格布局
+
+    综合 DCF/技术面/基本面/分析师共识给出可执行的参考信号。
+    """
+    cards = []
+
+    # ── 1. 买入时机评分 ──────────────────────────────────────────────────
+    timing_score, timing_color, timing_label, timing_detail = _calc_timing(
+        price, dcf, tech_signal, normalized)
+    cards.append(_insight_card(
+        icon="&#x23F1;", title="Entry Timing",
+        value="{}/100".format(timing_score),
+        color=timing_color, label=timing_label,
+        detail=timing_detail,
+    ))
+
+    # ── 2. 持有回报预测 ──────────────────────────────────────────────────
+    eg = normalized.get("earnings_growth") if normalized else None
+    rg = normalized.get("revenue_growth") if normalized else None
+    growth = eg if eg is not None else rg
+    if growth is not None and price:
+        r1 = (1 + growth / 100) ** 1 - 1
+        r3 = (1 + growth / 100) ** 3 - 1
+        r5 = (1 + growth / 100) ** 5 - 1
+        # 加上安全边际回归（如果低估，额外获得估值修复收益）
+        sm = dcf.get("safety_margin_pct", 0) if dcf and dcf.get("method") != "insufficient" else 0
+        sm_boost = max(0, sm) / 5  # 安全边际越大，每年额外收益越多（上限）
+        r1_adj = r1 + sm_boost / 100
+        r3_adj = r3 + sm_boost * 3 / 100
+        r5_adj = r5 + sm_boost * 5 / 100
+        ret_color = "#00C853" if r3_adj > 0.3 else ("#C9A962" if r3_adj > 0 else "#F44336")
+        cards.append(_insight_card(
+            icon="&#x1F4C8;", title="Hold Return Est.",
+            value="{:+.0f}%".format(r3_adj * 100),
+            color=ret_color, label="3Y Projection",
+            detail="1Y {:+.0f}%&ensp;·&ensp;3Y {:+.0f}%&ensp;·&ensp;5Y {:+.0f}%".format(
+                r1_adj * 100, r3_adj * 100, r5_adj * 100),
+        ))
+    else:
+        cards.append(_insight_card(
+            icon="&#x1F4C8;", title="Hold Return Est.",
+            value="--", color="#3A3A4A", label="Insufficient Data",
+            detail="Growth rate unavailable",
+        ))
+
+    # ── 3. 风险雷达 ──────────────────────────────────────────────────────
+    risk_score, risk_color, risk_label, risk_detail = _calc_risk(normalized, tech_signal)
+    cards.append(_insight_card(
+        icon="&#x1F6E1;", title="Risk Level",
+        value=risk_label, color=risk_color, label="{}/100".format(risk_score),
+        detail=risk_detail,
+    ))
+
+    # ── 4. 股息收益 ──────────────────────────────────────────────────────
+    div_yield = fundamentals.get("dividend_yield") if fundamentals else None
+    div_rate = fundamentals.get("dividend_rate") if fundamentals else None
+    if div_yield and div_yield > 0:
+        annual_per_100k = 100000 * div_yield  # dividend_yield 已是 decimal
+        if annual_per_100k < 100:
+            # 可能 div_yield 已经是百分比了
+            annual_per_100k = 100000 * div_yield / 100
+        div_color = "#00C853" if div_yield > 0.03 else ("#C9A962" if div_yield > 0.01 else "#5A5A6A")
+        cards.append(_insight_card(
+            icon="&#x1F4B0;", title="Dividend Income",
+            value="{}{:,.0f}".format(currency, annual_per_100k),
+            color=div_color, label="Per {}100K / Year".format(currency),
+            detail="Yield {:.2f}%{}".format(
+                div_yield * 100 if div_yield < 1 else div_yield,
+                "&ensp;·&ensp;{}{:.2f}/share".format(currency, div_rate) if div_rate else ""),
+        ))
+    else:
+        cards.append(_insight_card(
+            icon="&#x1F4B0;", title="Dividend Income",
+            value="No Div", color="#3A3A4A", label="No Dividend",
+            detail="This stock does not pay dividends",
+        ))
+
+    # ── 5. 分析师目标价 ──────────────────────────────────────────────────
+    target = fundamentals.get("target_mean_price") if fundamentals else None
+    if target and target > 0 and price:
+        upside = (target - price) / price * 100
+        tgt_color = "#00C853" if upside > 15 else ("#C9A962" if upside > 0 else "#F44336")
+        cards.append(_insight_card(
+            icon="&#x1F3AF;", title="Analyst Target",
+            value=_fmt_price(target, currency),
+            color=tgt_color, label="{:+.1f}% Upside".format(upside),
+            detail="Consensus mean from analyst coverage",
+        ))
+    else:
+        cards.append(_insight_card(
+            icon="&#x1F3AF;", title="Analyst Target",
+            value="--", color="#3A3A4A", label="No Coverage",
+            detail="No analyst target data available",
+        ))
+
+    # ── 6. 巴菲特快检 ──────────────────────────────────────────────────
+    pass_count, total_count, checks_detail = _buffett_quick_check(normalized, dcf)
+    bq_color = "#00C853" if pass_count >= 4 else ("#C9A962" if pass_count >= 2 else "#F44336")
+    cards.append(_insight_card(
+        icon="&#x1F9D0;", title="Buffett Check",
+        value="{}/{}".format(pass_count, total_count),
+        color=bq_color, label="Criteria Passed",
+        detail=checks_detail,
+    ))
+
+    # ── 组装 HTML ────────────────────────────────────────────────────────
+    cards_html = "\n".join(cards)
+
+    return '''<!DOCTYPE html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:8px 0 0}}
+
+.insight-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}}
+
+.ins-card{{
+    background:#0D0D14;border:1px solid #1E1E2A;border-radius:4px;
+    padding:16px 18px;position:relative;overflow:hidden;
+    transition:border-color 0.2s;
+}}
+.ins-card:hover{{border-color:#C9A962}}
+.ins-card::after{{
+    content:'';position:absolute;top:0;left:0;width:100%;height:2px;
+    background:var(--accent);opacity:0.6;
+}}
+
+.ins-top{{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}}
+.ins-icon{{font-size:1rem;opacity:0.6}}
+.ins-title{{font-size:0.5rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase}}
+
+.ins-value{{
+    font-family:'Cormorant Garamond',Georgia,serif;
+    font-size:1.5rem;font-weight:700;line-height:1;
+    margin-bottom:4px;
+}}
+.ins-label{{font-size:0.6rem;font-weight:600;letter-spacing:1px;margin-bottom:8px}}
+.ins-detail{{font-size:0.55rem;color:#5A5A6A;line-height:1.5;letter-spacing:0.3px}}
+</style></head><body>
+<div class="insight-grid">
+{cards}
+</div>
+</body></html>'''.format(cards=cards_html)
+
+
+def _insight_card(icon, title, value, color, label, detail):
+    return '''<div class="ins-card" style="--accent:{color}">
+    <div class="ins-top">
+        <span class="ins-icon">{icon}</span>
+        <span class="ins-title">{title}</span>
+    </div>
+    <div class="ins-value" style="color:{color}">{value}</div>
+    <div class="ins-label" style="color:{color}">{label}</div>
+    <div class="ins-detail">{detail}</div>
+</div>'''.format(icon=icon, title=title, value=value, color=color, label=label, detail=detail)
+
+
+def _calc_timing(price, dcf, tech_signal, normalized):
+    """买入时机综合评分 (0-100)"""
+    score = 50  # 基准
+
+    # RSI 信号 (0-30 分)
+    rsi = tech_signal.get("rsi") if tech_signal else None
+    if rsi is not None:
+        if rsi < 30:
+            score += 25
+        elif rsi < 40:
+            score += 15
+        elif rsi < 50:
+            score += 5
+        elif rsi > 70:
+            score -= 20
+        elif rsi > 60:
+            score -= 10
+
+    # 趋势信号 (0-15 分)
+    trend = tech_signal.get("trend", "") if tech_signal else ""
+    if trend == "bullish":
+        score += 10
+    elif trend == "bearish":
+        score -= 10
+
+    # 估值信号 (0-30 分)
+    sm = dcf.get("safety_margin_pct", 0) if dcf and dcf.get("method") != "insufficient" else 0
+    if sm >= 30:
+        score += 25
+    elif sm >= 15:
+        score += 15
+    elif sm >= 0:
+        score += 5
+    elif sm < -15:
+        score -= 15
+
+    # MACD 信号
+    momentum = tech_signal.get("momentum", "") if tech_signal else ""
+    if momentum == "oversold":
+        score += 10
+    elif momentum == "overbought":
+        score -= 10
+
+    score = max(0, min(100, score))
+
+    if score >= 75:
+        color, label = "#00C853", "Strong Buy Signal"
+    elif score >= 60:
+        color, label = "#69F0AE", "Favorable"
+    elif score >= 40:
+        color, label = "#C9A962", "Neutral"
+    elif score >= 25:
+        color, label = "#FF9800", "Unfavorable"
+    else:
+        color, label = "#F44336", "Avoid Now"
+
+    parts = []
+    if rsi is not None:
+        parts.append("RSI {:.0f}".format(rsi))
+    if trend:
+        parts.append(trend.title())
+    if sm:
+        parts.append("SM {:+.0f}%".format(sm))
+    detail = "&ensp;·&ensp;".join(parts) if parts else "Insufficient signals"
+
+    return score, color, label, detail
+
+
+def _calc_risk(normalized, tech_signal):
+    """风险综合评分 (0-100，越高越危险)"""
+    score = 30  # 基准
+
+    # 负债风险
+    dte = normalized.get("debt_to_equity") if normalized else None
+    if dte is not None:
+        if dte > 2.0:
+            score += 20
+        elif dte > 1.0:
+            score += 10
+        elif dte < 0.3:
+            score -= 10
+
+    # 流动性风险
+    cr = normalized.get("current_ratio") if normalized else None
+    if cr is not None:
+        if cr < 1.0:
+            score += 15
+        elif cr < 1.5:
+            score += 5
+        elif cr > 2.0:
+            score -= 5
+
+    # 现金流风险
+    fcf = normalized.get("free_cashflow") if normalized else None
+    if fcf is not None:
+        if fcf < 0:
+            score += 15
+        else:
+            score -= 5
+
+    # 估值风险
+    pe = normalized.get("pe_trailing") if normalized else None
+    if pe is not None:
+        if pe > 50:
+            score += 15
+        elif pe > 35:
+            score += 8
+        elif pe < 15:
+            score -= 5
+
+    # 波动性风险 (RSI 极端)
+    rsi = tech_signal.get("rsi") if tech_signal else None
+    if rsi is not None:
+        if rsi > 80 or rsi < 20:
+            score += 10
+
+    score = max(0, min(100, score))
+
+    if score >= 70:
+        color, label = "#F44336", "High"
+    elif score >= 50:
+        color, label = "#FF9800", "Moderate"
+    elif score >= 30:
+        color, label = "#C9A962", "Low"
+    else:
+        color, label = "#00C853", "Very Low"
+
+    parts = []
+    if dte is not None:
+        parts.append("D/E {:.1f}".format(dte))
+    if cr is not None:
+        parts.append("CR {:.1f}".format(cr))
+    if pe is not None:
+        parts.append("PE {:.0f}".format(pe))
+    detail = "&ensp;·&ensp;".join(parts) if parts else "Insufficient data"
+
+    return score, color, label, detail
+
+
+def _buffett_quick_check(normalized, dcf):
+    """巴菲特核心标准快检"""
+    passed = 0
+    total = 5
+    icons = []
+
+    # 1. ROE > 15%
+    roe = normalized.get("roe") if normalized else None
+    if roe is not None and roe >= 15:
+        passed += 1
+        icons.append('<span style="color:#00C853">&#x2713;</span> ROE')
+    else:
+        icons.append('<span style="color:#F44336">&#x2717;</span> ROE')
+
+    # 2. 毛利率 > 30%
+    gm = normalized.get("gross_margin") if normalized else None
+    if gm is not None and gm >= 30:
+        passed += 1
+        icons.append('<span style="color:#00C853">&#x2713;</span> Margin')
+    else:
+        icons.append('<span style="color:#F44336">&#x2717;</span> Margin')
+
+    # 3. D/E < 1.0
+    dte = normalized.get("debt_to_equity") if normalized else None
+    if dte is not None and dte < 1.0:
+        passed += 1
+        icons.append('<span style="color:#00C853">&#x2713;</span> Debt')
+    else:
+        icons.append('<span style="color:#F44336">&#x2717;</span> Debt')
+
+    # 4. FCF 为正
+    fcf = normalized.get("free_cashflow") if normalized else None
+    if fcf is not None and fcf > 0:
+        passed += 1
+        icons.append('<span style="color:#00C853">&#x2713;</span> FCF')
+    else:
+        icons.append('<span style="color:#F44336">&#x2717;</span> FCF')
+
+    # 5. 安全边际 > 0
+    sm = dcf.get("safety_margin_pct", 0) if dcf and dcf.get("method") != "insufficient" else None
+    if sm is not None and sm > 0:
+        passed += 1
+        icons.append('<span style="color:#00C853">&#x2713;</span> Value')
+    else:
+        icons.append('<span style="color:#F44336">&#x2717;</span> Value')
+
+    detail = "&ensp;".join(icons)
+    return passed, total, detail
+
+
 def _hex_to_rgb(hex_color: str) -> str:
     h = hex_color.lstrip("#")
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
