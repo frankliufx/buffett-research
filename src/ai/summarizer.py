@@ -73,6 +73,67 @@ def _fmt(val, pct=False) -> str:
     return str(val)
 
 
+# 关键字段分级（用于数据完整性检查）
+_CRITICAL_FIELDS = ["roe", "profit_margin", "debt_to_equity", "free_cashflow"]
+_IMPORTANT_FIELDS = ["gross_margin", "current_ratio", "revenue_growth", "earnings_growth", "pb", "pe_trailing"]
+
+_FIELD_LABELS = {
+    "roe": "ROE",
+    "profit_margin": "净利率",
+    "debt_to_equity": "负债权益比",
+    "free_cashflow": "自由现金流",
+    "gross_margin": "毛利率",
+    "current_ratio": "流动比率",
+    "revenue_growth": "营收增速",
+    "earnings_growth": "利润增速",
+    "pb": "PB",
+    "pe_trailing": "PE",
+}
+
+
+def _check_data_quality(fundamentals: dict) -> dict:
+    """检查关键财务字段完整性，生成数据质量报告。
+
+    Returns dict with:
+      - completeness_pct: 0-100
+      - missing_critical: list of missing critical field labels
+      - missing_important: list of missing important field labels
+      - warning_block: 注入 prompt 的警告段落（空字符串 = 数据完整）
+    """
+    missing_critical = [
+        _FIELD_LABELS[f] for f in _CRITICAL_FIELDS
+        if fundamentals.get(f) is None
+    ]
+    missing_important = [
+        _FIELD_LABELS[f] for f in _IMPORTANT_FIELDS
+        if fundamentals.get(f) is None
+    ]
+
+    total = len(_CRITICAL_FIELDS) + len(_IMPORTANT_FIELDS)
+    missing_total = len(missing_critical) + len(missing_important)
+    completeness_pct = round((total - missing_total) / total * 100)
+
+    if not missing_critical and not missing_important:
+        warning_block = ""
+    else:
+        parts = []
+        if missing_critical:
+            parts.append("⚠️ 关键数据缺失（{}）：{}".format(
+                len(missing_critical), "、".join(missing_critical)))
+        if missing_important:
+            parts.append("⚠️ 重要数据缺失（{}）：{}".format(
+                len(missing_important), "、".join(missing_important)))
+        parts.append("数据完整度：{}%".format(completeness_pct))
+        warning_block = "\n".join(parts)
+
+    return {
+        "completeness_pct": completeness_pct,
+        "missing_critical": missing_critical,
+        "missing_important": missing_important,
+        "warning_block": warning_block,
+    }
+
+
 def get_ai_brief(result, moat: dict, provider: Optional[ApiProvider] = None) -> Optional[dict]:
     """自动加载的结构化 AI 投资简报（JSON 格式）
 
@@ -95,6 +156,8 @@ def get_ai_brief(result, moat: dict, provider: Optional[ApiProvider] = None) -> 
     g_s, g_m = sc("成长确定性")
     op_s, op_m = sc("市场先生机会")
 
+    dq = _check_data_quality(fund)
+
     prompt = DIMENSION_BRIEF_PROMPT.format(
         symbol=result.symbol,
         name=result.name,
@@ -116,6 +179,7 @@ def get_ai_brief(result, moat: dict, provider: Optional[ApiProvider] = None) -> 
         fortress_score=f_s, fortress_max=f_m,
         growth_score=g_s, growth_max=g_m,
         opportunity_score=op_s, opportunity_max=op_m,
+        data_quality_warning=dq["warning_block"],
     )
 
     try:
@@ -153,6 +217,8 @@ def analyze_stock(result, provider: Optional[ApiProvider] = None,
     g_s, g_m = sc("成长确定性")
     op_s, op_m = sc("市场先生机会")
 
+    dq = _check_data_quality(fundamentals)
+
     prompt = BUFFETT_ANALYSIS_PROMPT.format(
         symbol=result.symbol,
         name=result.name,
@@ -186,6 +252,8 @@ def analyze_stock(result, provider: Optional[ApiProvider] = None,
         earnings_growth=_fmt(fundamentals.get("earnings_growth"), pct=True),
         dividend_yield=_fmt(fundamentals.get("dividend_yield"), pct=True),
         free_cashflow=_fmt(fundamentals.get("free_cashflow")),
+        data_quality_warning_section=("\n" + dq["warning_block"]) if dq["warning_block"] else "",
+        data_completeness=dq["completeness_pct"],
     )
 
     try:

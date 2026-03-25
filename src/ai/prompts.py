@@ -20,6 +20,11 @@ PE: {pe} | PB: {pb} | ROE: {roe}
 - 财务堡垒: {fortress_score}/{fortress_max}分
 - 成长确定性: {growth_score}/{growth_max}分
 - 市场先生机会: {opportunity_score}/{opportunity_max}分
+{data_quality_warning}
+## 数据完整性约束（必须遵守）
+- 标注为 N/A 的字段表示数据不可用，禁止对该字段做任何推断或编造数值
+- 如有关键字段缺失，confidence 必须降级为"低"，并在 reason 中注明"部分数据缺失"
+- 只基于有效数据给出判断，不足以判断时如实说明
 
 请严格按此JSON格式输出，不输出其他任何内容：
 {{
@@ -84,8 +89,15 @@ PE: {pe} | PB: {pb} | ROE: {roe} | 净利率: {profit_margin} | 毛利率: {gros
 负债权益比: {debt_to_equity} | 流动比率: {current_ratio}
 营收增长: {revenue_growth} | 利润增长: {earnings_growth}
 股息率: {dividend_yield} | 自由现金流: {free_cashflow}
+数据完整度: {data_completeness}%{data_quality_warning_section}
 
 ---
+## 数据完整性约束（必须遵守）
+- 标注为 N/A 的字段表示数据不可用，禁止对该字段做任何推断、估算或编造
+- 分析中遇到 N/A 字段，直接写"该数据暂不可用"，不得给出任何数字或结论
+- 数据完整度低于 60% 时，投资结论的置信度必须标注为"低"
+- 只基于有效数据进行分析，这是对用户负责的底线
+
 请按以下格式输出完整的深度研报：
 
 ## 投资结论
