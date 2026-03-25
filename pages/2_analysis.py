@@ -1374,11 +1374,6 @@ with tab_overview:
                         unsafe_allow_html=True)
     else:
         st.info("Analyze individual stocks or click **Scan All Markets** to build the ranking.")
-    else:
-        st.markdown(render_empty_state("--",
-            "No data yet",
-            "Analyze stocks in the market tabs first"),
-            unsafe_allow_html=True)
 
 st.markdown('<div class="disclaimer">DISCLAIMER: FOR RESEARCH PURPOSES ONLY. NOT INVESTMENT ADVICE.</div>',
             unsafe_allow_html=True)
