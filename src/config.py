@@ -12,6 +12,55 @@ class StockItem(BaseModel):
     name: str
 
 
+def _default_us():
+    return [
+        StockItem(symbol="BRK-B",  name="Berkshire Hathaway"),
+        StockItem(symbol="AAPL",   name="Apple"),
+        StockItem(symbol="KO",     name="Coca-Cola"),
+        StockItem(symbol="BAC",    name="Bank of America"),
+        StockItem(symbol="OXY",    name="Occidental Petroleum"),
+        StockItem(symbol="CVX",    name="Chevron"),
+        StockItem(symbol="AXP",    name="American Express"),
+        StockItem(symbol="MCO",    name="Moody's"),
+        StockItem(symbol="V",      name="Visa"),
+        StockItem(symbol="MSFT",   name="Microsoft"),
+        StockItem(symbol="GOOGL",  name="Alphabet"),
+        StockItem(symbol="JNJ",    name="Johnson & Johnson"),
+        StockItem(symbol="JPM",    name="JPMorgan Chase"),
+    ]
+
+
+def _default_hk():
+    return [
+        StockItem(symbol="0700.HK", name="Tencent Holdings"),
+        StockItem(symbol="0005.HK", name="HSBC Holdings"),
+        StockItem(symbol="1299.HK", name="AIA Group"),
+        StockItem(symbol="0941.HK", name="China Mobile"),
+        StockItem(symbol="1211.HK", name="BYD Company"),
+        StockItem(symbol="9988.HK", name="Alibaba Group"),
+        StockItem(symbol="0388.HK", name="HK Exchanges"),
+        StockItem(symbol="2318.HK", name="Ping An Insurance"),
+        StockItem(symbol="0883.HK", name="CNOOC"),
+    ]
+
+
+def _default_a():
+    return [
+        StockItem(symbol="sh600519", name="贵州茅台"),
+        StockItem(symbol="sh601318", name="中国平安"),
+        StockItem(symbol="sz000858", name="五粮液"),
+        StockItem(symbol="sh600036", name="招商银行"),
+        StockItem(symbol="sh601888", name="中国中免"),
+        StockItem(symbol="sh600900", name="长江电力"),
+        StockItem(symbol="sz002594", name="比亚迪"),
+        StockItem(symbol="sh688599", name="天合光能"),
+        StockItem(symbol="sh601166", name="兴业银行"),
+        StockItem(symbol="sz000568", name="泸州老窖"),
+        StockItem(symbol="sh600030", name="中信证券"),
+        StockItem(symbol="sh601012", name="隆基绿能"),
+    ]
+
+
 class Watchlist(BaseModel):
     us: List[StockItem] = []
     hk: List[StockItem] = []
@@ -189,8 +238,22 @@ def load_config(path: Optional[Path] = None) -> AppConfig:
             data.pop("ai", None)
         data.pop("schedule", None)
         _config = AppConfig(**data)
+        # 若 config.yaml 中 watchlist 为空，填入默认股票列表
+        wl = _config.watchlist
+        if not wl.us:
+            wl.us = _default_us()
+        if not wl.hk:
+            wl.hk = _default_hk()
+        if not wl.a_share:
+            wl.a_share = _default_a()
     else:
-        _config = AppConfig()
+        _config = AppConfig(
+            watchlist=Watchlist(
+                us=_default_us(),
+                hk=_default_hk(),
+                a_share=_default_a(),
+            )
+        )
 
     # 环境变量 / secrets 注入
     _resolve_api_keys(_config)
