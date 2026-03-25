@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
 
-from src.config import get_active_provider, StockItem
+from src.config import get_active_provider, get_premium_provider, StockItem
 from src.data.price import fetch_history, fetch_quote
 from src.data.financial import fetch_fundamentals
 from src.data.news import fetch_stock_news, fetch_earnings_calendar, fetch_market_news
@@ -474,9 +474,9 @@ def render_stock_analysis(symbol, name, market, config):
     ), unsafe_allow_html=True)
 
     # ===== 估值决策中枢（核心差异化 — 头部直接展示）=====
-    provider = get_active_provider(config)
+    premium_provider = get_premium_provider(config)
     _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote,
-                           tech_signal=result.tech_signal, provider=provider)
+                           tech_signal=result.tech_signal, provider=premium_provider)
 
     # ===== Tabs =====
     tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai = st.tabs(

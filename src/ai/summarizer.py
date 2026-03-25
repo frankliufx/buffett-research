@@ -234,8 +234,12 @@ def get_ai_insights(symbol: str, name: str, price: float,
     )
 
     try:
-        text = _call_llm(provider, [{"role": "user", "content": prompt}], max_tokens=500)
+        text = _call_llm(provider, [{"role": "user", "content": prompt}], max_tokens=1500)
         text = text.strip()
+        # DeepSeek R1 返回 <think>...</think> 推理过程后跟 JSON，需要剥离
+        think_match = re.search(r'</think>\s*(.*)', text, re.DOTALL)
+        if think_match:
+            text = think_match.group(1).strip()
         text = re.sub(r'^```\w*\n?', '', text)
         text = re.sub(r'\n?```$', '', text).strip()
         return json.loads(text)

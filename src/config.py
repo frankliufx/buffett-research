@@ -77,6 +77,8 @@ class ApiProvider(BaseModel):
 
 
 class ApiConfig(BaseModel):
+    # 高级推理模型（用于 AI 洞察卡片等需要深度分析的场景）
+    premium_model: str = "deepseek/deepseek-r1"
     providers: List[ApiProvider] = [
         ApiProvider(
             name="OpenRouter (默认)",
@@ -275,6 +277,27 @@ def get_active_provider(config: AppConfig) -> Optional[ApiProvider]:
         if p.is_active and p.api_key:
             return p
     return None
+
+
+def get_premium_provider(config: AppConfig) -> Optional[ApiProvider]:
+    """获取高级推理模型 provider（用于 AI 洞察等深度分析）
+
+    复用当前激活 provider 的 API key 和 base_url，替换为 premium_model。
+    """
+    base = get_active_provider(config)
+    if not base:
+        return None
+    premium_model = config.api.premium_model
+    if not premium_model:
+        return base
+    return ApiProvider(
+        name="Premium Analysis",
+        provider=base.provider,
+        api_key=base.api_key,
+        base_url=base.base_url,
+        model=premium_model,
+        is_active=True,
+    )
 
 
 def get_config() -> AppConfig:
