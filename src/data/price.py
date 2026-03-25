@@ -1,4 +1,4 @@
-"""股价数据获取 — 支持美股、港股、A股（使用腾讯财经 API）"""
+"""股价数据获取 — 支持美股（yfinance）、港股、A股（腾讯财经 API）"""
 
 import json
 import logging
@@ -241,12 +241,98 @@ def _fetch_with_retry(url: str, **kwargs) -> requests.Response:
     raise last_err
 
 
+def _fetch_yfinance_quote(symbol: str) -> dict:
+    """使用 yfinance 获取美股实时报价"""
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        info = ticker.info or {}
+
+        price = _safe_float(info.get("currentPrice") or info.get("regularMarketPrice"))
+        prev_close = _safe_float(info.get("previousClose") or info.get("regularMarketPreviousClose"))
+        open_ = _safe_float(info.get("open") or info.get("regularMarketOpen"))
+        high = _safe_float(info.get("dayHigh") or info.get("regularMarketDayHigh"))
+        low = _safe_float(info.get("dayLow") or info.get("regularMarketDayLow"))
+        volume = _safe_float(info.get("volume") or info.get("regularMarketVolume"))
+        market_cap = _safe_float(info.get("marketCap"))
+        pe = _safe_float(info.get("trailingPE"))
+        pb = _safe_float(info.get("priceToBook"))
+        div_yield = _safe_float(info.get("dividendYield"))
+        if div_yield:
+            div_yield = round(div_yield * 100, 4)  # decimal -> percentage display
+        w52_high = _safe_float(info.get("fiftyTwoWeekHigh"))
+        w52_low = _safe_float(info.get("fiftyTwoWeekLow"))
+
+        change_pct = 0.0
+        if price and prev_close and prev_close > 0:
+            change_pct = round((price - prev_close) / prev_close * 100, 2)
+
+        return {
+            "price": price,
+            "prev_close": prev_close,
+            "open": open_,
+            "high": high,
+            "low": low,
+            "volume": volume,
+            "market_cap": market_cap,
+            "pe": pe,
+            "pb": pb,
+            "dividend_yield": div_yield,
+            "52w_high": w52_high,
+            "52w_low": w52_low,
+            "change_pct": change_pct,
+        }
+    except Exception as e:
+        logger.error("yfinance quote failed for %s: %s", symbol, e)
+        return {}
+
+
+def _fetch_yfinance_history(symbol: str, days: int = 250) -> pd.DataFrame:
+    """使用 yfinance 获取美股历史 K 线数据"""
+    try:
+        import yfinance as yf
+        # Use period or start date depending on days requested
+        if days <= 365:
+            period = "1y"
+        elif days <= 730:
+            period = "2y"
+        else:
+            period = "5y"
+
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period=period, auto_adjust=True)
+        if df is None or df.empty:
+            return pd.DataFrame()
+
+        df.index = pd.to_datetime(df.index)
+        df.index.name = "Date"
+        # Ensure standard column names
+        df = df.rename(columns={
+            "Open": "Open", "High": "High", "Low": "Low",
+            "Close": "Close", "Volume": "Volume",
+        })
+        df = df[["Open", "High", "Low", "Close", "Volume"]]
+        df = df.sort_index()
+        df = df[~df.index.duplicated(keep="last")]
+        # Trim to requested days
+        if len(df) > days:
+            df = df.iloc[-days:]
+        return df
+    except Exception as e:
+        logger.error("yfinance history failed for %s: %s", symbol, e)
+        return pd.DataFrame()
+
+
 def fetch_quote(symbol: str, market: str) -> dict:
     """统一入口：获取实时报价
 
+    美股使用 yfinance，港股/A股使用腾讯财经 API。
     Returns dict with: price, prev_close, open, high, low, volume,
                        market_cap, pe, pb, dividend_yield, 52w_high, 52w_low, change_pct
     """
+    if market == "us":
+        return _fetch_yfinance_quote(symbol)
+
     try:
         tencent_sym = _to_tencent_symbol(symbol, market)
         url = f"https://qt.gtimg.cn/q={tencent_sym}"
@@ -289,9 +375,39 @@ def fetch_quote(symbol: str, market: str) -> dict:
 def fetch_history(symbol: str, market: str, days: int = 250) -> pd.DataFrame:
     """统一入口：获取历史 K 线数据（带本地文件缓存）
 
+    美股使用 yfinance，港股/A股使用腾讯财经 API。
     Returns pd.DataFrame with columns: Open, High, Low, Close, Volume
     Index: DatetimeIndex named 'Date'
     """
+    if market == "us":
+        # 本地缓存
+        safe_sym = symbol.replace("/", "_").replace(".", "_")
+        cache_path = _CACHE_DIR / "kline_{}_{}.json".format(market, safe_sym)
+        try:
+            if cache_path.exists():
+                cached = json.loads(cache_path.read_text())
+                if time.time() - cached.get("_ts", 0) < _KLINE_CACHE_TTL:
+                    records = cached.get("records", [])
+                    if records:
+                        df = pd.DataFrame(records)
+                        df["Date"] = pd.to_datetime(df["Date"])
+                        df = df.set_index("Date").sort_index()
+                        return df
+        except Exception:
+            pass
+
+        df = _fetch_yfinance_history(symbol, days)
+        if not df.empty:
+            try:
+                _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                cache_records = df.reset_index().to_dict("records")
+                for r in cache_records:
+                    r["Date"] = str(r["Date"])
+                cache_path.write_text(json.dumps({"_ts": time.time(), "records": cache_records}))
+            except Exception:
+                pass
+        return df
+
     # 本地缓存
     safe_sym = symbol.replace("/", "_").replace(".", "_")
     cache_path = _CACHE_DIR / "kline_{}_{}.json".format(market, safe_sym)

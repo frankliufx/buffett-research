@@ -199,6 +199,101 @@ def _fetch_roe_history(stock_id: str, years: list = None) -> list:
     return [results[y] for y in sorted(results.keys(), reverse=True)]
 
 
+# ── yfinance 美股基本面数据 ─────────────────────────────────────────────
+
+def _fetch_yfinance_fundamentals(symbol: str) -> dict:
+    """使用 yfinance 获取美股基本面数据
+
+    数据格式与 fetch_fundamentals 的 contract 保持一致:
+    - roe, profit_margin, gross_margin: decimal (0.15 = 15%)
+    - debt_to_equity: yfinance 原始格式 (D/E * 100, e.g. 102.63)
+    - roe_history: percentage 列表 (e.g. [15.2, 16.3])
+    - free_cashflow: 绝对值（正数 = 好）
+    """
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        info = ticker.info or {}
+
+        result = {
+            "symbol": symbol,
+            "name": info.get("longName") or info.get("shortName") or symbol,
+            "sector": info.get("sector", ""),
+            "industry": info.get("industry", ""),
+            "data_source": "yfinance",
+            # Valuation
+            "pe_trailing": _safe_float(info.get("trailingPE")),
+            "pe_forward": _safe_float(info.get("forwardPE")),
+            "pb": _safe_float(info.get("priceToBook")),
+            "ps": _safe_float(info.get("priceToSalesTrailing12Months")),
+            "ev_ebitda": _safe_float(info.get("enterpriseToEbitda")),
+            # Profitability (decimals: 0.15 = 15%)
+            "roe": _safe_float(info.get("returnOnEquity")),
+            "roa": _safe_float(info.get("returnOnAssets")),
+            "profit_margin": _safe_float(info.get("profitMargins")),
+            "operating_margin": _safe_float(info.get("operatingMargins")),
+            "gross_margin": _safe_float(info.get("grossMargins")),
+            # Growth (decimals)
+            "revenue_growth": _safe_float(info.get("revenueGrowth")),
+            "earnings_growth": _safe_float(info.get("earningsGrowth")),
+            # Financial health
+            "debt_to_equity": _safe_float(info.get("debtToEquity")),  # already D/E*100
+            "current_ratio": _safe_float(info.get("currentRatio")),
+            "quick_ratio": _safe_float(info.get("quickRatio")),
+            # Dividend
+            "dividend_yield": _safe_float(info.get("dividendYield")),
+            "payout_ratio": _safe_float(info.get("payoutRatio")),
+            "dividend_rate": _safe_float(info.get("dividendRate")),
+            # Cash flow
+            "free_cashflow": _safe_float(info.get("freeCashflow")),
+            "operating_cashflow": _safe_float(info.get("operatingCashflow")),
+            # Scale
+            "market_cap": _safe_float(info.get("marketCap")),
+            "enterprise_value": _safe_float(info.get("enterpriseValue")),
+            "total_revenue": _safe_float(info.get("totalRevenue")),
+            # Price range
+            "52w_high": _safe_float(info.get("fiftyTwoWeekHigh")),
+            "52w_low": _safe_float(info.get("fiftyTwoWeekLow")),
+            # Analyst targets
+            "target_mean_price": _safe_float(info.get("targetMeanPrice")),
+            # History
+            "roe_history": [],
+            "revenue_history": [],
+        }
+
+        # Build ROE history from financials (annual)
+        try:
+            financials = ticker.financials  # income statement, columns = dates
+            balance = ticker.balance_sheet
+            if financials is not None and not financials.empty and \
+               balance is not None and not balance.empty:
+                roe_list = []
+                for col in financials.columns[:5]:  # up to 5 years
+                    try:
+                        net_income = financials.loc["Net Income", col] if "Net Income" in financials.index else None
+                        equity_row = None
+                        for eq_key in ("Stockholders Equity", "Total Stockholders Equity",
+                                       "Common Stock Equity"):
+                            if eq_key in balance.index:
+                                equity_row = balance.loc[eq_key, col]
+                                break
+                        if net_income and equity_row and equity_row > 0:
+                            roe_val = round(float(net_income) / float(equity_row) * 100, 2)
+                            roe_list.append(roe_val)
+                    except Exception:
+                        continue
+                if roe_list:
+                    result["roe_history"] = roe_list
+        except Exception as e:
+            logger.debug("yfinance ROE history failed for %s: %s", symbol, e)
+
+        return result
+
+    except Exception as e:
+        logger.warning("yfinance fundamentals failed for %s: %s", symbol, e)
+        return {}
+
+
 # ── 东方财富美股/港股基本面数据 ────────────────────────────────────────
 
 _EASTMONEY_HEADERS = {
@@ -432,7 +527,16 @@ def fetch_fundamentals(symbol: str, market: str) -> dict:
         return cached
 
     try:
-        # Get basic quote data from Tencent (works for all markets)
+        # ── 美股: 直接使用 yfinance（数据更全、更准确）──────────────────
+        if market == "us":
+            result = _fetch_yfinance_fundamentals(symbol)
+            if result:
+                _write_cache(cache_path, result)
+                return result
+            # yfinance 失败时降级到 Tencent+EastMoney
+            logger.warning("yfinance failed for %s, falling back to eastmoney", symbol)
+
+        # Get basic quote data from Tencent (works for HK/A-share)
         quote_data = _fetch_tencent_quote_data(symbol, market)
 
         result = {
@@ -443,17 +547,17 @@ def fetch_fundamentals(symbol: str, market: str) -> dict:
             "data_source": "tencent+sina" if market == "a_share" else "tencent",
             # Valuation from Tencent quote
             "pe_trailing": _safe_float(quote_data.get("pe")),
-            "pe_forward": None,  # Not available
+            "pe_forward": None,
             "pb": _safe_float(quote_data.get("pb")),
-            "ps": None,  # Not available
-            "ev_ebitda": None,  # Not available
-            # Defaults for profitability (will be overridden for A-share)
+            "ps": None,
+            "ev_ebitda": None,
+            # Defaults for profitability (will be overridden below)
             "roe": None,
             "roa": None,
             "profit_margin": None,
             "operating_margin": None,
             "gross_margin": None,
-            # Growth - not directly available
+            # Growth
             "revenue_growth": None,
             "earnings_growth": None,
             # Financial health defaults
@@ -476,72 +580,61 @@ def fetch_fundamentals(symbol: str, market: str) -> dict:
             "revenue_history": [],
         }
 
-        # For US/HK: enrich with Eastmoney financial data
+        # For US (fallback) / HK: enrich with Eastmoney financial data
         if market in ("us", "hk"):
             em_data = _fetch_eastmoney_fundamentals(symbol, market)
             if em_data:
                 result["data_source"] = "tencent+eastmoney"
 
-                # ROE: already percentage (51.99 = 51.99%), convert to decimal for normalize
                 roe = _safe_float(em_data.get("ROE_AVG"))
                 if roe is not None:
-                    result["roe"] = roe / 100.0  # 51.99 -> 0.5199
+                    result["roe"] = roe / 100.0
 
-                # Gross margin
                 gm = _safe_float(em_data.get("GROSS_PROFIT_RATIO"))
                 if gm is not None:
                     result["gross_margin"] = gm / 100.0
 
-                # Net profit margin
                 nm = _safe_float(em_data.get("NET_PROFIT_RATIO"))
                 if nm is not None:
                     result["profit_margin"] = nm / 100.0
 
-                # Debt to equity: compute from DEBT_ASSET_RATIO (资产负债率 %)
                 dar = _safe_float(em_data.get("DEBT_ASSET_RATIO"))
                 if dar is not None and 0 < dar < 100:
                     debt_ratio = dar / 100.0
                     de_ratio = debt_ratio / (1.0 - debt_ratio)
-                    result["debt_to_equity"] = de_ratio * 100  # yfinance format
+                    result["debt_to_equity"] = de_ratio * 100
 
-                # Current ratio
                 cr = _safe_float(em_data.get("CURRENT_RATIO"))
                 if cr is not None:
                     result["current_ratio"] = cr
 
-                # Quick ratio (US only)
                 qr = _safe_float(em_data.get("SPEED_RATIO"))
                 if qr is not None:
                     result["quick_ratio"] = qr
 
-                # Revenue growth (YoY %)
                 rg = _safe_float(em_data.get("OPERATE_INCOME_YOY"))
                 if rg is not None:
-                    result["revenue_growth"] = rg / 100.0  # percentage -> decimal
+                    result["revenue_growth"] = rg / 100.0
 
-                # Earnings growth (YoY %)
                 eg_key = "PARENT_HOLDER_NETPROFIT_YOY" if market == "us" else "HOLDER_PROFIT_YOY"
                 eg = _safe_float(em_data.get(eg_key))
                 if eg is not None:
                     result["earnings_growth"] = eg / 100.0
 
-                # Cash flow (US + HK: NETCASH_OPERATE; US also has FREE_CASH_FLOW)
                 ocf = _safe_float(em_data.get("NETCASH_OPERATE"))
                 if ocf is not None and ocf != 0:
                     result["operating_cashflow"] = ocf
-                    result["free_cashflow"] = ocf  # use OCF as FCF proxy unless overridden
+                    result["free_cashflow"] = ocf
 
                 if market == "us":
                     fcf = _safe_float(em_data.get("FREE_CASH_FLOW"))
                     if fcf is not None and fcf != 0:
                         result["free_cashflow"] = fcf
 
-                # Revenue
                 rev = _safe_float(em_data.get("OPERATE_INCOME"))
                 if rev is not None:
                     result["total_revenue"] = rev
 
-            # ROE history from eastmoney
             roe_history = _fetch_eastmoney_roe_history(symbol, market)
             if roe_history:
                 result["roe_history"] = roe_history
