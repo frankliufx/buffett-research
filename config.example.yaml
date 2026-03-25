@@ -1,0 +1,76 @@
+# 巴菲特智能投研系统配置
+# 复制此文件为 config.yaml 并填入你的配置
+# API Key 也可通过环境变量设置: OPENROUTER_API_KEY / ANTHROPIC_API_KEY / DEEPSEEK_API_KEY
+
+api:
+  providers:
+    - name: "OpenRouter (默认)"
+      provider: openai_compatible
+      api_key: ""    # 或设置环境变量 OPENROUTER_API_KEY
+      base_url: "https://openrouter.ai/api/v1"
+      model: "deepseek/deepseek-chat"
+      is_active: true
+    - name: "Claude Haiku (低成本)"
+      provider: anthropic
+      api_key: ""    # 或设置环境变量 ANTHROPIC_API_KEY
+      model: "claude-haiku-4-5-20251001"
+      is_active: false
+    - name: "DeepSeek"
+      provider: openai_compatible
+      api_key: ""    # 或设置环境变量 DEEPSEEK_API_KEY
+      base_url: "https://api.deepseek.com"
+      model: "deepseek-chat"
+      is_active: false
+
+watchlist:
+  us:
+    - symbol: BRK-B
+      name: 伯克希尔哈撒韦B
+    - symbol: AAPL
+      name: 苹果
+    - symbol: MSFT
+      name: 微软
+  hk:
+    - symbol: "0700.HK"
+      name: 腾讯控股
+    - symbol: "9988.HK"
+      name: 阿里巴巴
+  a_share:
+    - symbol: sh600519
+      name: 贵州茅台
+    - symbol: sz000858
+      name: 五粮液
+
+buffett_strategy:
+  min_roe: 15
+  roe_consistency_years: 5
+  max_debt_to_equity: 0.5
+  min_current_ratio: 1.5
+  min_interest_coverage: 5
+  margin_of_safety: 0.25
+  max_pe: 25
+  max_pb: 3
+  min_revenue_growth: 5
+  min_earnings_growth: 8
+  min_dividend_years: 5
+  min_payout_ratio: 0.2
+
+technical:
+  sma_periods: [20, 50, 200]
+  rsi_period: 14
+  lookback_days: 250
+
+notify:
+  enabled: false
+  method: email
+  smtp_server: smtp.qq.com
+  smtp_port: 465
+  smtp_user: ""
+  smtp_password: ""
+  email_to: ""
+  webhook_url: ""
+  schedule_time: "08:00"
+  schedule_days: mon-fri
+  push_daily_summary: true
+  push_grade_change: true
+  push_alert_threshold: 80

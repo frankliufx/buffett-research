@@ -1,0 +1,110 @@
+"""定时推送调度器"""
+
+import logging
+import time
+from datetime import datetime
+
+import schedule
+
+from src.config import load_config, get_active_provider
+from src.data.price import fetch_history, fetch_quote
+from src.data.financial import fetch_fundamentals
+from src.analysis.technical import compute_indicators, generate_technical_signal
+from src.analysis.fundamental import analyze_buffett
+from src.analysis.signals import AnalysisResult
+from src.ai.summarizer import analyze_stock, generate_market_overview
+from src.output.notify import send_notification, format_daily_push
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
+
+
+def run_and_push():
+    """执行分析并推送"""
+    logger.info("开始每日分析...")
+    config = load_config()
+    provider = get_active_provider(config)
+    all_results = []
+
+    for market_key in ("us", "hk", "a_share"):
+        stocks = getattr(config.watchlist, market_key, [])
+        for stock in stocks:
+            try:
+                df = fetch_history(stock.symbol, market_key, config.technical.lookback_days)
+                quote = fetch_quote(stock.symbol, market_key)
+                fund = fetch_fundamentals(stock.symbol, market_key)
+
+                if not df.empty:
+                    df = compute_indicators(df, config.technical)
+                    tech = generate_technical_signal(df)
+                else:
+                    tech = {"trend": "unknown", "momentum": "unknown", "signals": [], "trend_score": 0}
+
+                buffett = analyze_buffett(fund, config.buffett_strategy)
+
+                result = AnalysisResult(
+                    symbol=stock.symbol, name=stock.name, market=market_key,
+                    price=quote.get("price", 0) or tech.get("price", 0),
+                    change_pct=quote.get("change_pct", 0),
+                    tech_signal=tech, buffett_result=buffett, fundamentals=fund,
+                )
+                result.compute_overall()
+                all_results.append(result)
+                logger.info("  {} [{}] {:.0f}%".format(
+                    stock.symbol, buffett.get("grade", "?"), buffett.get("percentage", 0)))
+            except Exception as e:
+                logger.error("  {} 分析失败: {}".format(stock.symbol, e))
+
+    if not all_results:
+        logger.warning("无分析结果，跳过推送")
+        return
+
+    # 生成市场总览
+    overview = ""
+    if provider:
+        try:
+            overview = generate_market_overview(all_results, provider=provider)
+        except Exception as e:
+            logger.error("AI 市场总览生成失败: {}".format(e))
+
+    # 格式化推送内容
+    title, content = format_daily_push(all_results, overview)
+
+    # 发送
+    success = send_notification(title, content, config.notify)
+    if success:
+        logger.info("推送发送成功")
+    else:
+        logger.warning("推送发送失败")
+
+
+def main():
+    config = load_config()
+    notify = config.notify
+
+    if not notify.enabled:
+        logger.warning("推送未启用。请在 config.yaml 或 Web 设置页面中启用。")
+        logger.info("直接执行一次分析...")
+        run_and_push()
+        return
+
+    schedule_time = notify.schedule_time
+    logger.info("定时推送已启动，每日 {} 执行".format(schedule_time))
+
+    if notify.schedule_days == "mon-fri":
+        schedule.every().monday.at(schedule_time).do(run_and_push)
+        schedule.every().tuesday.at(schedule_time).do(run_and_push)
+        schedule.every().wednesday.at(schedule_time).do(run_and_push)
+        schedule.every().thursday.at(schedule_time).do(run_and_push)
+        schedule.every().friday.at(schedule_time).do(run_and_push)
+    else:
+        schedule.every().day.at(schedule_time).do(run_and_push)
+
+    logger.info("等待下次执行... (Ctrl+C 退出)")
+    while True:
+        schedule.run_pending()
+        time.sleep(60)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,21 @@
+[project]
+name = "stock-analyst"
+version = "0.1.0"
+description = "股票分析智能体 - A股/港股/美股，巴菲特价值投资策略"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.30",
+    "yfinance>=0.2.30",
+    "pandas>=2.0",
+    "ta>=0.11",
+    "anthropic>=0.40",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "jinja2>=3.1",
+    "schedule>=1.2",
+    "plotly>=5.18",
+    "requests>=2.31",
+]
+
+[project.scripts]
+stock-analyst = "src.main:main"

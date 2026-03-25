@@ -1,0 +1,26 @@
+# 本地数据缓存（不提交，部署环境运行时自动创建目录）
+data/
+
+# Python 虚拟环境
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# 本地环境与密钥（绝不提交）
+.env
+config.yaml
+.streamlit/secrets.toml
+
+# 日志
+logs/
+*.log
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
