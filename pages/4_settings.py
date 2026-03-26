@@ -20,7 +20,8 @@ st.markdown("""
 """.format(text=COLORS["text"], muted=COLORS["text_muted"], border=COLORS["border"]), unsafe_allow_html=True)
 
 from src.auth import get_current_user
-from src.user_data import get_user_plan, get_monthly_usage, set_user_plan, FREE_MONTHLY_LIMIT
+from src.user_data import (get_user_plan, get_monthly_usage, set_user_plan, FREE_MONTHLY_LIMIT,
+                            load_price_alerts, add_price_alert, delete_price_alert)
 
 _user = get_current_user()
 _uid = (_user or {}).get("username", "anonymous")
@@ -210,116 +211,99 @@ cd ~/stock-analyst && .venv/bin/python -m src.scheduler
 
 # ===== Tab 3: Price Alerts =====
 with tab_alerts:
-    st.markdown('<div style="color:{}; font-size:0.75rem; letter-spacing:1px; margin-bottom:0.8rem;">PRICE ALERT RULES</div>'.format(
-        COLORS["text_muted"]), unsafe_allow_html=True)
-    st.caption("Set target prices for your watchlist stocks. Alerts are sent via your configured notification channel when triggered.")
+    st.markdown(
+        '<div style="color:{c}; font-size:0.75rem; letter-spacing:1px; '
+        'margin-bottom:4px;">MY PRICE ALERTS</div>'.format(c=COLORS["text_muted"]),
+        unsafe_allow_html=True,
+    )
+    st.caption("设置目标价提醒。当关注股票价格到达目标位时，Dashboard 会自动弹出通知。数据跨设备同步保存。")
 
-    alerts = config.notify.price_alerts
+    # Load user's alerts from Supabase / local fallback
+    _user_alerts = load_price_alerts(_uid)
+    _active_alerts = [a for a in _user_alerts if not a.get("triggered")]
+    _done_alerts   = [a for a in _user_alerts if a.get("triggered")]
 
-    # ── Existing alerts ──
-    if alerts:
-        for idx, alert in enumerate(alerts):
-            dir_icon = "↓" if alert.direction == "below" else "↑"
-            dir_label = "≤" if alert.direction == "below" else "≥"
-            col_sym, col_price, col_tog, col_del = st.columns([2, 2, 1, 1])
-            with col_sym:
+    # ── Active alerts ──────────────────────────────────────────────────
+    if _active_alerts:
+        st.markdown(
+            '<div style="font-size:0.5rem;letter-spacing:3px;color:#3A3A4A;'
+            'text-transform:uppercase;margin-bottom:8px;">活跃提醒</div>',
+            unsafe_allow_html=True,
+        )
+        for _al in _active_alerts:
+            _al_id  = _al.get("id", "")
+            _al_dir = "↓ 跌至" if _al.get("alert_type") == "below" else "↑ 涨至"
+            _al_col1, _al_col2, _al_col3 = st.columns([3, 2, 1])
+            with _al_col1:
                 st.markdown(
-                    f'<span style="font-weight:600;color:{COLORS["text"]}">{alert.symbol}</span>'
-                    f'<span style="color:{COLORS["text_muted"]};font-size:0.8rem"> [{alert.market}]</span>'
-                    + (f'<br><span style="color:{COLORS["text_muted"]};font-size:0.75rem">{alert.note}</span>' if alert.note else ""),
-                    unsafe_allow_html=True,
+                    '<span style="font-weight:600;color:#E8E8F0;">{sym}</span>'
+                    '&nbsp;<span style="font-size:0.65rem;color:#5A5A6A;">{name} [{mkt}]</span>'.format(
+                        sym=_al["symbol"], name=_al.get("name", ""), mkt=_al["market"],
+                    ), unsafe_allow_html=True,
                 )
-            with col_price:
+            with _al_col2:
                 st.markdown(
-                    f'<span style="color:{COLORS["gold"]}">{dir_icon} {dir_label} {alert.target_price:.2f}</span>',
-                    unsafe_allow_html=True,
+                    '<span style="color:#C9A962;font-weight:600;">{dir} {tp:.2f}</span>'.format(
+                        dir=_al_dir, tp=_al.get("target_price", 0),
+                    ), unsafe_allow_html=True,
                 )
-            with col_tog:
-                new_enabled = st.toggle("On", value=alert.enabled, key=f"alert_tog_{idx}", label_visibility="collapsed")
-                if new_enabled != alert.enabled:
-                    alert.enabled = new_enabled
-            with col_del:
-                if st.button("✕", key=f"alert_del_{idx}"):
-                    alerts.pop(idx)
+            with _al_col3:
+                if st.button("删除", key="aldel_{}".format(_al_id)):
+                    delete_price_alert(_uid, _al_id)
                     st.rerun()
         st.divider()
     else:
-        st.markdown(f'<div style="color:{COLORS["text_muted"]};font-size:0.85rem;padding:0.5rem 0;">No alerts set.</div>',
-                    unsafe_allow_html=True)
-
-    # ── Add new alert ──
-    with st.expander("＋ Add New Alert", expanded=len(alerts) == 0):
-        # Build options from watchlist
-        all_stocks = (
-            [(s.symbol, s.name, "us") for s in config.watchlist.us]
-            + [(s.symbol, s.name, "hk") for s in config.watchlist.hk]
-            + [(s.symbol, s.name, "a_share") for s in config.watchlist.a_share]
+        st.markdown(
+            '<div style="color:#3A3A4A;font-size:0.85rem;padding:8px 0 16px;">暂无活跃提醒。</div>',
+            unsafe_allow_html=True,
         )
-        if all_stocks:
-            options = [f"{sym} — {name} [{mkt}]" for sym, name, mkt in all_stocks]
-            selected = st.selectbox("Stock (from watchlist)", options, key="alert_stock_sel")
-            sel_idx = options.index(selected)
-            sel_sym, sel_name, sel_mkt = all_stocks[sel_idx]
-        else:
-            sel_sym = st.text_input("Symbol", placeholder="e.g. AAPL", key="alert_sym_manual")
-            sel_name = ""
-            sel_mkt = st.selectbox("Market", ["us", "hk", "a_share"], key="alert_mkt_manual")
 
-        col_dir, col_price = st.columns(2)
-        with col_dir:
-            direction = st.selectbox(
-                "Direction",
-                ["below", "above"],
-                format_func=lambda x: "↓ Alert when price ≤ target" if x == "below" else "↑ Alert when price ≥ target",
-                key="alert_dir",
+    # ── Add new alert ──────────────────────────────────────────────────
+    with st.expander("＋ 新增提醒", expanded=len(_active_alerts) == 0):
+        _al_c1, _al_c2, _al_c3 = st.columns([2, 1, 2])
+        with _al_c1:
+            _new_sym  = st.text_input("股票代码", placeholder="AAPL / 0700.HK / sh600519", key="nal_sym")
+            _new_name = st.text_input("股票名称（选填）", placeholder="Apple", key="nal_name")
+        with _al_c2:
+            _new_mkt = st.selectbox("市场", ["us", "hk", "a_share"], key="nal_mkt")
+            _new_dir = st.selectbox(
+                "方向", ["below", "above"],
+                format_func=lambda x: "↓ 跌至（买入提醒）" if x == "below" else "↑ 涨至（止盈提醒）",
+                key="nal_dir",
             )
-        with col_price:
-            target = st.number_input("Target Price", min_value=0.01, value=100.0, step=0.5, key="alert_target")
+        with _al_c3:
+            _new_tp = st.number_input("目标价", min_value=0.01, value=100.0, step=0.5, key="nal_tp")
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("确认添加", key="nal_add", type="primary"):
+                if _new_sym.strip():
+                    ok = add_price_alert(
+                        uid=_uid,
+                        symbol=_new_sym.strip().upper(),
+                        market=_new_mkt,
+                        name=_new_name.strip() or _new_sym.strip().upper(),
+                        alert_type=_new_dir,
+                        target_price=float(_new_tp),
+                    )
+                    if ok:
+                        st.success("提醒已保存 ✓")
+                        st.rerun()
+                    else:
+                        st.error("保存失败，请重试。")
+                else:
+                    st.warning("请输入股票代码。")
 
-        note = st.text_input("Note (optional)", placeholder="e.g. Buy zone, stop-loss level", key="alert_note")
-
-        if st.button("Add Alert", key="alert_add_btn", type="primary"):
-            if sel_sym:
-                from src.config import PriceAlert
-                alerts.append(PriceAlert(
-                    symbol=sel_sym.strip().upper(),
-                    name=sel_name,
-                    market=sel_mkt,
-                    target_price=float(target),
-                    direction=direction,
-                    enabled=True,
-                    note=note,
+    # ── Triggered history ──────────────────────────────────────────────
+    if _done_alerts:
+        with st.expander("已触发记录（{}条）".format(len(_done_alerts))):
+            for _da in _done_alerts[:20]:
+                _da_dir = "跌至" if _da.get("alert_type") == "below" else "涨至"
+                _da_time = (_da.get("triggered_at") or "")[:10]
+                st.caption("{sym} — {dir} {tp:.2f}  |  触发时间：{t}".format(
+                    sym=_da["symbol"], dir=_da_dir,
+                    tp=_da.get("target_price", 0), t=_da_time,
                 ))
-                st.success(f"Alert added for {sel_sym}")
-                st.rerun()
 
-    st.divider()
-
-    # ── Manual check ──
-    col_check, col_info = st.columns([1, 2])
-    with col_check:
-        if st.button("🔔 Check Alerts Now", type="secondary", use_container_width=True):
-            if not config.notify.enabled:
-                st.warning("Enable notifications first (Notifications tab).")
-            elif not alerts:
-                st.info("No alerts configured.")
-            else:
-                with st.spinner("Checking prices…"):
-                    try:
-                        from src.scheduler import check_price_alerts_now
-                        triggered = check_price_alerts_now()
-                        if triggered:
-                            st.success(f"🚨 {len(triggered)} alert(s) triggered and sent!")
-                            for t in triggered:
-                                st.markdown(f"- **{t['symbol']}**: {t['price']:.2f} (target {t['target']:.2f})")
-                        else:
-                            st.info("No alerts triggered at current prices.")
-                    except Exception as e:
-                        st.error(f"Check failed: {e}")
-    with col_info:
-        from src.scheduler import get_last_run_time
-        st.caption(f"Last scheduled run: **{get_last_run_time()}**")
-        st.caption("Alerts are also checked automatically during each scheduled daily push.")
+    st.info("💡 提示：提醒会在你打开 Dashboard 时自动检查当前价格。每次访问 Dashboard 即触发检测。")
 
 
 # ===== Tab 4: Strategy =====

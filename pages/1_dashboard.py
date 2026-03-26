@@ -12,6 +12,7 @@ from src.auth import get_current_user
 from src.user_data import (
     load_watchlist, add_to_watchlist, remove_from_watchlist,
     load_journal, save_journal_entry, save_all_journal,
+    load_price_alerts, check_price_alerts,
 )
 from src.tracker import load_user_analysis_history
 
@@ -269,6 +270,23 @@ wl_data = []
 if stocks_list:
     with st.spinner("Loading live data..."):
         wl_data = _fetch_watchlist_data(json.dumps(stocks_list))
+
+    # ── 检查价格提醒触发 ──────────────────────────────────────────
+    _prices_for_alert = {
+        "{}:{}".format(s["market"], s["symbol"]): s.get("price", 0)
+        for s in wl_data if s.get("price")
+    }
+    _triggered_alerts = check_price_alerts(_uid, _prices_for_alert)
+    for _ta in _triggered_alerts:
+        _ta_dir = "跌至" if _ta["alert_type"] == "below" else "涨至"
+        st.warning(
+            "🔔 **价格提醒触发！** {name}（{sym}）已{dir}目标价 **{tp:.2f}**".format(
+                name=_ta.get("name", _ta["symbol"]),
+                sym=_ta["symbol"],
+                dir=_ta_dir,
+                tp=_ta["target_price"],
+            )
+        )
 
     # Sort by change_pct descending
     wl_data.sort(key=lambda x: x.get("change_pct", 0), reverse=True)

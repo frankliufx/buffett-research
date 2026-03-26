@@ -448,3 +448,132 @@ def save_user_settings(uid: str, settings: dict) -> bool:
     except Exception as e:
         logger.warning("Local settings save failed: %s", e)
         return False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PRICE ALERTS（目标价提醒）
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _alerts_fallback_path(uid: str) -> Path:
+    return _DATA_DIR / "alerts_{}.json".format(uid)
+
+
+def load_price_alerts(uid: str) -> List[dict]:
+    """加载用户全部价格提醒（包括已触发的）"""
+    db = get_client()
+    if db is not None:
+        try:
+            resp = db.table("price_alerts").select("*") \
+                .eq("uid", uid).order("created_at", desc=True).execute()
+            return resp.data or []
+        except Exception as e:
+            logger.warning("Supabase load_price_alerts failed: %s", e)
+
+    path = _alerts_fallback_path(uid)
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return []
+
+
+def add_price_alert(
+    uid: str, symbol: str, market: str, name: str,
+    alert_type: str, target_price: float,
+) -> bool:
+    """新增价格提醒。alert_type: 'below'（跌到）或 'above'（涨到）"""
+    from datetime import datetime, timezone
+    record = {
+        "uid": uid, "symbol": symbol, "market": market,
+        "name": name or symbol,
+        "alert_type": alert_type,
+        "target_price": round(float(target_price), 4),
+        "triggered": False,
+        "triggered_at": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    db = get_client()
+    if db is not None:
+        try:
+            db.table("price_alerts").insert(record).execute()
+            return True
+        except Exception as e:
+            logger.warning("Supabase add_price_alert failed: %s", e)
+
+    alerts = load_price_alerts(uid)
+    alerts.insert(0, record)
+    return _save_alerts_local(uid, alerts)
+
+
+def delete_price_alert(uid: str, alert_id) -> bool:
+    """删除一条提醒（按 id）"""
+    db = get_client()
+    if db is not None:
+        try:
+            db.table("price_alerts").delete().eq("uid", uid).eq("id", str(alert_id)).execute()
+            return True
+        except Exception as e:
+            logger.warning("Supabase delete_price_alert failed: %s", e)
+
+    alerts = load_price_alerts(uid)
+    alerts = [a for a in alerts if str(a.get("id", "")) != str(alert_id)]
+    return _save_alerts_local(uid, alerts)
+
+
+def check_price_alerts(uid: str, current_prices: dict) -> List[dict]:
+    """检查哪些提醒被触发，返回触发列表并标记 triggered=True。
+
+    current_prices: {'{market}:{symbol}': price}
+    """
+    from datetime import datetime, timezone
+    alerts = load_price_alerts(uid)
+    triggered = []
+    updated = False
+
+    for alert in alerts:
+        if alert.get("triggered"):
+            continue
+        key = "{}:{}".format(alert["market"], alert["symbol"])
+        cur = current_prices.get(key)
+        if cur is None:
+            continue
+        tp = alert.get("target_price", 0)
+        hit = (alert["alert_type"] == "below" and cur <= tp) or \
+              (alert["alert_type"] == "above" and cur >= tp)
+        if hit:
+            alert["triggered"] = True
+            alert["triggered_at"] = datetime.now(timezone.utc).isoformat()
+            triggered.append(alert)
+            updated = True
+
+    if updated:
+        # Try to persist updated state
+        db = get_client()
+        if db is not None:
+            for a in triggered:
+                try:
+                    if "id" in a:
+                        db.table("price_alerts").upsert(
+                            {"id": a["id"], "triggered": True,
+                             "triggered_at": a["triggered_at"]},
+                            on_conflict="id",
+                        ).execute()
+                except Exception:
+                    pass
+        else:
+            _save_alerts_local(uid, alerts)
+
+    return triggered
+
+
+def _save_alerts_local(uid: str, alerts: List[dict]) -> bool:
+    try:
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+        _alerts_fallback_path(uid).write_text(
+            json.dumps(alerts, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return True
+    except Exception as e:
+        logger.warning("Local alerts save failed: %s", e)
+        return False
