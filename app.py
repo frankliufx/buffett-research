@@ -5,7 +5,7 @@ BUFFETT RESEARCH — AI-Powered Value Intelligence Platform
 import streamlit as st
 
 st.set_page_config(
-    page_title="Buffett Research · AI",
+    page_title="AI Buffett · Research",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -66,13 +66,14 @@ if user:
 
 # ── 页面导航 ──────────────────────────────────────────────────────
 pg = st.navigation([
-    st.Page("pages/0_home.py",       title="Home",       icon="🏠", default=True),
-    st.Page("pages/1_dashboard.py",  title="Dashboard",  icon="📊"),
-    st.Page("pages/5_portfolio.py",  title="Portfolio",   icon="💼"),
-    st.Page("pages/2_analysis.py",   title="Analysis",   icon="🔍"),
-    st.Page("pages/3_chat.py",       title="AI Advisor", icon="💬"),
-    st.Page("pages/1_sentiment.py",  title="Sentiment",  icon="📡"),
-    st.Page("pages/4_settings.py",   title="Settings",   icon="⚙️"),
+    st.Page("pages/0_home.py",        title="Home",         icon="🏠", default=True),
+    st.Page("pages/1_dashboard.py",   title="Dashboard",    icon="📊"),
+    st.Page("pages/5_portfolio.py",   title="Portfolio",    icon="💼"),
+    st.Page("pages/2_analysis.py",    title="Analysis",     icon="🔍"),
+    st.Page("pages/3_chat.py",        title="AI Advisor",   icon="💬"),
+    st.Page("pages/1_sentiment.py",   title="Sentiment",    icon="📡"),
+    st.Page("pages/6_trackrecord.py", title="Track Record", icon="🏆"),
+    st.Page("pages/4_settings.py",    title="Settings",     icon="⚙️"),
 ])
 
 pg.run()
