@@ -11,6 +11,7 @@ from src.config import get_active_provider, get_premium_provider, StockItem
 from src.auth import get_current_user
 from src.user_data import can_analyze, increment_usage, FREE_MONTHLY_LIMIT
 from src.data.stock_search import search_stocks, get_popular_stocks
+from src.data.peers import get_peers
 from src.tracker import (
     save_analysis_record, get_latest_analysis, load_stock_thesis,
     save_stock_thesis, build_history_context,
@@ -559,7 +560,37 @@ def render_stock_analysis(symbol, name, market, config):
     prev_analysis = get_latest_analysis(_uid, symbol, market)
     hist_ctx = build_history_context(prev_analysis, result.price or 0)
 
-    # ── 自动加载 AI 简报（含历史上下文）────────────────
+    # ── 竞品对比上下文（后台静默获取，不影响主流程）─────
+    peer_ctx = ""
+    _peer_key = "_peers_{}_{}".format(market, symbol)
+    if _peer_key not in st.session_state:
+        peers = get_peers(symbol, market)
+        if peers:
+            peer_lines = ["## 同行竞品对比（供参考，数据可能有延迟）"]
+            for p in peers:
+                try:
+                    p_fund = fetch_fundamentals(p["symbol"], p["market"])
+                    p_roe = p_fund.get("roe")
+                    p_pe  = p_fund.get("pe_trailing")
+                    p_gm  = p_fund.get("gross_margin")
+                    p_roe_str = "{:.1f}%".format(p_roe * 100) if p_roe else "N/A"
+                    p_pe_str  = "{:.1f}".format(p_pe) if p_pe else "N/A"
+                    p_gm_str  = "{:.1f}%".format(p_gm * 100) if p_gm else "N/A"
+                    peer_lines.append(
+                        "- {name}（{sym}）: ROE {roe} | PE {pe} | 毛利率 {gm}".format(
+                            name=p["name"], sym=p["symbol"],
+                            roe=p_roe_str, pe=p_pe_str, gm=p_gm_str,
+                        )
+                    )
+                except Exception:
+                    peer_lines.append("- {}（{}）: 数据获取失败".format(p["name"], p["symbol"]))
+            peer_lines.append("请在分析中对比 {name} 与竞品的相对优劣势。".format(name=name))
+            peer_ctx = "\n".join(peer_lines)
+        st.session_state[_peer_key] = peer_ctx
+    else:
+        peer_ctx = st.session_state[_peer_key]
+
+    # ── 自动加载 AI 简报（含历史上下文 + 竞品对比）──────
     brief_key = "ai_brief_{}".format(symbol)
     if brief_key not in st.session_state:
         if provider:
@@ -573,7 +604,7 @@ def render_stock_analysis(symbol, name, market, config):
                 unsafe_allow_html=True,
             )
             st.session_state[brief_key] = get_ai_brief(
-                result, moat, provider, history_context=hist_ctx
+                result, moat, provider, history_context=hist_ctx, peer_context=peer_ctx
             )
         else:
             st.session_state[brief_key] = None
@@ -657,6 +688,46 @@ def render_stock_analysis(symbol, name, market, config):
 
     with tab_moat:
         render_moat_scorecard(moat, brief=brief, normalized=normalized)
+
+        # ── 同行竞品对比卡片 ──────────────────────────────────────
+        _peer_ctx_stored = st.session_state.get("_peers_{}_{}".format(market, symbol), "")
+        if _peer_ctx_stored:
+            st.markdown(
+                '<div style="font-size:0.5rem;letter-spacing:4px;color:#C9A962;'
+                'text-transform:uppercase;margin:24px 0 8px;">Peer Comparison</div>',
+                unsafe_allow_html=True,
+            )
+            peers = get_peers(symbol, market)
+            if peers:
+                _peer_cols = st.columns(len(peers))
+                for _pi, (_pc, _pp) in enumerate(zip(_peer_cols, peers)):
+                    with _pc:
+                        try:
+                            _pf = fetch_fundamentals(_pp["symbol"], _pp["market"])
+                            _p_roe = _pf.get("roe")
+                            _p_pe  = _pf.get("pe_trailing")
+                            _p_gm  = _pf.get("gross_margin")
+                            _p_roe_s = "{:.1f}%".format(_p_roe * 100) if _p_roe else "--"
+                            _p_pe_s  = "{:.1f}x".format(_p_pe)        if _p_pe  else "--"
+                            _p_gm_s  = "{:.1f}%".format(_p_gm * 100)  if _p_gm  else "--"
+                        except Exception:
+                            _p_roe_s = _p_pe_s = _p_gm_s = "--"
+                        st.markdown(
+                            '<div style="background:#09090F;border:1px solid #1E1E26;'
+                            'padding:14px 16px;border-radius:2px;">'
+                            '<div style="font-size:0.6rem;color:#C9A962;font-weight:600;'
+                            'letter-spacing:1px;margin-bottom:8px;">{sym}</div>'
+                            '<div style="font-size:0.65rem;color:#5A5A6A;margin-bottom:10px;">{name}</div>'
+                            '<div style="font-size:0.72rem;color:#7A7A88;line-height:2;">'
+                            'ROE: <span style="color:#C8C8D8;">{roe}</span><br>'
+                            'PE: <span style="color:#C8C8D8;">{pe}</span><br>'
+                            '毛利率: <span style="color:#C8C8D8;">{gm}</span>'
+                            '</div></div>'.format(
+                                sym=_pp["symbol"], name=_pp["name"][:12],
+                                roe=_p_roe_s, pe=_p_pe_s, gm=_p_gm_s,
+                            ),
+                            unsafe_allow_html=True,
+                        )
 
         # ── 巴菲特估值参考面板 ──
         _render_valuation_reference(symbol, normalized, moat)

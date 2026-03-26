@@ -22,6 +22,7 @@ PE: {pe} | PB: {pb} | ROE: {roe}
 - 市场先生机会: {opportunity_score}/{opportunity_max}分
 {data_quality_warning}
 {history_context}
+{peer_context}
 ## 数据完整性约束（必须遵守）
 - 标注为 N/A 的字段表示数据不可用，禁止对该字段做任何推断或编造数值
 - 如有关键字段缺失，confidence 必须降级为"低"，并在 reason 中注明"部分数据缺失"

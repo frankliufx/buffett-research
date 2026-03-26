@@ -147,7 +147,7 @@ def _check_data_quality(fundamentals: dict) -> dict:
 
 
 def get_ai_brief(result, moat: dict, provider: Optional[ApiProvider] = None,
-                 history_context: str = "") -> Optional[dict]:
+                 history_context: str = "", peer_context: str = "") -> Optional[dict]:
     """自动加载的结构化 AI 投资简报（JSON 格式）
 
     Returns dict with: verdict, confidence, reason, dimensions, bull_points, bear_points
@@ -194,6 +194,7 @@ def get_ai_brief(result, moat: dict, provider: Optional[ApiProvider] = None,
         opportunity_score=op_s, opportunity_max=op_m,
         data_quality_warning=dq["warning_block"],
         history_context=history_context,
+        peer_context=peer_context,
     )
 
     try:
