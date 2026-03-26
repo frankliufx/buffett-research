@@ -813,29 +813,23 @@ def _render_valuation_hero(symbol, name, market, price, fundamentals, normalized
     if spectrum_html:
         components.html(spectrum_html, height=200, scrolling=False)
 
-    # 3. 智能洞察卡片 — 先出量化数据，再填 AI 文字
+    # 3. 智能洞察卡片 — 先出量化数据，AI 文字按需加载
+    import streamlit.components.v1 as _cmp
     insights_key = "ai_insights_{}".format(symbol)
     ai_insights = st.session_state.get(insights_key)
 
-    # 先渲染不带 AI 文字的卡片（立即显示）
-    insight_placeholder = st.empty()
-    insight_html = render_insight_cards(
-        price, fundamentals, normalized, tech_signal or {}, dcf, quote,
-        currency, ai_insights=ai_insights)
-    insight_placeholder.html(insight_html, height=620)
-
-    # AI 文字未加载时异步获取
+    # AI 文字未加载时获取
     if ai_insights is None and provider and provider.api_key:
         with st.spinner("AI analyzing..."):
             ai_insights = get_ai_insights(
                 symbol, name, price, fundamentals, normalized,
                 tech_signal or {}, dcf, provider)
             st.session_state[insights_key] = ai_insights
-        if ai_insights:
-            insight_html = render_insight_cards(
-                price, fundamentals, normalized, tech_signal or {}, dcf, quote,
-                currency, ai_insights=ai_insights)
-            insight_placeholder.html(insight_html, height=620)
+
+    insight_html = render_insight_cards(
+        price, fundamentals, normalized, tech_signal or {}, dcf, quote,
+        currency, ai_insights=ai_insights)
+    _cmp.html(insight_html, height=620, scrolling=False)
 
     # 4. 三情景 + 假设 — 展开看细节
     if dcf and dcf.get("method") != "insufficient":
