@@ -243,61 +243,178 @@ def _fetch_popularity(limit=10):
         return []
 
 
+def _get_yfinance_fallback():
+    """yfinance 全球数据兜底（东方财富 API 失败时使用）"""
+    import math
+
+    try:
+        import yfinance as yf
+
+        tickers = {"^VIX": "VIX", "^GSPC": "S&P 500", "^IXIC": "Nasdaq", "^DJI": "Dow Jones"}
+        data = yf.download(list(tickers.keys()), period="220d", progress=False, threads=True)
+        close = data.get("Close") if "Close" in data else None
+        if close is None or close.empty:
+            return None
+
+        def _sf(val, d=0):
+            if val is None:
+                return d
+            try:
+                f = float(val)
+                return d if math.isnan(f) or math.isinf(f) else f
+            except (TypeError, ValueError):
+                return d
+
+        # Indices
+        indices = []
+        for sym, name in tickers.items():
+            if sym == "^VIX":
+                continue
+            col = close.get(sym)
+            if col is not None:
+                vals = col.dropna()
+                if len(vals) >= 2:
+                    price = _sf(vals.iloc[-1])
+                    prev = _sf(vals.iloc[-2])
+                    chg = round((price - prev) / prev * 100, 2) if prev else 0
+                    indices.append({"name": name, "price": round(price, 2),
+                                    "change_pct": chg, "amount": 0})
+
+        # VIX
+        vix, vix_change = 0, 0
+        vix_data = close.get("^VIX")
+        if vix_data is not None:
+            vix_clean = vix_data.dropna()
+            if len(vix_clean) >= 2:
+                vix = round(_sf(vix_clean.iloc[-1]), 2)
+                vix_change = round(vix - _sf(vix_clean.iloc[-2]), 2)
+
+        # S&P vs 200d MA
+        sp500_vs_200d = 0
+        sp_data = close.get("^GSPC")
+        if sp_data is not None:
+            sp_clean = sp_data.dropna()
+            if len(sp_clean) >= 200:
+                current = _sf(sp_clean.iloc[-1])
+                ma200 = _sf(sp_clean.tail(200).mean())
+                if ma200 > 0:
+                    sp500_vs_200d = round((current - ma200) / ma200 * 100, 2)
+
+        # Fear & Greed Score
+        score = 50.0
+        if vix > 0:
+            vix_score = 90 if vix <= 12 else 70 if vix <= 18 else 50 if vix <= 22 else 30 if vix <= 30 else 15 if vix <= 40 else 5
+            score = vix_score * 0.4
+
+        ma_score = 85 if sp500_vs_200d > 10 else 70 if sp500_vs_200d > 5 else 55 if sp500_vs_200d > 0 else 35 if sp500_vs_200d > -5 else 15
+        score += ma_score * 0.3
+
+        if sp_data is not None:
+            sp_clean = sp_data.dropna()
+            if len(sp_clean) >= 6:
+                ret5 = (_sf(sp_clean.iloc[-1]) - _sf(sp_clean.iloc[-6])) / _sf(sp_clean.iloc[-6]) * 100
+                mom_score = 85 if ret5 > 3 else 65 if ret5 > 1 else 50 if ret5 > -1 else 30 if ret5 > -3 else 10
+                score += mom_score * 0.3
+
+        score = max(0, min(100, round(score)))
+
+        if score >= 75:
+            mood, mood_color = "Extreme Greed", "#00C853"
+        elif score >= 55:
+            mood, mood_color = "Greed", "#69F0AE"
+        elif score >= 45:
+            mood, mood_color = "Neutral", "#C9A962"
+        elif score >= 25:
+            mood, mood_color = "Fear", "#FF9800"
+        else:
+            mood, mood_color = "Extreme Fear", "#F44336"
+
+        return {
+            "indices": indices,
+            "total_amount_yi": 0,
+            "northbound": {"hgt": 0, "sgt": 0, "total": 0},
+            "northbound_yi": 0,
+            "fear_greed_score": score,
+            "mood": mood,
+            "mood_color": mood_color,
+            "sh_change": 0,
+            "vix": vix,
+            "vix_change": vix_change,
+            "sp500_vs_200d": sp500_vs_200d,
+            "sector_flow": [],
+            "stock_flow_in": [],
+            "stock_flow_out": [],
+            "popularity": [],
+            "_source": "yfinance",
+        }
+    except Exception as e:
+        logger.warning("yfinance sentiment fallback failed: %s", e)
+        return None
+
+
 def get_market_sentiment():
     """获取市场情绪综合数据
 
-    Returns dict:
-        indices: list of {name, price, change_pct, amount}
-        total_amount_yi: 两市总成交额(亿)
-        northbound: {hgt, sgt, total} (元)
-        northbound_yi: 北向合计(亿)
-        fear_greed_score: 0-100
-        mood: 文字标签
-        mood_color: 颜色
-        sh_change: 上证涨跌幅
+    优先东方财富 A 股数据，失败时降级到 yfinance 全球数据。
     """
     cached = _read_cache()
     if cached:
         return cached
 
-    indices = _fetch_indices()
-    northbound = _fetch_northbound()
+    # 尝试东方财富 A 股数据
+    try:
+        indices = _fetch_indices()
+        if not indices:
+            raise ValueError("No index data")
 
-    # 计算总成交额(亿)
-    total_amount = sum(idx.get("amount", 0) for idx in indices)
-    total_amount_yi = round(total_amount / 1e8, 1)
+        northbound = _fetch_northbound()
+        total_amount = sum(idx.get("amount", 0) for idx in indices)
+        total_amount_yi = round(total_amount / 1e8, 1)
+        north_total = northbound.get("total", 0)
+        northbound_yi = round(north_total / 1e8, 1) if north_total else 0
+        sh_change = indices[0]["change_pct"] if indices else 0
 
-    # 北向资金(亿)
-    north_total = northbound.get("total", 0)
-    northbound_yi = round(north_total / 1e8, 1) if north_total else 0
+        score = _calc_fear_greed(sh_change, total_amount_yi, northbound_yi)
+        mood, mood_color = _mood_label(score)
 
-    # 上证涨跌幅
-    sh_change = indices[0]["change_pct"] if indices else 0
+        sector_flow = _fetch_sector_flow(10)
+        stock_flow_in = _fetch_stock_flow(10)
+        stock_flow_out = _fetch_stock_flow_bottom(10)
+        popularity = _fetch_popularity(10)
 
-    # 恐惧贪婪指数
-    score = _calc_fear_greed(sh_change, total_amount_yi, northbound_yi)
-    mood, mood_color = _mood_label(score)
+        result = {
+            "indices": indices,
+            "total_amount_yi": total_amount_yi,
+            "northbound": northbound,
+            "northbound_yi": northbound_yi,
+            "fear_greed_score": score,
+            "mood": mood,
+            "mood_color": mood_color,
+            "sh_change": sh_change,
+            "sector_flow": sector_flow,
+            "stock_flow_in": stock_flow_in,
+            "stock_flow_out": stock_flow_out,
+            "popularity": popularity,
+            "_source": "eastmoney",
+        }
+        _write_cache(result)
+        return result
 
-    # 额外数据（板块、个股资金流、人气榜）
-    sector_flow = _fetch_sector_flow(10)
-    stock_flow_in = _fetch_stock_flow(10)
-    stock_flow_out = _fetch_stock_flow_bottom(10)
-    popularity = _fetch_popularity(10)
+    except Exception as e:
+        logger.warning("Eastmoney sentiment failed, trying yfinance: %s", e)
 
-    result = {
-        "indices": indices,
-        "total_amount_yi": total_amount_yi,
-        "northbound": northbound,
-        "northbound_yi": northbound_yi,
-        "fear_greed_score": score,
-        "mood": mood,
-        "mood_color": mood_color,
-        "sh_change": sh_change,
-        "sector_flow": sector_flow,
-        "stock_flow_in": stock_flow_in,
-        "stock_flow_out": stock_flow_out,
-        "popularity": popularity,
+    # 降级到 yfinance
+    fallback = _get_yfinance_fallback()
+    if fallback:
+        _write_cache(fallback)
+        return fallback
+
+    # 全部失败
+    return {
+        "fear_greed_score": 50, "mood": "Unknown", "mood_color": "#5A5A6A",
+        "indices": [], "total_amount_yi": 0, "northbound_yi": 0,
+        "northbound": {"hgt": 0, "sgt": 0, "total": 0},
+        "sh_change": 0, "sector_flow": [], "stock_flow_in": [],
+        "stock_flow_out": [], "popularity": [],
+        "_error": "All data sources failed",
     }
-
-    _write_cache(result)
-    return result

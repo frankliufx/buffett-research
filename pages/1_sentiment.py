@@ -133,11 +133,15 @@ score = data["fear_greed_score"]
 mood = data["mood"]
 mc = data["mood_color"]
 
+import streamlit.components.v1 as components
+
 st.markdown("### Market Sentiment")
 st.caption("巴菲特说：别人恐惧时贪婪，别人贪婪时恐惧")
 
+is_yfinance = data.get("_source") == "yfinance"
+
 # ═══════════════════════════════════════════════════════════════════
-# ROW 1: 恐惧贪婪指数 + 三大指数
+# ROW 1: 恐惧贪婪指数 + 市场指标
 # ═══════════════════════════════════════════════════════════════════
 col_fg, col_idx = st.columns([1, 2])
 
@@ -149,34 +153,47 @@ with col_fg:
         delta_color="normal" if score >= 50 else "inverse",
     )
 
-    # 成交额 & 北向
-    amt = data["total_amount_yi"]
-    north = data["northbound_yi"]
-    vol_label = "火热" if amt > 15000 else "活跃" if amt > 10000 else "正常" if amt > 8000 else "低迷"
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.metric("两市成交", str(round(amt)) + " 亿", vol_label)
-    with c2:
-        if north != 0:
-            north_delta = ("+" if north > 0 else "") + str(north) + " 亿"
-            st.metric("北向资金", north_delta, "沪港通+深港通")
-        else:
-            st.metric("北向资金", "暂无数据", "非交易时段")
+    # yfinance: show VIX + SP500 vs 200d
+    if is_yfinance:
+        c1, c2 = st.columns(2)
+        vix = data.get("vix", 0)
+        vix_chg = data.get("vix_change", 0)
+        with c1:
+            st.metric("VIX", "{:.1f}".format(vix),
+                       "{:+.1f}".format(vix_chg) if vix_chg else None,
+                       delta_color="inverse")
+        with c2:
+            vs200 = data.get("sp500_vs_200d", 0)
+            st.metric("S&P vs 200d", "{:+.1f}%".format(vs200))
+    else:
+        # A-share: 成交额 & 北向
+        amt = data.get("total_amount_yi", 0)
+        north = data.get("northbound_yi", 0)
+        vol_label = "火热" if amt > 15000 else "活跃" if amt > 10000 else "正常" if amt > 8000 else "低迷"
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric("两市成交", str(round(amt)) + " 亿", vol_label)
+        with c2:
+            if north != 0:
+                st.metric("北向资金", ("{:+.1f}".format(north)) + " 亿", "沪港通+深港通")
+            else:
+                st.metric("北向资金", "暂无数据", "非交易时段")
 
 with col_idx:
-    idx_cols = st.columns(3)
-    for i, idx in enumerate(data.get("indices", [])):
-        with idx_cols[i]:
-            change = idx["change_pct"]
-            sign = "+" if change >= 0 else ""
-            st.metric(
-                label=idx["name"],
-                value=str(idx["price"]),
-                delta=sign + str(change) + "%",
-            )
-            amt_yi = round(idx.get("amount", 0) / 1e8)
-            st.caption("成交 " + str(amt_yi) + " 亿")
+    idx_list = data.get("indices", [])
+    if idx_list:
+        idx_cols = st.columns(min(len(idx_list), 3))
+        for i, idx in enumerate(idx_list[:3]):
+            with idx_cols[i]:
+                change = idx["change_pct"]
+                sign = "+" if change >= 0 else ""
+                st.metric(label=idx["name"], value=str(idx["price"]),
+                           delta=sign + str(change) + "%")
+                amt_v = idx.get("amount", 0)
+                if amt_v > 0:
+                    st.caption("成交 " + str(round(amt_v / 1e8)) + " 亿")
+    else:
+        st.info("暂无指数数据")
 
 st.markdown("---")
 

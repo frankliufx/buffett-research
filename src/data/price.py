@@ -368,8 +368,27 @@ def fetch_quote(symbol: str, market: str) -> dict:
             "change_pct": change_pct,
         }
     except Exception as e:
-        logger.error("fetch_quote failed for %s: %s", symbol, e)
+        logger.warning("Tencent quote failed for %s, trying yfinance fallback: %s", symbol, e)
+        # 降级：港股/A股用 yfinance 兜底
+        yf_sym = _to_yfinance_symbol(symbol, market)
+        if yf_sym:
+            return _fetch_yfinance_quote(yf_sym)
         return {}
+
+
+def _to_yfinance_symbol(symbol: str, market: str) -> str:
+    """将内部符号转换为 yfinance 格式（用于港股/A股降级）"""
+    if market == "hk":
+        # 0700.HK -> 0700.HK (yfinance 直接支持)
+        return symbol if ".HK" in symbol.upper() else symbol + ".HK"
+    elif market == "a_share":
+        # sh600519 -> 600519.SS, sz000858 -> 000858.SZ
+        s = symbol.lower()
+        if s.startswith("sh"):
+            return s[2:] + ".SS"
+        elif s.startswith("sz"):
+            return s[2:] + ".SZ"
+    return ""
 
 
 def fetch_history(symbol: str, market: str, days: int = 250) -> pd.DataFrame:
@@ -524,5 +543,9 @@ def fetch_history(symbol: str, market: str, days: int = 250) -> pd.DataFrame:
         return df
 
     except Exception as e:
-        logger.error("fetch_history failed for %s: %s", symbol, e)
+        logger.warning("Tencent history failed for %s, trying yfinance fallback: %s", symbol, e)
+        # 降级：港股/A股用 yfinance 兜底
+        yf_sym = _to_yfinance_symbol(symbol, market)
+        if yf_sym:
+            return _fetch_yfinance_history(yf_sym, days)
         return pd.DataFrame()
