@@ -2,6 +2,7 @@
 
 import json
 import logging
+import math
 import re
 from typing import Optional, List
 
@@ -145,7 +146,8 @@ def _check_data_quality(fundamentals: dict) -> dict:
     }
 
 
-def get_ai_brief(result, moat: dict, provider: Optional[ApiProvider] = None) -> Optional[dict]:
+def get_ai_brief(result, moat: dict, provider: Optional[ApiProvider] = None,
+                 history_context: str = "") -> Optional[dict]:
     """自动加载的结构化 AI 投资简报（JSON 格式）
 
     Returns dict with: verdict, confidence, reason, dimensions, bull_points, bear_points
@@ -191,6 +193,7 @@ def get_ai_brief(result, moat: dict, provider: Optional[ApiProvider] = None) -> 
         growth_score=g_s, growth_max=g_m,
         opportunity_score=op_s, opportunity_max=op_m,
         data_quality_warning=dq["warning_block"],
+        history_context=history_context,
     )
 
     try:

@@ -10,6 +10,10 @@ from datetime import datetime
 from src.config import get_active_provider, get_premium_provider, StockItem
 from src.auth import get_current_user
 from src.user_data import can_analyze, increment_usage, FREE_MONTHLY_LIMIT
+from src.tracker import (
+    save_analysis_record, get_latest_analysis, load_stock_thesis,
+    save_stock_thesis, build_history_context,
+)
 from src.data.price import fetch_history, fetch_quote
 from src.data.financial import fetch_fundamentals
 from src.data.news import fetch_stock_news, fetch_earnings_calendar, fetch_market_news
@@ -428,6 +432,105 @@ def _format_revenue(n):
 
 
 # ===== 渲染单只股票 =====
+def _render_thesis_panel(uid: str, symbol: str, market: str, name: str,
+                         moat: dict, prev_analysis):
+    """投资论点面板 — 用户记忆层的核心界面。"""
+    thesis = load_stock_thesis(uid, symbol, market)
+
+    st.markdown(
+        '<div style="font-size:0.6rem;letter-spacing:4px;color:#C9A962;'
+        'text-transform:uppercase;font-weight:500;margin-bottom:4px;">My Investment Thesis</div>'
+        '<div style="font-size:0.82rem;color:#5A5A6A;margin-bottom:20px;">'
+        '记录你的买入理由和目标价——这些笔记会随着每次分析积累，成为你的私人投资档案。'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    col_l, col_r = st.columns([2, 1])
+
+    with col_l:
+        buy_thesis = st.text_area(
+            "买入逻辑 / Buy Thesis",
+            value=thesis.get("buy_thesis", "") if thesis else "",
+            placeholder="你为什么看好这家公司？护城河在哪里？十年后它还在吗？",
+            height=120,
+            key="thesis_buy_{}_{}_{}".format(uid, market, symbol),
+        )
+        risk_watch = st.text_area(
+            "风险关注点 / Risk Watch",
+            value=thesis.get("risk_watch", "") if thesis else "",
+            placeholder="什么情况会让你改变看法？竞争威胁？管理层变化？",
+            height=90,
+            key="thesis_risk_{}_{}_{}".format(uid, market, symbol),
+        )
+        notes = st.text_area(
+            "备忘录 / Notes",
+            value=thesis.get("notes", "") if thesis else "",
+            placeholder="任何值得记录的想法、新闻、或操作记录…",
+            height=80,
+            key="thesis_notes_{}_{}_{}".format(uid, market, symbol),
+        )
+
+    with col_r:
+        target_price = st.number_input(
+            "目标价 / Target Price",
+            value=float(thesis.get("target_price") or 0) if thesis else 0.0,
+            min_value=0.0, step=0.1, format="%.2f",
+            key="thesis_tp_{}_{}_{}".format(uid, market, symbol),
+        )
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # 历史分析摘要
+        if prev_analysis:
+            _days = 0
+            try:
+                from datetime import datetime, timezone
+                _dt = datetime.fromisoformat(
+                    prev_analysis["analyzed_at"].replace("Z", "+00:00"))
+                _days = (datetime.now(timezone.utc) - _dt).days
+            except Exception:
+                pass
+            _ps = prev_analysis.get("score_total", 0)
+            _cs = moat.get("percentage", 0)
+            _delta = int(_cs - _ps)
+            _dc = "#3ECF8E" if _delta > 0 else ("#EF4444" if _delta < 0 else "#5A5A6A")
+            st.markdown(
+                '<div style="background:#09090F;border:1px solid #1E1E26;padding:16px;'
+                'border-radius:2px;">'
+                '<div style="font-size:0.5rem;letter-spacing:3px;color:#C9A962;'
+                'text-transform:uppercase;margin-bottom:12px;">分析历史</div>'
+                '<div style="font-size:0.78rem;color:#5A5A6A;line-height:2;">'
+                '上次分析：<span style="color:#9A9AA8;">{} 天前</span><br>'
+                '上次评分：<span style="color:#C9A962;">{:.0f}</span> 分<br>'
+                '本次评分：<span style="color:#E8E8F0;font-weight:600;">{:.0f}</span> 分'
+                '&nbsp;<span style="color:{};">({:+d})</span>'
+                '</div></div>'.format(_days, _ps, _cs, _dc, _delta),
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="background:#09090F;border:1px solid #1E1E26;padding:16px;">'
+                '<div style="font-size:0.5rem;letter-spacing:3px;color:#3A3A4A;'
+                'text-transform:uppercase;margin-bottom:8px;">分析历史</div>'
+                '<div style="font-size:0.75rem;color:#3A3A4A;">首次分析，记录已保存。</div>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+    if st.button("保存论点", key="thesis_save_{}_{}_{}".format(uid, market, symbol), type="primary"):
+        ok = save_stock_thesis(
+            uid=uid, symbol=symbol, market=market,
+            buy_thesis=buy_thesis,
+            target_price=target_price if target_price > 0 else None,
+            risk_watch=risk_watch,
+            notes=notes,
+        )
+        if ok:
+            st.success("论点已保存 ✓")
+        else:
+            st.error("保存失败，请重试。")
+
+
 def render_stock_analysis(symbol, name, market, config):
     provider = get_active_provider(config)
 
@@ -449,7 +552,13 @@ def render_stock_analysis(symbol, name, market, config):
         st.error("Error: {} — {}".format(symbol, e))
         return None
 
-    # ── 自动加载 AI 简报 ─────────────────
+    # ── 飞轮：读取历史记录，构建 AI 上下文 ──────────────
+    _cur_user = get_current_user() or {}
+    _uid = _cur_user.get("username", "anonymous")
+    prev_analysis = get_latest_analysis(_uid, symbol, market)
+    hist_ctx = build_history_context(prev_analysis, result.price or 0)
+
+    # ── 自动加载 AI 简报（含历史上下文）────────────────
     brief_key = "ai_brief_{}".format(symbol)
     if brief_key not in st.session_state:
         if provider:
@@ -462,11 +571,59 @@ def render_stock_analysis(symbol, name, market, config):
                 '</div>',
                 unsafe_allow_html=True,
             )
-            st.session_state[brief_key] = get_ai_brief(result, moat, provider)
+            st.session_state[brief_key] = get_ai_brief(
+                result, moat, provider, history_context=hist_ctx
+            )
         else:
             st.session_state[brief_key] = None
     brief = st.session_state.get(brief_key)
     loading_placeholder.empty()
+
+    # ── 飞轮：自动存档本次分析快照 ───────────────────
+    _save_key = "_saved_{}_{}".format(market, symbol)
+    if _save_key not in st.session_state:
+        save_analysis_record(
+            uid=_uid, symbol=symbol, market=market, name=name,
+            price=result.price or 0,
+            moat_result=moat, brief=brief,
+            fundamentals=fundamentals,
+        )
+        st.session_state[_save_key] = True
+
+    # ── 历史对比 banner（如有上次记录）──────────────────
+    if prev_analysis:
+        _prev_score = prev_analysis.get("score_total", 0)
+        _cur_score  = moat.get("percentage", 0)
+        _delta      = _cur_score - _prev_score
+        _prev_price = prev_analysis.get("price") or 0
+        _days_ago   = 0
+        try:
+            from datetime import datetime, timezone
+            _dt = datetime.fromisoformat(
+                prev_analysis["analyzed_at"].replace("Z", "+00:00"))
+            _days_ago = (datetime.now(timezone.utc) - _dt).days
+        except Exception:
+            pass
+        _price_chg = ""
+        if _prev_price and result.price:
+            _pct = (result.price - _prev_price) / _prev_price * 100
+            _price_chg = " | 价格 {:+.1f}%".format(_pct)
+        _score_str = "{:+d}分".format(int(_delta)) if _delta else "持平"
+        _delta_color = "#3ECF8E" if _delta > 0 else ("#EF4444" if _delta < 0 else "#5A5A6A")
+        st.markdown(
+            '<div style="background:#0C0C12;border:1px solid #1E1E26;border-left:3px solid #C9A962;'
+            'padding:10px 16px;margin-bottom:16px;font-size:0.78rem;color:#6A6A78;'
+            'display:flex;align-items:center;gap:8px;">'
+            '📋 <span style="color:#9A9AA8;">上次分析：{}天前</span>'
+            '&nbsp;|&nbsp;评分 <span style="color:#C9A962;">{}</span> → '
+            '<span style="color:#E8E8F0;font-weight:600;">{}</span>'
+            '&nbsp;<span style="color:{};">（{}）</span>{}'
+            '</div>'.format(
+                _days_ago, int(_prev_score), int(_cur_score),
+                _delta_color, _score_str, _price_chg
+            ),
+            unsafe_allow_html=True,
+        )
 
     # ===== 头部 =====
     price, change = result.price, result.change_pct
@@ -493,8 +650,8 @@ def render_stock_analysis(symbol, name, market, config):
         st.caption("Screenshot this card and share with friends. Watermarked with Buffett Research branding.")
 
     # ===== Tabs =====
-    tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai = st.tabs(
-        ["MOAT", "TREND", "CHART", "FINANCIALS", "TECHNICAL", "AI REPORT"]
+    tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai, tab_thesis = st.tabs(
+        ["MOAT", "TREND", "CHART", "FINANCIALS", "TECHNICAL", "AI REPORT", "📋 MY THESIS"]
     )
 
     with tab_moat:
@@ -636,6 +793,10 @@ def render_stock_analysis(symbol, name, market, config):
                 "AI Deep Analysis",
                 "Click the button above to generate a Buffett-style research report"),
                 unsafe_allow_html=True)
+
+    # ── 投资论点 Tab ────────────────────────────────────────────────
+    with tab_thesis:
+        _render_thesis_panel(_uid, symbol, market, name, moat, prev_analysis)
 
     # ═══════════════════════════════════════════════════════════════
     # AI 综合建议 — 产品核心能力

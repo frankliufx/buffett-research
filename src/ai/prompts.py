@@ -21,6 +21,7 @@ PE: {pe} | PB: {pb} | ROE: {roe}
 - 成长确定性: {growth_score}/{growth_max}分
 - 市场先生机会: {opportunity_score}/{opportunity_max}分
 {data_quality_warning}
+{history_context}
 ## 数据完整性约束（必须遵守）
 - 标注为 N/A 的字段表示数据不可用，禁止对该字段做任何推断或编造数值
 - 如有关键字段缺失，confidence 必须降级为"低"，并在 reason 中注明"部分数据缺失"
@@ -39,7 +40,8 @@ PE: {pe} | PB: {pb} | ROE: {roe}
     "市场先生机会": "不超过20字的深度点评"
   }},
   "bull_points": ["核心优势1（不超过22字）", "核心优势2（不超过22字）"],
-  "bear_points": ["主要风险1（不超过22字）", "主要风险2（不超过22字）"]
+  "bear_points": ["主要风险1（不超过22字）", "主要风险2（不超过22字）"],
+  "score_change_note": "与上次分析相比的关键变化，如无历史则输出空字符串"
 }}"""
 
 CHAT_SYSTEM_PROMPT = """你是 Buffett Research 的首席投资顾问——一位融合了巴菲特和段永平投资智慧的AI合伙人。
