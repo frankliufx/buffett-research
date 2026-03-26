@@ -7,7 +7,7 @@ from typing import Optional, List
 
 from src.ai.prompts import (BUFFETT_ANALYSIS_PROMPT, MARKET_OVERVIEW_PROMPT,
                              CHAT_SYSTEM_PROMPT, DIMENSION_BRIEF_PROMPT,
-                             INSIGHT_CARDS_PROMPT)
+                             INSIGHT_CARDS_PROMPT, WEEKLY_REPORT_PROMPT)
 from src.config import ApiProvider
 
 logger = logging.getLogger(__name__)
@@ -340,6 +340,31 @@ def generate_market_overview(results: list, provider: Optional[ApiProvider] = No
     except Exception as e:
         logger.error(f"Market overview AI failed: {e}")
         return "## 今日关注列表\n\n{}\n\n(AI 总览不可用: {})".format(stocks_summary, e)
+
+
+def generate_weekly_report(market_data: str, watchlist_summary: str,
+                           buffett_indicator: str,
+                           provider: Optional[ApiProvider] = None) -> str:
+    """生成每周 AI 市场周报"""
+    if not provider or not provider.api_key:
+        return "API not configured. Please set up API key in Settings."
+
+    prompt = WEEKLY_REPORT_PROMPT.format(
+        market_data=market_data,
+        watchlist_summary=watchlist_summary,
+        buffett_indicator=buffett_indicator,
+    )
+
+    try:
+        text = _call_llm(provider, [{"role": "user", "content": prompt}], max_tokens=2000)
+        # Handle DeepSeek R1 think tags
+        think_match = re.search(r'</think>\s*(.*)', text, re.DOTALL)
+        if think_match:
+            text = think_match.group(1).strip()
+        return text
+    except Exception as e:
+        logger.error("Weekly report generation failed: %s", e)
+        return "Weekly report generation failed: {}".format(e)
 
 
 def chat_with_analyst(messages: list, provider: Optional[ApiProvider] = None,

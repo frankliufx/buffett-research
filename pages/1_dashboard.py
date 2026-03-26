@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 if "config" not in st.session_state:
     from src.config import load_config
     st.session_state.config = load_config()
+config = st.session_state.config
 
 user = get_current_user()
 _uid = (user or {}).get("username", "anonymous")
@@ -248,6 +249,7 @@ def _fetch_watchlist_data(stocks_json: str):
 
 
 stocks_list = st.session_state.dashboard_stocks
+wl_data = []
 if stocks_list:
     with st.spinner("Loading live data..."):
         wl_data = _fetch_watchlist_data(json.dumps(stocks_list))
@@ -359,7 +361,93 @@ st.markdown("<div style='height:16px;border-top:1px solid #1A1A22;margin-top:16p
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SECTION 3 — INVESTMENT JOURNAL (compact)
+# SECTION 3 — AI WEEKLY REPORT
+# ══════════════════════════════════════════════════════════════════════════════
+
+components.html('''<!DOCTYPE html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:8px 0 4px}
+.sec-label{font-size:0.5rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase}
+.sec-title{font-size:1.1rem;font-weight:600;color:#E8E8F0;letter-spacing:1px;margin-top:2px}
+</style></head><body>
+<div class="sec-label">AI Intelligence</div>
+<div class="sec-title">Weekly Market Report</div>
+</body></html>''', height=48, scrolling=False)
+
+
+def _build_report_context():
+    """收集周报所需数据"""
+    # Market data from yfinance
+    market_lines = []
+    if pulse:
+        for name, d in pulse.items():
+            market_lines.append("{}: {:.2f} ({:+.2f}%)".format(name, d["value"], d["change"]))
+    market_data = "\n".join(market_lines) if market_lines else "Market data unavailable"
+
+    # Watchlist summary
+    wl_lines = []
+    if stocks_list:
+        try:
+            for s in wl_data[:15]:
+                chg = s.get("change_pct", 0)
+                wl_lines.append("{} ({}): price {:.2f}, change {:+.2f}%, PE {}".format(
+                    s["symbol"], s["name"][:12], s.get("price", 0), chg,
+                    "{:.1f}".format(s["pe"]) if s.get("pe") else "N/A"))
+        except Exception:
+            pass
+    watchlist_summary = "\n".join(wl_lines) if wl_lines else "No watchlist data"
+
+    # Buffett indicator
+    try:
+        from src.data.macro import get_macro_overview
+        macro = get_macro_overview()
+        bi_us = macro.get("buffett_indicator_pct")
+        bi_cn = macro.get("cn_buffett_pct")
+        bi_parts = []
+        if bi_us is not None:
+            bi_parts.append("US Buffett Indicator: {:.1f}%".format(bi_us))
+        if bi_cn is not None:
+            bi_parts.append("CN Buffett Indicator: {:.1f}%".format(bi_cn))
+        buffett_indicator = "\n".join(bi_parts) if bi_parts else "Not available"
+    except Exception:
+        buffett_indicator = "Not available"
+
+    return market_data, watchlist_summary, buffett_indicator
+
+
+report_key = "weekly_report_{}".format(_uid)
+
+if st.button("Generate Weekly Report", key="gen_report", use_container_width=True):
+    from src.config import get_premium_provider
+    from src.ai.summarizer import generate_weekly_report
+    provider = get_premium_provider(config)
+    if not provider or not provider.api_key:
+        st.warning("Please configure API key in Settings first.")
+    else:
+        with st.spinner("AI generating weekly report (15-30s)..."):
+            market_data, watchlist_summary, buffett_indicator = _build_report_context()
+            report = generate_weekly_report(market_data, watchlist_summary,
+                                             buffett_indicator, provider)
+            st.session_state[report_key] = report
+
+if report_key in st.session_state:
+    st.markdown(
+        '<div style="background:#0D0D14;border:1px solid #1E1E2A;border-left:3px solid #C9A962;'
+        'border-radius:4px;padding:20px 24px;margin:8px 0;line-height:1.8;color:#AAAABC;font-size:0.85rem">',
+        unsafe_allow_html=True)
+    st.markdown(st.session_state[report_key])
+    st.markdown('</div>', unsafe_allow_html=True)
+else:
+    st.caption("Click the button above to generate this week's AI market report.")
+
+st.markdown("<div style='height:16px;border-top:1px solid #1A1A22;margin-top:16px'></div>",
+            unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 4 — INVESTMENT JOURNAL (compact)
 # ══════════════════════════════════════════════════════════════════════════════
 
 with st.expander("Investment Journal ({} entries)".format(len(st.session_state.journal_entries)),
