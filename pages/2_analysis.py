@@ -10,6 +10,7 @@ from datetime import datetime
 from src.config import get_active_provider, get_premium_provider, StockItem
 from src.auth import get_current_user
 from src.user_data import can_analyze, increment_usage, FREE_MONTHLY_LIMIT
+from src.data.stock_search import search_stocks, get_popular_stocks
 from src.tracker import (
     save_analysis_record, get_latest_analysis, load_stock_thesis,
     save_stock_thesis, build_history_context,
@@ -1305,6 +1306,98 @@ config = st.session_state.config
 
 st.markdown(render_hero_header(), unsafe_allow_html=True)
 st.markdown(render_buffett_quote(), unsafe_allow_html=True)
+
+# ===== 快速搜索框 =====
+st.markdown("""
+<style>
+.search-bar-wrap {
+    background: #08080E;
+    border: 1px solid #1E1E26;
+    border-radius: 2px;
+    padding: 20px 24px 16px;
+    margin-bottom: 20px;
+}
+.search-bar-wrap .stTextInput > div > div > input {
+    background: #0C0C14 !important;
+    border: 1px solid #2A2A36 !important;
+    border-radius: 2px !important;
+    color: #E8E8F0 !important;
+    font-size: 1rem !important;
+    padding: 10px 16px !important;
+}
+.search-label {
+    font-size: 0.5rem; letter-spacing: 5px; color: #C9A962;
+    text-transform: uppercase; font-weight: 500; margin-bottom: 8px;
+}
+</style>
+<div class="search-label">Quick Analysis</div>
+""", unsafe_allow_html=True)
+
+_sq_col1, _sq_col2 = st.columns([3, 1])
+with _sq_col1:
+    _search_query = st.text_input(
+        "search", label_visibility="collapsed",
+        placeholder="搜索股票代码或名称  e.g. Apple / AAPL / 茅台 / 0700",
+        key="stock_search_query",
+    )
+with _sq_col2:
+    _search_mkt = st.selectbox(
+        "market", ["全部市场", "US", "HK", "A股"],
+        key="stock_search_market", label_visibility="collapsed",
+    )
+_mkt_map = {"全部市场": "all", "US": "us", "HK": "hk", "A股": "a_share"}
+_search_mkt_key = _mkt_map[_search_mkt]
+
+# 搜索结果
+_search_result_stock = None
+if _search_query and len(_search_query.strip()) >= 1:
+    _matches = search_stocks(_search_query, _search_mkt_key, limit=8)
+    if _matches:
+        _fmt_map = {m["symbol"]: "{} — {}  [{}]".format(
+            m["symbol"], m["name"], m["market"].upper().replace("_SHARE", "")
+        ) for m in _matches}
+        _selected_key = st.selectbox(
+            "选择股票",
+            options=list(_fmt_map.keys()),
+            format_func=lambda k: _fmt_map[k],
+            key="stock_search_select",
+            label_visibility="collapsed",
+        )
+        _search_result_stock = next((m for m in _matches if m["symbol"] == _selected_key), None)
+        if _search_result_stock and st.button(
+            "🔍 分析 {}".format(_search_result_stock["symbol"]),
+            key="search_analyze_btn", type="primary",
+        ):
+            st.session_state["_quick_search_symbol"] = _search_result_stock["symbol"]
+            st.session_state["_quick_search_name"]   = _search_result_stock["name"]
+            st.session_state["_quick_search_market"] = _search_result_stock["market"]
+    else:
+        st.caption("未找到匹配股票。你可以直接在下方市场标签中输入代码运行分析。")
+
+# 快速搜索直接触发分析
+if st.session_state.get("_quick_search_symbol"):
+    _qs_sym = st.session_state.pop("_quick_search_symbol")
+    _qs_name = st.session_state.pop("_quick_search_name", _qs_sym)
+    _qs_mkt = st.session_state.pop("_quick_search_market", "us")
+    st.markdown("---")
+    st.markdown(
+        '<div style="font-size:0.55rem;letter-spacing:4px;color:#C9A962;'
+        'text-transform:uppercase;margin-bottom:8px;">Quick Analysis</div>',
+        unsafe_allow_html=True
+    )
+    _qs_user = get_current_user() or {}
+    _qs_uid = _qs_user.get("username", "anonymous")
+    _qs_role = _qs_user.get("role", "viewer")
+    _qs_allowed, _qs_remaining, _qs_plan = can_analyze(_qs_uid, role=_qs_role)
+    if not _qs_allowed:
+        st.warning("You've used all **{} free analyses** this month.".format(FREE_MONTHLY_LIMIT))
+    else:
+        if _qs_plan == "free":
+            st.caption("Free plan: {}/{} analyses remaining".format(_qs_remaining, FREE_MONTHLY_LIMIT))
+        increment_usage(_qs_uid)
+        render_stock_analysis(_qs_sym, _qs_name, _qs_mkt, config)
+
+st.markdown("---")
 
 # ===== Sidebar: 信息采集中心 =====
 with st.sidebar:
