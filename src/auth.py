@@ -78,7 +78,7 @@ def logout():
 # ---------------------------------------------------------------------------
 
 def _inject_page_css():
-    """Inject CSS to style the page and Streamlit widgets."""
+    """Inject CSS — pure black Blackstone aesthetic."""
     st.markdown("""
 <style>
 #MainMenu {visibility: hidden;}
@@ -86,164 +86,197 @@ header {visibility: hidden;}
 footer {visibility: hidden;}
 [data-testid="stSidebar"] {display: none !important;}
 [data-testid="collapsedControl"] {display: none !important;}
-.stApp {background-color: #08080C !important;}
+.stApp {background-color: #000000 !important;}
 .block-container {
-    max-width: 420px !important;
+    max-width: 380px !important;
     padding-top: 0 !important;
     padding-bottom: 0 !important;
     margin: auto !important;
 }
 div[data-testid="stTextInput"] label p {
-    font-size: 0.62rem;
-    letter-spacing: 3px;
-    color: #5A5A6A;
+    font-size: 0.55rem;
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.25);
     text-transform: uppercase;
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 div[data-testid="stTextInput"] input {
-    background-color: #0F0F16 !important;
-    border: 1px solid #252530 !important;
-    border-radius: 2px !important;
-    color: #E8E8F0 !important;
-    font-size: 0.9rem !important;
-    padding: 13px 16px !important;
+    background-color: rgba(255,255,255,0.03) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 0 !important;
+    color: #FFFFFF !important;
+    font-size: 0.85rem !important;
+    padding: 14px 16px !important;
+    letter-spacing: 1px !important;
 }
 div[data-testid="stTextInput"] input:focus {
-    border-color: #C9A962 !important;
-    box-shadow: 0 0 0 2px rgba(201,169,98,0.15) !important;
+    border-color: rgba(255,255,255,0.3) !important;
+    box-shadow: none !important;
+}
+div[data-testid="stTextInput"] input::placeholder {
+    color: rgba(255,255,255,0.12) !important;
 }
 div[data-testid="stButton"] > button {
     width: 100% !important;
-    background: #C9A962 !important;
-    color: #08080C !important;
-    font-weight: 700 !important;
-    letter-spacing: 3px !important;
-    font-size: 0.72rem !important;
+    background: #FFFFFF !important;
+    color: #000000 !important;
+    font-weight: 600 !important;
+    letter-spacing: 4px !important;
+    font-size: 0.65rem !important;
     text-transform: uppercase !important;
     border: none !important;
-    border-radius: 2px !important;
-    padding: 14px 0 !important;
-    margin-top: 6px !important;
+    border-radius: 0 !important;
+    padding: 15px 0 !important;
+    margin-top: 8px !important;
+    transition: opacity 0.2s !important;
 }
 div[data-testid="stButton"] > button:hover {
-    background: #B89440 !important;
+    background: #FFFFFF !important;
+    opacity: 0.85 !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
 
-def _render_logo():
-    """Render the logo header using components.html (bypasses markdown parser)."""
+def _render_hero():
+    """Blackstone-style scrolling hero — 纯黑背景、超大衬线字、水平滚动动画"""
     html = """
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body {
-    background: #06060A;
-    font-family: 'Inter', -apple-system, sans-serif;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    padding: 36px 0 28px;
-}
-.wrap { text-align: center; }
 
-/* Logo mark — minimal square with letter */
-.logo-mark {
-    width: 52px;
-    height: 52px;
-    border: 1.5px solid #C9A962;
-    display: inline-flex;
-    align-items: center;
+body {
+    background: #000000;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
     justify-content: center;
-    margin-bottom: 24px;
     position: relative;
+    font-family: 'Inter', -apple-system, sans-serif;
 }
-.logo-mark::before {
+
+/* ── Scrolling headline ── */
+.hero-track {
+    white-space: nowrap;
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    font-size: clamp(3.5rem, 10vw, 7rem);
+    font-weight: 400;
+    color: #FFFFFF;
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+    animation: scroll-left 20s linear infinite;
+    padding: 0 40px;
+    user-select: none;
+}
+
+@keyframes scroll-left {
+    0%   { transform: translateX(10%); }
+    100% { transform: translateX(-55%); }
+}
+
+/* Fade edges for seamless look */
+.hero-mask {
+    position: relative;
+    overflow: hidden;
+}
+.hero-mask::before,
+.hero-mask::after {
     content: '';
     position: absolute;
-    inset: 4px;
-    border: 1px solid rgba(201,169,98,0.25);
+    top: 0; bottom: 0; width: 80px;
+    z-index: 2;
+    pointer-events: none;
 }
-.logo-mark-letter {
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #C9A962;
-    line-height: 1;
+.hero-mask::before {
+    left: 0;
+    background: linear-gradient(90deg, #000000, transparent);
+}
+.hero-mask::after {
+    right: 0;
+    background: linear-gradient(90deg, transparent, #000000);
 }
 
-.brand-name {
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 1.9rem;
-    font-weight: 300;
-    color: #E8E8F0;
-    letter-spacing: 8px;
-    text-transform: uppercase;
-    line-height: 1;
-    margin-bottom: 6px;
-}
-.brand-sub {
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 1.9rem;
-    font-weight: 700;
-    color: #C9A962;
-    letter-spacing: 8px;
-    text-transform: uppercase;
-    line-height: 1;
-    margin-bottom: 24px;
-}
-.divider {
+/* ── Top: small brand mark ── */
+.top-bar {
+    position: absolute;
+    top: 28px; left: 36px;
     display: flex;
     align-items: center;
-    gap: 12px;
-    max-width: 260px;
-    margin: 0 auto;
+    gap: 14px;
 }
-.divider-line {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #C9A962);
+.mark {
+    width: 32px; height: 32px;
+    border: 1px solid rgba(255,255,255,0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.4);
 }
-.divider-line.right {
-    background: linear-gradient(90deg, #C9A962, transparent);
-}
-.divider-text {
-    font-size: 0.48rem;
-    color: #2A2A36;
-    letter-spacing: 3px;
+.brand-text {
+    font-size: 0.55rem;
+    letter-spacing: 5px;
+    color: rgba(255,255,255,0.2);
     text-transform: uppercase;
-    white-space: nowrap;
-    font-family: 'Inter', sans-serif;
+}
+
+/* ── Bottom left: risk disclaimer ── */
+.disclaimer {
+    position: absolute;
+    bottom: 28px; left: 36px;
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.18);
+    letter-spacing: 1px;
+    line-height: 1.8;
+    max-width: 300px;
+}
+
+/* ── Bottom right: subtle CTA hint ── */
+.cta-hint {
+    position: absolute;
+    bottom: 28px; right: 36px;
+    font-size: 0.5rem;
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.12);
+    text-transform: uppercase;
+}
+
+/* Pause animation on hover */
+.hero-mask:hover .hero-track {
+    animation-play-state: paused;
 }
 </style>
 </head>
 <body>
-<div class="wrap">
-    <div class="logo-mark">
-        <div class="logo-mark-letter">B</div>
+    <div class="top-bar">
+        <div class="mark">B</div>
+        <div class="brand-text">Buffett Research</div>
     </div>
-    <div class="brand-name">BUFFETT</div>
-    <div class="brand-sub">RESEARCH</div>
-    <div class="divider">
-        <div class="divider-line"></div>
-        <div class="divider-text">AUTHORIZED ACCESS ONLY</div>
-        <div class="divider-line right"></div>
+
+    <div class="hero-mask">
+        <div class="hero-track">
+            Invest with conviction, not with emotion&nbsp;&nbsp;&nbsp;&mdash;&nbsp;&nbsp;&nbsp;Build wealth with Buffett Research&nbsp;&nbsp;&nbsp;&mdash;&nbsp;&nbsp;&nbsp;Value investing, redefined by AI
+        </div>
     </div>
-</div>
+
+    <div class="disclaimer">
+        Investing involves risks, including<br>loss of capital.
+    </div>
+
+    <div class="cta-hint">Sign in below &darr;</div>
 </body>
 </html>
 """
-    components.html(html, height=300, scrolling=False)
+    components.html(html, height=420, scrolling=False)
 
 
 def _render_footer():
-    """Render footer using components.html."""
+    """Minimal footer"""
     html = """
 <!DOCTYPE html>
 <html>
@@ -252,56 +285,47 @@ def _render_footer():
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
-    background: #08080C;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    padding: 24px 0;
+    background: #000000;
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; padding: 16px 0;
 }
 .footer {
     text-align: center;
-    font-size: 0.5rem;
-    color: #252530;
-    letter-spacing: 2px;
+    font-size: 0.45rem;
+    color: rgba(255,255,255,0.1);
+    letter-spacing: 3px;
     text-transform: uppercase;
-    line-height: 2;
 }
 </style>
 </head>
 <body>
-<div class="footer">
-    &copy; 2025-2026 BUFFETT RESEARCH &nbsp;&middot;&nbsp; CONFIDENTIAL
-</div>
+<div class="footer">&copy; 2025-2026 Buffett Research &nbsp;&middot;&nbsp; AI-Powered Value Intelligence</div>
 </body>
 </html>
 """
-    components.html(html, height=80, scrolling=False)
+    components.html(html, height=50, scrolling=False)
 
 
 def render_login_page():
-    """Render the Blackstone-style login page."""
+    """Blackstone-inspired login — scrolling hero + minimal form."""
     _inject_page_css()
-    _render_logo()
+    _render_hero()
 
     username = st.text_input(
         "Username",
-        placeholder="Enter username",
+        placeholder="username",
         key="login_username",
     )
     password = st.text_input(
         "Password",
         type="password",
-        placeholder="Enter password",
+        placeholder="password",
         key="login_password",
     )
 
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-
     if st.button("SIGN  IN", key="login_btn"):
         if not username or not password:
-            st.error("Please enter username and password.")
+            st.error("Please enter credentials.")
         else:
             user = authenticate(username, password)
             if user:
@@ -309,6 +333,6 @@ def render_login_page():
                 st.session_state["auth_user"] = user
                 st.rerun()
             else:
-                st.error("Invalid credentials. Contact admin for access.")
+                st.error("Invalid credentials.")
 
     _render_footer()
