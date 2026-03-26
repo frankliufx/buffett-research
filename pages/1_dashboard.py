@@ -1,15 +1,20 @@
-"""Personal Dashboard — Watchlist · Investment Journal · Market Compass"""
+"""Personal Dashboard — Market Pulse · Watchlist · Journal"""
 
 import datetime
 import json
+import logging
 import streamlit as st
 import streamlit.components.v1 as components
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from src.ui_theme import get_global_css, COLORS
 from src.auth import get_current_user
 from src.user_data import (
     load_watchlist, add_to_watchlist, remove_from_watchlist,
     load_journal, save_journal_entry, save_all_journal,
 )
+
+logger = logging.getLogger(__name__)
 
 # ── Session defaults ──────────────────────────────────────────────────────────
 if "config" not in st.session_state:
@@ -30,18 +35,16 @@ def _detect_market(symbol: str) -> str:
 
 
 def _flat_watchlist(wl_dict: dict) -> list:
-    """将 {market: [{symbol, name}]} 摊平为 symbol 列表"""
     result = []
     for market in ("us", "hk", "a_share"):
         for item in wl_dict.get(market, []):
-            result.append(item["symbol"])
+            result.append({"symbol": item["symbol"], "name": item.get("name", item["symbol"]), "market": market})
     return result
 
 
-# 首次加载时从 Supabase/文件读取 per-user 数据
+# Load per-user data
 if "user_watchlist_loaded" not in st.session_state or st.session_state.get("_last_uid") != _uid:
     raw_wl = load_watchlist(_uid)
-    # 若用户在 Supabase 无数据，使用 config 默认关注列表
     if not any(raw_wl.values()):
         config_wl = st.session_state.config.watchlist
         raw_wl = {
@@ -50,7 +53,7 @@ if "user_watchlist_loaded" not in st.session_state or st.session_state.get("_las
             "a_share": [{"symbol": s.symbol, "name": s.name} for s in config_wl.a_share],
         }
     st.session_state.user_watchlist = raw_wl
-    st.session_state.dashboard_watchlist = _flat_watchlist(raw_wl)
+    st.session_state.dashboard_stocks = _flat_watchlist(raw_wl)
     st.session_state.user_watchlist_loaded = True
     st.session_state._last_uid = _uid
 
@@ -64,500 +67,437 @@ elif "journal_entries" not in st.session_state:
 # ── Global CSS ────────────────────────────────────────────────────────────────
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
-# ── Page header ───────────────────────────────────────────────────────────────
+# ── Header ────────────────────────────────────────────────────────────────────
 display_name = (user or {}).get("name", "Investor")
 
 components.html(f"""
 <!DOCTYPE html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-* {{ margin:0; padding:0; box-sizing:border-box; }}
-body {{
-    background: #08080C;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-    padding: 28px 0 8px;
-}}
-.greeting {{ font-size:0.55rem; letter-spacing:4px; color:#C9A962;
-    text-transform:uppercase; margin-bottom:6px; }}
-.title {{ font-size:1.6rem; font-weight:300; color:#E8E8F0; letter-spacing:3px;
-    text-transform:uppercase; }}
-.title b {{ font-weight:700; color:#C9A962; }}
-.subtitle {{ font-size:0.6rem; letter-spacing:3px; color:#3A3A4A;
-    text-transform:uppercase; margin-top:6px; }}
-.divider {{ height:1px; background:linear-gradient(90deg,transparent,#C9A962 30%,transparent);
-    margin-top:18px; opacity:0.3; }}
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:28px 0 8px}}
+.greeting{{font-size:0.55rem;letter-spacing:4px;color:#C9A962;text-transform:uppercase;margin-bottom:6px}}
+.title{{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.8rem;font-weight:300;color:#E8E8F0;letter-spacing:3px;text-transform:uppercase}}
+.title b{{font-weight:700;color:#C9A962}}
+.divider{{height:1px;background:linear-gradient(90deg,transparent,#C9A962 30%,transparent);margin-top:18px;opacity:0.3}}
 </style></head><body>
 <div class="greeting">Welcome back, {display_name}</div>
-<div class="title">Personal <b>Dashboard</b></div>
-<div class="subtitle">Watchlist &nbsp;&middot;&nbsp; Investment Journal &nbsp;&middot;&nbsp; Market Compass</div>
+<div class="title">Command <b>Center</b></div>
 <div class="divider"></div>
 </body></html>
-""", height=110, scrolling=False)
+""", height=100, scrolling=False)
 
-st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SECTION 1 — WATCHLIST
+# SECTION 1 — MARKET PULSE (real-time indices via yfinance)
 # ══════════════════════════════════════════════════════════════════════════════
-components.html("""
-<!DOCTYPE html><html><head><meta charset="utf-8">
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _fetch_market_pulse():
+    """获取全球市场关键指标"""
+    try:
+        import yfinance as yf
+        tickers = {
+            "S&P 500": "^GSPC",
+            "VIX": "^VIX",
+            "US 10Y": "^TNX",
+            "Nasdaq": "^IXIC",
+            "Shanghai": "000001.SS",
+        }
+        results = {}
+        data = yf.download(list(tickers.values()), period="2d", progress=False, threads=True)
+        close = data.get("Close") if "Close" in data else None
+        if close is not None and not close.empty:
+            for label, sym in tickers.items():
+                try:
+                    if sym in close.columns and len(close[sym].dropna()) >= 2:
+                        vals = close[sym].dropna()
+                        current = float(vals.iloc[-1])
+                        prev = float(vals.iloc[-2])
+                        chg = (current - prev) / prev * 100 if prev else 0
+                        results[label] = {"value": current, "change": round(chg, 2)}
+                except Exception:
+                    pass
+        return results
+    except Exception as e:
+        logger.warning("Market pulse failed: %s", e)
+        return {}
+
+
+pulse = _fetch_market_pulse()
+
+if pulse:
+    def _pulse_card(label, data):
+        val = data["value"]
+        chg = data["change"]
+        chg_color = "#00C853" if chg >= 0 else "#F44336"
+        arrow = "&#x25B2;" if chg >= 0 else "&#x25BC;"
+        # Format value
+        if label == "US 10Y":
+            val_fmt = "{:.2f}%".format(val)
+        elif val >= 10000:
+            val_fmt = "{:,.0f}".format(val)
+        else:
+            val_fmt = "{:,.1f}".format(val)
+        return '''<div class="pulse-card">
+            <div class="pulse-label">{label}</div>
+            <div class="pulse-value">{val}</div>
+            <div class="pulse-change" style="color:{color}">{arrow} {chg:+.2f}%</div>
+        </div>'''.format(label=label, val=val_fmt, color=chg_color, arrow=arrow, chg=chg)
+
+    cards = "".join(_pulse_card(k, v) for k, v in pulse.items())
+
+    components.html('''<!DOCTYPE html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-* {{ margin:0; padding:0; box-sizing:border-box; }}
-body {{ background:#08080C; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; padding:8px 0 4px; }}
-.section-label {{ font-size:0.5rem; letter-spacing:4px; color:#C9A962; text-transform:uppercase; }}
-.section-title {{ font-size:1.05rem; font-weight:600; color:#E8E8F0; letter-spacing:1px; margin-top:2px; }}
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:12px 0 0}}
+.pulse-header{{font-size:0.5rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase;margin-bottom:12px}}
+.pulse-grid{{display:flex;gap:10px;flex-wrap:wrap}}
+.pulse-card{{
+    flex:1;min-width:120px;
+    background:#0D0D14;border:1px solid #1E1E2A;border-radius:4px;
+    padding:14px 16px;text-align:center;
+}}
+.pulse-label{{font-size:0.5rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase;margin-bottom:8px}}
+.pulse-value{{font-size:1.2rem;font-weight:600;color:#E8E8F0;margin-bottom:4px}}
+.pulse-change{{font-size:0.7rem;font-weight:600;letter-spacing:0.5px}}
 </style></head><body>
-<div class="section-label">Portfolio Intelligence</div>
-<div class="section-title">My Watchlist</div>
-</body></html>
-""", height=52, scrolling=False)
+<div class="pulse-header">Market Pulse</div>
+<div class="pulse-grid">{cards}</div>
+</body></html>'''.format(cards=cards), height=130, scrolling=False)
 
-# Watchlist management
-wl_col1, wl_col2 = st.columns([3, 1])
-with wl_col1:
-    new_ticker = st.text_input(
-        "Add ticker", placeholder="e.g. MSFT or 600519.SH",
-        key="wl_new_ticker", label_visibility="collapsed"
-    )
-with wl_col2:
-    if st.button("＋ Add", key="wl_add_btn", use_container_width=True):
+st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 2 — WATCHLIST (live prices + grades)
+# ══════════════════════════════════════════════════════════════════════════════
+
+components.html('''<!DOCTYPE html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:8px 0 4px}
+.sec-label{font-size:0.5rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase}
+.sec-title{font-size:1.1rem;font-weight:600;color:#E8E8F0;letter-spacing:1px;margin-top:2px}
+</style></head><body>
+<div class="sec-label">Portfolio Intelligence</div>
+<div class="sec-title">My Watchlist</div>
+</body></html>''', height=48, scrolling=False)
+
+# Add/remove controls
+wl_c1, wl_c2, wl_c3 = st.columns([3, 1, 1])
+with wl_c1:
+    new_ticker = st.text_input("Add", placeholder="e.g. MSFT, 0700.HK, sh600519",
+                                key="wl_new", label_visibility="collapsed")
+with wl_c2:
+    if st.button("Add", key="wl_add", use_container_width=True):
         t = new_ticker.strip().upper()
-        if t and t not in st.session_state.dashboard_watchlist:
+        if t:
             mkt = _detect_market(t)
             add_to_watchlist(_uid, mkt, t, t)
-            st.session_state.dashboard_watchlist.append(t)
+            st.session_state.dashboard_stocks.append({"symbol": t, "name": t, "market": mkt})
             st.session_state.user_watchlist.setdefault(mkt, []).append({"symbol": t, "name": t})
             st.rerun()
+with wl_c3:
+    symbols_for_remove = [s["symbol"] for s in st.session_state.dashboard_stocks]
+    rm = st.selectbox("Remove", ["--"] + symbols_for_remove, key="wl_rm", label_visibility="collapsed")
+    if rm != "--":
+        mkt = _detect_market(rm)
+        remove_from_watchlist(_uid, mkt, rm)
+        st.session_state.dashboard_stocks = [s for s in st.session_state.dashboard_stocks if s["symbol"] != rm]
+        wl = st.session_state.user_watchlist
+        if mkt in wl:
+            wl[mkt] = [s for s in wl[mkt] if s["symbol"] != rm]
+        st.rerun()
 
-# Display watchlist chips + remove buttons
-watchlist = st.session_state.dashboard_watchlist
-if watchlist:
-    # Render chips via components.html
-    chips_html = " ".join(
-        f'<span class="chip">{t}</span>'
-        for t in watchlist
-    )
-    components.html(f"""
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-* {{ margin:0; padding:0; box-sizing:border-box; }}
-body {{ background:#08080C; font-family:-apple-system,BlinkMacSystemFont,sans-serif; padding:6px 0; display:flex; flex-wrap:wrap; gap:8px; }}
-.chip {{
-    display:inline-block; padding:5px 14px;
-    border:1px solid #C9A962; border-radius:2px;
-    color:#C9A962; font-size:0.75rem; font-weight:600;
-    letter-spacing:2px; background:#0F0F16;
-}}
-</style></head><body>{chips_html}</body></html>
-""", height=48, scrolling=False)
 
-    # Remove selector
-    remove_ticker = st.selectbox(
-        "Remove ticker", options=["— select to remove —"] + watchlist,
-        key="wl_remove_sel", label_visibility="collapsed"
-    )
-    if remove_ticker and remove_ticker != "— select to remove —":
-        if st.button(f"✕ Remove {remove_ticker}", key="wl_remove_btn"):
-            mkt = _detect_market(remove_ticker)
-            remove_from_watchlist(_uid, mkt, remove_ticker)
-            st.session_state.dashboard_watchlist.remove(remove_ticker)
-            wl = st.session_state.user_watchlist
-            if mkt in wl:
-                wl[mkt] = [s for s in wl[mkt] if s["symbol"] != remove_ticker]
-            st.rerun()
+# Fetch live data for watchlist
+@st.cache_data(ttl=300, show_spinner=False)
+def _fetch_watchlist_data(stocks_json: str):
+    """批量获取关注列表实时行情 + 评级"""
+    from src.data.price import fetch_quote
+    stocks = json.loads(stocks_json)
+    results = []
 
-    # Quick snapshot via Analysis
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-    if st.button("⚡ Quick Scan Watchlist", key="wl_scan_btn", use_container_width=False):
-        from src.data.financial import get_stock_score
-        results = []
-        progress = st.progress(0, text="Scanning…")
-        for i, ticker in enumerate(watchlist):
-            try:
-                score_data = get_stock_score(ticker)
-                results.append((ticker, score_data))
-            except Exception:
-                results.append((ticker, None))
-            progress.progress((i + 1) / len(watchlist), text=f"Scanned {ticker}")
-        progress.empty()
-
-        cols = st.columns(min(len(results), 5))
-        grade_color = {"A+": "#00C853", "A": "#69F0AE", "B": "#C9A962",
-                       "C": "#FF9800", "D": "#F44336", "F": "#B71C1C"}
-        for col, (ticker, sd) in zip(cols, results):
-            with col:
-                if sd:
-                    grade = sd.get("grade", "—")
-                    score = sd.get("score", 0)
-                    color = grade_color.get(grade, "#E8E8F0")
-                    st.markdown(
-                        f"""<div style='background:#0F0F16;border:1px solid #1E1E26;
-                        border-radius:2px;padding:12px;text-align:center;'>
-                        <div style='font-size:1.5rem;font-weight:700;color:{color}'>{grade}</div>
-                        <div style='font-size:0.65rem;color:#5A5A6A;letter-spacing:2px;
-                        text-transform:uppercase;margin:2px 0'>{ticker}</div>
-                        <div style='font-size:0.8rem;color:#E8E8F0'>{score:.1f}</div>
-                        </div>""",
-                        unsafe_allow_html=True
-                    )
-                else:
-                    st.markdown(
-                        f"""<div style='background:#0F0F16;border:1px solid #1E1E26;
-                        border-radius:2px;padding:12px;text-align:center;'>
-                        <div style='font-size:1rem;color:#3A3A4A'>—</div>
-                        <div style='font-size:0.65rem;color:#5A5A6A;letter-spacing:2px;
-                        text-transform:uppercase;margin:2px 0'>{ticker}</div>
-                        </div>""",
-                        unsafe_allow_html=True
-                    )
-else:
-    st.markdown(
-        "<div style='color:#3A3A4A;font-size:0.8rem;padding:8px 0'>No tickers yet. Add some above.</div>",
-        unsafe_allow_html=True
-    )
-
-st.markdown("<div style='height:24px;border-top:1px solid #1A1A22;margin-top:20px'></div>",
-            unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# SECTION 2 — INVESTMENT JOURNAL
-# ══════════════════════════════════════════════════════════════════════════════
-components.html("""
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { background:#08080C; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; padding:8px 0 4px; }
-.section-label { font-size:0.5rem; letter-spacing:4px; color:#C9A962; text-transform:uppercase; }
-.section-title { font-size:1.05rem; font-weight:600; color:#E8E8F0; letter-spacing:1px; margin-top:2px; }
-</style></head><body>
-<div class="section-label">Reflective Practice</div>
-<div class="section-title">Investment Journal</div>
-</body></html>
-""", height=52, scrolling=False)
-
-journal_tab1, journal_tab2, journal_tab3 = st.tabs([
-    "📋  Decision Log",
-    "🔍  Trade Review",
-    "🌐  Market Notes",
-])
-
-# ── Tab 1: Decision Log ──────────────────────────────────────────────────────
-with journal_tab1:
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-    with st.expander("＋ New Decision Entry", expanded=False):
-        d_date = st.date_input("Date", value=datetime.date.today(), key="d_date")
-        d_ticker = st.text_input("Ticker / Asset", placeholder="e.g. BRK.B", key="d_ticker")
-        d_action = st.selectbox("Action", ["Buy", "Sell", "Hold", "Watch", "Research"], key="d_action")
-        d_thesis = st.text_area(
-            "Investment Thesis",
-            placeholder="Why are you making this decision? Key valuation drivers, catalysts, risks…",
-            height=100, key="d_thesis"
-        )
-        d_conviction = st.slider("Conviction Level", 1, 10, 7, key="d_conviction")
-        if st.button("Save Decision", key="d_save"):
-            if d_ticker.strip():
-                entry = {
-                    "type": "decision",
-                    "date": str(d_date),
-                    "ticker": d_ticker.strip().upper(),
-                    "action": d_action,
-                    "thesis": d_thesis,
-                    "conviction": d_conviction,
-                }
-                save_journal_entry(_uid, entry)
-                st.session_state.journal_entries.insert(0, entry)
-                st.success("Decision saved.")
-                st.rerun()
-
-    decisions = [e for e in st.session_state.journal_entries if e.get("type") == "decision"]
-    if decisions:
-        for e in decisions:
-            conviction_bar = "█" * e["conviction"] + "░" * (10 - e["conviction"])
-            st.markdown(
-                f"""<div style='background:#0D0D12;border:1px solid #1E1E26;border-radius:2px;
-                padding:14px 16px;margin-bottom:8px;'>
-                <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;'>
-                    <span style='font-size:0.85rem;font-weight:600;color:#C9A962'>{e["ticker"]}</span>
-                    <span style='font-size:0.6rem;color:#3A3A4A;letter-spacing:2px'>{e["date"]} &nbsp;·&nbsp; {e["action"].upper()}</span>
-                </div>
-                <div style='font-size:0.8rem;color:#AAAABC;line-height:1.5;margin-bottom:8px'>{e["thesis"] or "—"}</div>
-                <div style='font-size:0.6rem;color:#5A5A6A;letter-spacing:1px'>
-                    CONVICTION &nbsp;<span style='color:#C9A962;font-family:monospace'>{conviction_bar}</span>&nbsp; {e["conviction"]}/10
-                </div>
-                </div>""",
-                unsafe_allow_html=True
-            )
-    else:
-        st.markdown("<div style='color:#3A3A4A;font-size:0.8rem;padding:8px 0'>No decisions logged yet.</div>",
-                    unsafe_allow_html=True)
-
-# ── Tab 2: Trade Review ──────────────────────────────────────────────────────
-with journal_tab2:
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-    with st.expander("＋ New Trade Review", expanded=False):
-        r_date = st.date_input("Review Date", value=datetime.date.today(), key="r_date")
-        r_ticker = st.text_input("Ticker", placeholder="e.g. KO", key="r_ticker")
-        r_outcome = st.selectbox("Outcome", ["Profit", "Loss", "Break-even", "Ongoing"], key="r_outcome")
-        r_what_worked = st.text_area(
-            "What Worked",
-            placeholder="Entry timing, valuation model accuracy, patience…",
-            height=80, key="r_what_worked"
-        )
-        r_mistakes = st.text_area(
-            "Mistakes / What to Improve",
-            placeholder="Emotional bias, missed signals, position sizing…",
-            height=80, key="r_mistakes"
-        )
-        r_lesson = st.text_area(
-            "Key Lesson",
-            placeholder="One clear rule or principle to carry forward…",
-            height=60, key="r_lesson"
-        )
-        if st.button("Save Review", key="r_save"):
-            if r_ticker.strip():
-                entry = {
-                    "type": "review",
-                    "date": str(r_date),
-                    "ticker": r_ticker.strip().upper(),
-                    "outcome": r_outcome,
-                    "what_worked": r_what_worked,
-                    "mistakes": r_mistakes,
-                    "lesson": r_lesson,
-                }
-                save_journal_entry(_uid, entry)
-                st.session_state.journal_entries.insert(0, entry)
-                st.success("Review saved.")
-                st.rerun()
-
-    reviews = [e for e in st.session_state.journal_entries if e.get("type") == "review"]
-    outcome_color = {"Profit": "#00C853", "Loss": "#F44336",
-                     "Break-even": "#FF9800", "Ongoing": "#C9A962"}
-    if reviews:
-        for e in reviews:
-            oc = outcome_color.get(e["outcome"], "#E8E8F0")
-            st.markdown(
-                f"""<div style='background:#0D0D12;border:1px solid #1E1E26;border-radius:2px;
-                padding:14px 16px;margin-bottom:8px;'>
-                <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;'>
-                    <span style='font-size:0.85rem;font-weight:600;color:#C9A962'>{e["ticker"]}</span>
-                    <span style='font-size:0.7rem;font-weight:700;color:{oc}'>{e["outcome"].upper()}</span>
-                    <span style='font-size:0.6rem;color:#3A3A4A;letter-spacing:2px'>{e["date"]}</span>
-                </div>
-                {"<div style='font-size:0.75rem;color:#5A5A6A;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px'>What Worked</div><div style='font-size:0.8rem;color:#AAAABC;line-height:1.5;margin-bottom:8px'>" + (e["what_worked"] or "—") + "</div>" if e.get("what_worked") else ""}
-                {"<div style='font-size:0.75rem;color:#5A5A6A;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px'>Mistakes</div><div style='font-size:0.8rem;color:#AAAABC;line-height:1.5;margin-bottom:8px'>" + (e["mistakes"] or "—") + "</div>" if e.get("mistakes") else ""}
-                {"<div style='font-size:0.75rem;color:#C9A962;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px'>Key Lesson</div><div style='font-size:0.8rem;color:#E8E8F0;line-height:1.5;font-style:italic'>" + (e["lesson"] or "—") + "</div>" if e.get("lesson") else ""}
-                </div>""",
-                unsafe_allow_html=True
-            )
-    else:
-        st.markdown("<div style='color:#3A3A4A;font-size:0.8rem;padding:8px 0'>No reviews yet.</div>",
-                    unsafe_allow_html=True)
-
-# ── Tab 3: Market Notes ──────────────────────────────────────────────────────
-with journal_tab3:
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-    with st.expander("＋ New Market Note", expanded=False):
-        n_date = st.date_input("Date", value=datetime.date.today(), key="n_date")
-        n_category = st.selectbox(
-            "Category",
-            ["Macro / Economy", "Industry Trend", "New Observation", "Risk Watch", "Other"],
-            key="n_category"
-        )
-        n_title = st.text_input("Title / Headline", placeholder="Brief description", key="n_title")
-        n_body = st.text_area(
-            "Analysis",
-            placeholder="What does this signal? How does it affect portfolio thesis?",
-            height=100, key="n_body"
-        )
-        n_impact = st.selectbox("Portfolio Impact", ["Positive", "Negative", "Neutral", "Monitoring"], key="n_impact")
-        if st.button("Save Note", key="n_save"):
-            if n_title.strip():
-                entry = {
-                    "type": "note",
-                    "date": str(n_date),
-                    "category": n_category,
-                    "title": n_title.strip(),
-                    "body": n_body,
-                    "impact": n_impact,
-                }
-                save_journal_entry(_uid, entry)
-                st.session_state.journal_entries.insert(0, entry)
-                st.success("Note saved.")
-                st.rerun()
-
-    notes = [e for e in st.session_state.journal_entries if e.get("type") == "note"]
-    impact_color = {"Positive": "#00C853", "Negative": "#F44336",
-                    "Neutral": "#5A5A6A", "Monitoring": "#FF9800"}
-    cat_icon = {
-        "Macro / Economy": "🌍",
-        "Industry Trend": "📈",
-        "New Observation": "🔭",
-        "Risk Watch": "⚠️",
-        "Other": "📝",
-    }
-    if notes:
-        for e in notes:
-            ic = impact_color.get(e["impact"], "#E8E8F0")
-            icon = cat_icon.get(e["category"], "📝")
-            st.markdown(
-                f"""<div style='background:#0D0D12;border:1px solid #1E1E26;border-radius:2px;
-                padding:14px 16px;margin-bottom:8px;'>
-                <div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;'>
-                    <span style='font-size:0.8rem;font-weight:600;color:#E8E8F0'>{icon}&nbsp; {e["title"]}</span>
-                    <span style='font-size:0.65rem;font-weight:600;color:{ic};letter-spacing:1px'>{e["impact"].upper()}</span>
-                </div>
-                <div style='font-size:0.6rem;color:#3A3A4A;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px'>{e["date"]} &nbsp;·&nbsp; {e["category"]}</div>
-                <div style='font-size:0.8rem;color:#AAAABC;line-height:1.5'>{e["body"] or "—"}</div>
-                </div>""",
-                unsafe_allow_html=True
-            )
-    else:
-        st.markdown("<div style='color:#3A3A4A;font-size:0.8rem;padding:8px 0'>No market notes yet.</div>",
-                    unsafe_allow_html=True)
-
-st.markdown("<div style='height:24px;border-top:1px solid #1A1A22;margin-top:20px'></div>",
-            unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# SECTION 3 — MARKET COMPASS
-# ══════════════════════════════════════════════════════════════════════════════
-components.html("""
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { background:#08080C; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; padding:8px 0 4px; }
-.section-label { font-size:0.5rem; letter-spacing:4px; color:#C9A962; text-transform:uppercase; }
-.section-title { font-size:1.05rem; font-weight:600; color:#E8E8F0; letter-spacing:1px; margin-top:2px; }
-</style></head><body>
-<div class="section-label">Macro Intelligence</div>
-<div class="section-title">Market Compass</div>
-</body></html>
-""", height=52, scrolling=False)
-
-if st.button("🌐 Refresh Macro Data", key="compass_refresh"):
-    st.cache_data.clear()
-
-@st.cache_data(ttl=3600)
-def _load_macro():
-    try:
-        from src.data.macro import get_macro_overview
-        return get_macro_overview()
-    except Exception as e:
-        return {"error": str(e)}
-
-with st.spinner("Loading macro indicators…"):
-    macro = _load_macro()
-
-if "error" in macro:
-    st.warning(f"Macro data unavailable: {macro['error']}")
-else:
-    # Layout: two columns
-    mc1, mc2 = st.columns(2)
-
-    def _compass_metric(label, value, delta=None, delta_good=True):
-        if delta is not None:
-            arrow = "▲" if delta >= 0 else "▼"
-            d_color = "#00C853" if (delta >= 0) == delta_good else "#F44336"
-            delta_html = f"<span style='font-size:0.7rem;color:{d_color}'>{arrow} {abs(delta):.2f}%</span>"
-        else:
-            delta_html = ""
-        return f"""<div style='background:#0D0D12;border:1px solid #1E1E26;border-radius:2px;
-            padding:14px 16px;margin-bottom:8px;'>
-            <div style='font-size:0.55rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase;margin-bottom:4px'>{label}</div>
-            <div style='font-size:1.2rem;font-weight:600;color:#E8E8F0'>{value} &nbsp;{delta_html}</div>
-            </div>"""
-
-    # Gather keys from macro dict (structure depends on macro.py implementation)
-    buffett_pct = macro.get("buffett_indicator_pct") or macro.get("buffett_pct")
-    sp500 = macro.get("sp500") or macro.get("sp500_price")
-    pe_ratio = macro.get("sp500_pe") or macro.get("pe_ratio")
-    vix = macro.get("vix") or macro.get("vix_current")
-    dxy = macro.get("dxy") or macro.get("usd_index")
-    cn_gdp = macro.get("cn_gdp_growth") or macro.get("china_gdp")
-    us_yield = macro.get("us_10y_yield") or macro.get("treasury_10y")
-    cn_yield = macro.get("cn_10y_yield")
-
-    with mc1:
-        if buffett_pct is not None:
-            st.markdown(_compass_metric("Buffett Indicator", f"{buffett_pct:.1f}%"), unsafe_allow_html=True)
-        if sp500 is not None:
-            st.markdown(_compass_metric("S&P 500", f"{sp500:,.0f}"), unsafe_allow_html=True)
-        if pe_ratio is not None:
-            st.markdown(_compass_metric("S&P 500 P/E", f"{pe_ratio:.1f}x"), unsafe_allow_html=True)
-        if us_yield is not None:
-            st.markdown(_compass_metric("US 10Y Treasury", f"{us_yield:.2f}%"), unsafe_allow_html=True)
-
-    with mc2:
-        if vix is not None:
-            st.markdown(_compass_metric("VIX (Fear Index)", f"{vix:.1f}"), unsafe_allow_html=True)
-        if dxy is not None:
-            st.markdown(_compass_metric("DXY (USD Index)", f"{dxy:.1f}"), unsafe_allow_html=True)
-        if cn_yield is not None:
-            st.markdown(_compass_metric("CN 10Y Treasury", f"{cn_yield:.2f}%"), unsafe_allow_html=True)
-        if cn_gdp is not None:
-            st.markdown(_compass_metric("China GDP Growth", f"{cn_gdp:.1f}%"), unsafe_allow_html=True)
-
-    # If nothing rendered, show raw dict
-    key_fields = [buffett_pct, sp500, pe_ratio, vix, dxy, us_yield, cn_yield, cn_gdp]
-    if not any(v is not None for v in key_fields):
-        st.json(macro)
-
-# ── Footer ────────────────────────────────────────────────────────────────────
-st.markdown("<div style='height:24px;border-top:1px solid #1A1A22;margin-top:20px'></div>",
-            unsafe_allow_html=True)
-
-# ── Journal export / import ───────────────────────────────────────────────────
-components.html("""
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { background:#08080C; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; padding:8px 0 4px; }
-.section-label { font-size:0.5rem; letter-spacing:4px; color:#C9A962; text-transform:uppercase; }
-.section-title { font-size:1.05rem; font-weight:600; color:#E8E8F0; letter-spacing:1px; margin-top:2px; }
-</style></head><body>
-<div class="section-label">Data Management</div>
-<div class="section-title">Journal Backup</div>
-</body></html>
-""", height=52, scrolling=False)
-
-ex_col, im_col, cl_col = st.columns(3)
-
-with ex_col:
-    entries = st.session_state.journal_entries
-    if entries:
-        st.download_button(
-            label="⬇ Export Journal (JSON)",
-            data=json.dumps(entries, ensure_ascii=False, indent=2),
-            file_name=f"journal_{datetime.date.today()}.json",
-            mime="application/json",
-            use_container_width=True,
-        )
-    else:
-        st.button("⬇ Export (empty)", disabled=True, use_container_width=True)
-
-with im_col:
-    uploaded = st.file_uploader("⬆ Import Journal", type=["json"], key="journal_import",
-                                label_visibility="collapsed")
-    if uploaded is not None:
+    def _fetch_one(item):
         try:
-            imported = json.loads(uploaded.read().decode("utf-8"))
-            if not isinstance(imported, list):
-                raise ValueError("Expected a JSON array")
-            save_all_journal(_uid, imported)
-            st.session_state.journal_entries = imported
-            st.success(f"Imported {len(imported)} entries.")
-            st.rerun()
-        except Exception as e:
-            st.error(f"Import failed: {e}")
+            q = fetch_quote(item["symbol"], item["market"])
+            return {
+                "symbol": item["symbol"],
+                "name": item["name"],
+                "market": item["market"],
+                "price": q.get("price", 0),
+                "change_pct": q.get("change_pct", 0),
+                "pe": q.get("pe", 0),
+                "pb": q.get("pb", 0),
+                "market_cap": q.get("market_cap", 0),
+                "52w_high": q.get("52w_high", 0),
+                "52w_low": q.get("52w_low", 0),
+            }
+        except Exception:
+            return {"symbol": item["symbol"], "name": item["name"], "market": item["market"],
+                    "price": 0, "change_pct": 0}
 
-with cl_col:
-    if st.button("🗑 Clear All Entries", use_container_width=True):
-        if st.session_state.get("confirm_clear_journal"):
-            save_all_journal(_uid, [])
-            st.session_state.journal_entries = []
-            st.session_state.confirm_clear_journal = False
-            st.rerun()
-        else:
-            st.session_state.confirm_clear_journal = True
-            st.warning("Click again to confirm deletion.")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {executor.submit(_fetch_one, s): s for s in stocks}
+        for f in as_completed(futures):
+            results.append(f.result())
+    return results
 
-st.caption(f"Journal auto-saved · {len(st.session_state.journal_entries)} entries stored")
+
+stocks_list = st.session_state.dashboard_stocks
+if stocks_list:
+    with st.spinner("Loading live data..."):
+        wl_data = _fetch_watchlist_data(json.dumps(stocks_list))
+
+    # Sort by change_pct descending
+    wl_data.sort(key=lambda x: x.get("change_pct", 0), reverse=True)
+
+    # Build market tab groups
+    us_stocks = [s for s in wl_data if s["market"] == "us"]
+    hk_stocks = [s for s in wl_data if s["market"] == "hk"]
+    a_stocks = [s for s in wl_data if s["market"] == "a_share"]
+
+    def _render_stock_table(stocks, currency="$"):
+        if not stocks:
+            st.caption("No stocks in this market.")
+            return
+        rows_html = ""
+        for s in stocks:
+            price = s.get("price", 0)
+            chg = s.get("change_pct", 0)
+            pe = s.get("pe", 0)
+            cap = s.get("market_cap", 0)
+            chg_color = "#00C853" if chg >= 0 else "#F44336"
+            arrow = "&#x25B2;" if chg >= 0 else "&#x25BC;"
+
+            # Price format
+            if price >= 1000:
+                price_fmt = "{}{:,.0f}".format(currency, price)
+            elif price >= 1:
+                price_fmt = "{}{:,.2f}".format(currency, price)
+            else:
+                price_fmt = "{}{:.4f}".format(currency, price)
+
+            # Market cap format
+            if cap >= 1e12:
+                cap_fmt = "{:.1f}T".format(cap / 1e12)
+            elif cap >= 1e9:
+                cap_fmt = "{:.1f}B".format(cap / 1e9)
+            elif cap >= 1e6:
+                cap_fmt = "{:.0f}M".format(cap / 1e6)
+            else:
+                cap_fmt = "--"
+
+            pe_fmt = "{:.1f}".format(pe) if pe and pe > 0 else "--"
+
+            rows_html += '''<tr>
+                <td class="sym">{sym}</td>
+                <td class="name">{name}</td>
+                <td class="price">{price}</td>
+                <td class="chg" style="color:{chg_color}">{arrow} {chg:+.2f}%</td>
+                <td class="pe">{pe}</td>
+                <td class="cap">{cap}</td>
+            </tr>'''.format(sym=s["symbol"], name=s["name"][:14],
+                           price=price_fmt, chg_color=chg_color, arrow=arrow,
+                           chg=chg, pe=pe_fmt, cap=cap_fmt)
+
+        components.html('''<!DOCTYPE html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:4px 0 0}}
+table{{width:100%;border-collapse:collapse}}
+th{{
+    font-size:0.5rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase;
+    text-align:left;padding:8px 10px;border-bottom:1px solid #1A1A22;font-weight:500;
+}}
+th:nth-child(n+3){{text-align:right}}
+td{{
+    padding:10px 10px;border-bottom:1px solid #0F0F18;
+    font-size:0.75rem;color:#AAAABC;
+}}
+td:nth-child(n+3){{text-align:right}}
+tr:hover{{background:#0F0F18}}
+.sym{{color:#C9A962;font-weight:600;letter-spacing:1px}}
+.name{{color:#6A6A80;font-size:0.65rem}}
+.price{{color:#E8E8F0;font-weight:500}}
+.chg{{font-weight:600;letter-spacing:0.5px}}
+.pe{{color:#6A6A80}}
+.cap{{color:#6A6A80;font-size:0.65rem}}
+</style></head><body>
+<table>
+<tr><th>Symbol</th><th>Name</th><th>Price</th><th>Change</th><th>PE</th><th>Mkt Cap</th></tr>
+{rows}
+</table>
+</body></html>'''.format(rows=rows_html), height=max(60, len(stocks) * 42 + 40), scrolling=False)
+
+    wl_tabs = []
+    wl_tab_data = []
+    if us_stocks:
+        wl_tabs.append("US ({})".format(len(us_stocks)))
+        wl_tab_data.append(("$", us_stocks))
+    if hk_stocks:
+        wl_tabs.append("HK ({})".format(len(hk_stocks)))
+        wl_tab_data.append(("HK$", hk_stocks))
+    if a_stocks:
+        wl_tabs.append("A-Share ({})".format(len(a_stocks)))
+        wl_tab_data.append(("¥", a_stocks))
+
+    if wl_tabs:
+        tabs = st.tabs(wl_tabs)
+        for tab, (cur, data) in zip(tabs, wl_tab_data):
+            with tab:
+                _render_stock_table(data, cur)
+else:
+    st.caption("No stocks in watchlist. Add tickers above.")
+
+st.markdown("<div style='height:16px;border-top:1px solid #1A1A22;margin-top:16px'></div>",
+            unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 3 — INVESTMENT JOURNAL (compact)
+# ══════════════════════════════════════════════════════════════════════════════
+
+with st.expander("Investment Journal ({} entries)".format(len(st.session_state.journal_entries)),
+                  expanded=False):
+
+    journal_tab1, journal_tab2, journal_tab3 = st.tabs([
+        "Decision Log", "Trade Review", "Market Notes"])
+
+    with journal_tab1:
+        with st.expander("+ New Decision", expanded=False):
+            d_c1, d_c2 = st.columns(2)
+            with d_c1:
+                d_ticker = st.text_input("Ticker", placeholder="e.g. BRK.B", key="d_ticker")
+            with d_c2:
+                d_action = st.selectbox("Action", ["Buy", "Sell", "Hold", "Watch"], key="d_action")
+            d_thesis = st.text_area("Thesis", placeholder="Why?", height=80, key="d_thesis")
+            d_conviction = st.slider("Conviction", 1, 10, 7, key="d_conviction")
+            if st.button("Save", key="d_save"):
+                if d_ticker.strip():
+                    entry = {"type": "decision", "date": str(datetime.date.today()),
+                             "ticker": d_ticker.strip().upper(), "action": d_action,
+                             "thesis": d_thesis, "conviction": d_conviction}
+                    save_journal_entry(_uid, entry)
+                    st.session_state.journal_entries.insert(0, entry)
+                    st.rerun()
+
+        decisions = [e for e in st.session_state.journal_entries if e.get("type") == "decision"]
+        for e in decisions[:10]:
+            bar = "█" * e.get("conviction", 5) + "░" * (10 - e.get("conviction", 5))
+            st.markdown(
+                '<div style="background:#0D0D12;border:1px solid #1E1E26;border-radius:2px;padding:10px 14px;margin-bottom:6px">'
+                '<div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">'
+                '<span style="color:#C9A962;font-weight:600">{ticker}</span>'
+                '<span style="color:#3A3A4A;font-size:0.6rem;letter-spacing:2px">{date} · {action}</span>'
+                '</div>'
+                '<div style="font-size:0.75rem;color:#AAAABC;line-height:1.5;margin-bottom:4px">{thesis}</div>'
+                '<div style="font-size:0.55rem;color:#5A5A6A">CONVICTION <span style="color:#C9A962;font-family:monospace">{bar}</span> {c}/10</div>'
+                '</div>'.format(ticker=e.get("ticker", "?"), date=e.get("date", ""),
+                                action=e.get("action", "").upper(), thesis=e.get("thesis", "—"),
+                                bar=bar, c=e.get("conviction", 5)),
+                unsafe_allow_html=True)
+        if not decisions:
+            st.caption("No decisions logged yet.")
+
+    with journal_tab2:
+        with st.expander("+ New Trade Review", expanded=False):
+            r_c1, r_c2 = st.columns(2)
+            with r_c1:
+                r_ticker = st.text_input("Ticker", placeholder="e.g. KO", key="r_ticker")
+            with r_c2:
+                r_outcome = st.selectbox("Outcome", ["Profit", "Loss", "Break-even", "Ongoing"], key="r_outcome")
+            r_lesson = st.text_area("Key Lesson", placeholder="What did you learn?", height=80, key="r_lesson")
+            if st.button("Save", key="r_save"):
+                if r_ticker.strip():
+                    entry = {"type": "review", "date": str(datetime.date.today()),
+                             "ticker": r_ticker.strip().upper(), "outcome": r_outcome,
+                             "lesson": r_lesson}
+                    save_journal_entry(_uid, entry)
+                    st.session_state.journal_entries.insert(0, entry)
+                    st.rerun()
+
+        reviews = [e for e in st.session_state.journal_entries if e.get("type") == "review"]
+        oc_color = {"Profit": "#00C853", "Loss": "#F44336", "Break-even": "#FF9800", "Ongoing": "#C9A962"}
+        for e in reviews[:10]:
+            oc = oc_color.get(e.get("outcome", ""), "#5A5A6A")
+            st.markdown(
+                '<div style="background:#0D0D12;border:1px solid #1E1E26;border-radius:2px;padding:10px 14px;margin-bottom:6px">'
+                '<div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">'
+                '<span style="color:#C9A962;font-weight:600">{ticker}</span>'
+                '<span style="color:{oc};font-size:0.65rem;font-weight:700">{outcome}</span>'
+                '</div>'
+                '<div style="font-size:0.75rem;color:#AAAABC;line-height:1.5">{lesson}</div>'
+                '</div>'.format(ticker=e.get("ticker", "?"), oc=oc,
+                                outcome=e.get("outcome", "").upper(),
+                                lesson=e.get("lesson", "—")),
+                unsafe_allow_html=True)
+        if not reviews:
+            st.caption("No reviews yet.")
+
+    with journal_tab3:
+        with st.expander("+ New Note", expanded=False):
+            n_title = st.text_input("Title", placeholder="Brief description", key="n_title")
+            n_body = st.text_area("Analysis", placeholder="What does this signal?", height=80, key="n_body")
+            n_impact = st.selectbox("Impact", ["Positive", "Negative", "Neutral", "Monitoring"], key="n_impact")
+            if st.button("Save", key="n_save"):
+                if n_title.strip():
+                    entry = {"type": "note", "date": str(datetime.date.today()),
+                             "title": n_title.strip(), "body": n_body, "impact": n_impact}
+                    save_journal_entry(_uid, entry)
+                    st.session_state.journal_entries.insert(0, entry)
+                    st.rerun()
+
+        notes = [e for e in st.session_state.journal_entries if e.get("type") == "note"]
+        ic_color = {"Positive": "#00C853", "Negative": "#F44336", "Neutral": "#5A5A6A", "Monitoring": "#FF9800"}
+        for e in notes[:10]:
+            ic = ic_color.get(e.get("impact", ""), "#5A5A6A")
+            st.markdown(
+                '<div style="background:#0D0D12;border:1px solid #1E1E26;border-radius:2px;padding:10px 14px;margin-bottom:6px">'
+                '<div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">'
+                '<span style="color:#E8E8F0;font-weight:600">{title}</span>'
+                '<span style="color:{ic};font-size:0.6rem;font-weight:700;letter-spacing:1px">{impact}</span>'
+                '</div>'
+                '<div style="font-size:0.6rem;color:#3A3A4A;letter-spacing:2px;margin-bottom:4px">{date}</div>'
+                '<div style="font-size:0.75rem;color:#AAAABC;line-height:1.5">{body}</div>'
+                '</div>'.format(title=e.get("title", "?"), ic=ic,
+                                impact=e.get("impact", "").upper(),
+                                date=e.get("date", ""), body=e.get("body", "—")),
+                unsafe_allow_html=True)
+        if not notes:
+            st.caption("No notes yet.")
+
+    # Export / Import / Clear
+    st.markdown("---")
+    ex_c, im_c, cl_c = st.columns(3)
+    with ex_c:
+        entries = st.session_state.journal_entries
+        if entries:
+            st.download_button("Export JSON", json.dumps(entries, ensure_ascii=False, indent=2),
+                               "journal_{}.json".format(datetime.date.today()), "application/json",
+                               use_container_width=True)
+    with im_c:
+        uploaded = st.file_uploader("Import", type=["json"], key="j_import", label_visibility="collapsed")
+        if uploaded:
+            try:
+                imported = json.loads(uploaded.read().decode("utf-8"))
+                if isinstance(imported, list):
+                    save_all_journal(_uid, imported)
+                    st.session_state.journal_entries = imported
+                    st.rerun()
+            except Exception as e:
+                st.error(str(e))
+    with cl_c:
+        if st.button("Clear All", use_container_width=True, key="j_clear"):
+            if st.session_state.get("_confirm_clear"):
+                save_all_journal(_uid, [])
+                st.session_state.journal_entries = []
+                st.session_state._confirm_clear = False
+                st.rerun()
+            else:
+                st.session_state._confirm_clear = True
+                st.warning("Click again to confirm.")
