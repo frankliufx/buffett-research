@@ -283,6 +283,87 @@ def load_user_settings(uid: str) -> dict:
     return {}
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# PORTFOLIO（持仓追踪）
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _portfolio_fallback_path(uid: str) -> Path:
+    return _DATA_DIR / "portfolio_{}.json".format(uid)
+
+
+def load_portfolio(uid: str) -> List[dict]:
+    """加载用户持仓"""
+    db = get_client()
+    if db is not None:
+        try:
+            resp = db.table("user_portfolio").select("*") \
+                .eq("uid", uid).order("created_at", desc=True).execute()
+            return resp.data or []
+        except Exception as e:
+            logger.warning("Supabase load_portfolio failed for %s: %s", uid, e)
+
+    path = _portfolio_fallback_path(uid)
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return data if isinstance(data, list) else []
+        except Exception:
+            pass
+    return []
+
+
+def add_position(uid: str, position: dict) -> bool:
+    """新增一条持仓记录"""
+    db = get_client()
+    if db is not None:
+        try:
+            db.table("user_portfolio").insert({
+                "uid": uid,
+                "symbol": position["symbol"],
+                "name": position.get("name", position["symbol"]),
+                "market": position.get("market", "us"),
+                "shares": position.get("shares", 0),
+                "cost_price": position.get("cost_price", 0),
+                "buy_date": position.get("buy_date", ""),
+                "note": position.get("note", ""),
+            }).execute()
+            return True
+        except Exception as e:
+            logger.warning("Supabase add_position failed: %s", e)
+
+    # 本地降级
+    positions = load_portfolio(uid)
+    positions.insert(0, position)
+    return _save_portfolio_local(uid, positions)
+
+
+def delete_position(uid: str, position_id: str) -> bool:
+    """删除一条持仓"""
+    db = get_client()
+    if db is not None:
+        try:
+            db.table("user_portfolio").delete().eq("uid", uid).eq("id", position_id).execute()
+            return True
+        except Exception as e:
+            logger.warning("Supabase delete_position failed: %s", e)
+
+    positions = load_portfolio(uid)
+    positions = [p for p in positions if p.get("id") != position_id]
+    return _save_portfolio_local(uid, positions)
+
+
+def _save_portfolio_local(uid: str, positions: List[dict]) -> bool:
+    try:
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+        _portfolio_fallback_path(uid).write_text(
+            json.dumps(positions, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return True
+    except Exception as e:
+        logger.warning("Local portfolio save failed: %s", e)
+        return False
+
+
 def save_user_settings(uid: str, settings: dict) -> bool:
     """保存用户个性化设置"""
     db = get_client()

@@ -68,9 +68,10 @@ if user:
 pg = st.navigation([
     st.Page("pages/0_home.py",       title="Home",       icon="🏠", default=True),
     st.Page("pages/1_dashboard.py",  title="Dashboard",  icon="📊"),
-    st.Page("pages/1_sentiment.py",  title="Sentiment",  icon="📡"),
+    st.Page("pages/5_portfolio.py",  title="Portfolio",   icon="💼"),
     st.Page("pages/2_analysis.py",   title="Analysis",   icon="🔍"),
     st.Page("pages/3_chat.py",       title="AI Advisor", icon="💬"),
+    st.Page("pages/1_sentiment.py",  title="Sentiment",  icon="📡"),
     st.Page("pages/4_settings.py",   title="Settings",   icon="⚙️"),
 ])
 

@@ -48,6 +48,29 @@ create policy "service_role_all" on user_journals
 create policy "service_role_all" on user_settings
   using (true) with check (true);
 
+-- ── 用户持仓组合 ────────────────────────────────────────────────────────────
+create table if not exists user_portfolio (
+  id          uuid        default gen_random_uuid() primary key,
+  uid         text        not null,
+  symbol      text        not null,
+  name        text        not null default '',
+  market      text        not null default 'us',
+  shares      numeric     not null default 0,
+  cost_price  numeric     not null default 0,
+  buy_date    text        default '',
+  note        text        default '',
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now(),
+  unique(uid, symbol, buy_date)
+);
+
+alter table user_portfolio enable row level security;
+
+create policy "service_role_portfolio" on user_portfolio
+  using (true) with check (true);
+
+create index if not exists idx_portfolio_uid on user_portfolio(uid);
+
 -- ── 索引（加速按用户查询）───────────────────────────────────────────────────
 create index if not exists idx_watchlists_uid on user_watchlists(uid);
 create index if not exists idx_journals_uid   on user_journals(uid);
