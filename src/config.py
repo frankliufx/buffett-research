@@ -77,8 +77,8 @@ class ApiProvider(BaseModel):
 
 
 class ApiConfig(BaseModel):
-    # 高级推理模型（用于 AI 洞察卡片等需要深度分析的场景）
-    premium_model: str = "deepseek/deepseek-r1"
+    # 高级分析模型（用于 AI 洞察卡片等需要深度分析的场景）
+    premium_model: str = "deepseek/deepseek-chat-v3-0324"
     providers: List[ApiProvider] = [
         ApiProvider(
             name="OpenRouter (默认)",
