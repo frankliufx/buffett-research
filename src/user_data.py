@@ -323,11 +323,13 @@ def increment_usage(uid: str) -> int:
     return count
 
 
-def can_analyze(uid: str) -> tuple:
+def can_analyze(uid: str, role: str = "viewer") -> tuple:
     """检查用户是否可以执行分析
 
     Returns: (allowed: bool, remaining: int, plan: str)
     """
+    if role == "admin":
+        return True, 999, "admin"
     plan = get_user_plan(uid)
     if plan == "premium":
         return True, 999, "premium"

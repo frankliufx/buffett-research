@@ -1336,8 +1336,10 @@ for tab, market_key, market_name in [
             st.session_state["_current_name"] = selected.name
 
             # Freemium gate
-            _a_uid = (get_current_user() or {}).get("username", "anonymous")
-            allowed, remaining, plan = can_analyze(_a_uid)
+            _a_user = get_current_user() or {}
+            _a_uid = _a_user.get("username", "anonymous")
+            _a_role = _a_user.get("role", "viewer")
+            allowed, remaining, plan = can_analyze(_a_uid, role=_a_role)
             if not allowed:
                 st.warning(
                     "You've used all **{} free analyses** this month. "
