@@ -15,7 +15,8 @@ from src.analysis.technical import compute_indicators, generate_technical_signal
 from src.analysis.fundamental import analyze_buffett
 from src.analysis.signals import AnalysisResult
 from src.ai.summarizer import analyze_stock, generate_market_overview
-from src.output.notify import send_notification, format_daily_push, check_and_send_price_alerts
+from src.output.notify import (send_notification, format_daily_push,
+                                check_and_send_price_alerts, format_weekly_portfolio_email)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -91,6 +92,35 @@ def run_and_push():
             logger.info(f"价格提醒已触发并发送: {[t['symbol'] for t in triggered]}")
     except Exception as e:
         logger.error(f"价格提醒检查失败: {e}")
+
+    # 每周日发送持仓回顾邮件
+    today_wd = date.today().weekday()  # 0=Mon, 6=Sun
+    if today_wd == 6:  # Sunday
+        try:
+            from src.ai.summarizer import generate_weekly_report
+            from src.config import get_premium_provider
+            premium = get_premium_provider(config)
+
+            # Generate AI weekly report
+            market_summary = "\n".join(
+                "- {} ({}): Grade {} ({:.0f}%)".format(
+                    r.symbol, r.name, r.buffett_result.get("grade", "?"),
+                    r.buffett_result.get("percentage", 0))
+                for r in all_results[:15])
+            weekly_ai = ""
+            if premium:
+                try:
+                    weekly_ai = generate_weekly_report(
+                        market_summary, market_summary, "N/A", premium)
+                except Exception:
+                    pass
+
+            # Format and send weekly digest (use first user or "anonymous")
+            title, content = format_weekly_portfolio_email("anonymous", weekly_ai)
+            send_notification(title, content, config.notify)
+            logger.info("Weekly portfolio digest sent")
+        except Exception as e:
+            logger.warning("Weekly digest failed: %s", e)
 
     # 记录最后运行时间
     try:

@@ -98,6 +98,11 @@ body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:0}
 }}
 
 .verdict-metrics{{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}}
+@media(max-width:600px){{
+    .verdict-metrics{{grid-template-columns:repeat(2,1fr)}}
+    .verdict-text{{font-size:1.5rem !important}}
+    .ins-card,.sc-card,.pulse-card{{padding:12px 14px !important}}
+}}
 .vm{{}}
 .vm-label{{font-size:0.5rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase;margin-bottom:4px}}
 .vm-value{{font-size:1.2rem;font-weight:600;color:#E8E8F0;letter-spacing:0.5px}}
@@ -399,6 +404,7 @@ def render_scenario_cards(dcf: dict, currency: str = "$") -> str:
 body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:16px 0 0}}
 
 .sc-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}}
+@media(max-width:600px){{.sc-grid{{grid-template-columns:1fr}}}}
 
 .sc-card{{
     background:#0D0D14;border:1px solid #1E1E2A;border-radius:4px;
@@ -660,6 +666,7 @@ body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:12
 }}
 
 .insight-grid{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
+@media(max-width:600px){{.insight-grid{{grid-template-columns:1fr}}}}
 
 .ins-card{{
     background:linear-gradient(135deg,#0D0D14 0%,#101018 100%);

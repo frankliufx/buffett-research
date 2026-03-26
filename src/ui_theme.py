@@ -686,6 +686,58 @@ def get_global_css():
     }
     .bb-item:last-child { border-bottom: none; }
 
+    /* ===== Mobile Responsive ===== */
+    @media (max-width: 768px) {
+        /* Sidebar auto-collapse on mobile */
+        [data-testid="stSidebar"] { min-width: 0 !important; }
+
+        /* Stack columns vertically */
+        .stApp .block-container { padding: 0.5rem 0.8rem !important; max-width: 100% !important; }
+
+        /* Make metric cards full-width */
+        .metric-card { padding: 0.6rem !important; }
+        .metric-card .value { font-size: 1.1rem !important; }
+
+        /* KPI cards responsive */
+        .kpi-card { padding: 8px 10px !important; }
+        .kpi-card .kpi-value { font-size: 1rem !important; }
+
+        /* Hero header compact */
+        .hero-header { padding: 1.5rem 1rem !important; }
+        .hero-header h1 { font-size: 1.3rem !important; }
+
+        /* Plotly charts responsive */
+        .js-plotly-plot { width: 100% !important; }
+
+        /* Tabs - horizontal scroll on mobile */
+        .stTabs [data-baseweb="tab-list"] {
+            overflow-x: auto !important;
+            flex-wrap: nowrap !important;
+            -webkit-overflow-scrolling: touch;
+        }
+        .stTabs [data-baseweb="tab"] {
+            white-space: nowrap !important;
+            font-size: 0.7rem !important;
+            padding: 8px 12px !important;
+        }
+
+        /* Tables - smaller font on mobile */
+        .stApp table { font-size: 0.7rem !important; }
+
+        /* Chat input fix */
+        .stChatInput { max-width: 100% !important; }
+
+        /* Expander text */
+        .stApp details summary span { font-size: 0.8rem !important; }
+    }
+
+    /* Small phones */
+    @media (max-width: 480px) {
+        .stApp .block-container { padding: 0.3rem 0.5rem !important; }
+        .hero-header { padding: 1rem 0.5rem !important; }
+        .hero-header h1 { font-size: 1.1rem !important; }
+    }
+
 </style>
 """ % COLORS
 

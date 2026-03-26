@@ -219,6 +219,80 @@ def _format_price_alert_message(triggered: list) -> tuple:
     return f"⚠️ 价格提醒触发 ({len(triggered)}只)", "\n".join(lines)
 
 
+def format_weekly_portfolio_email(uid: str, weekly_report: str = "") -> tuple:
+    """格式化每周持仓回顾 + 市场简报邮件
+
+    Args:
+        uid: user ID for loading portfolio
+        weekly_report: AI-generated weekly report text
+
+    Returns (title, content)
+    """
+    from datetime import datetime
+    from src.user_data import load_portfolio
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    lines = ["**Buffett Research Weekly Digest — {}**\n".format(today)]
+
+    # Portfolio section
+    positions = load_portfolio(uid)
+    if positions:
+        lines.append("## Your Portfolio")
+        for p in positions[:20]:
+            sym = p.get("symbol", "?")
+            shares = p.get("shares", 0)
+            cost = p.get("cost_price", 0)
+            lines.append("- **{}**: {} shares @ {:.2f}".format(sym, shares, cost))
+        lines.append("")
+
+        # Try to get live P&L
+        try:
+            from src.data.price import fetch_quote
+            total_cost = 0
+            total_value = 0
+            pnl_lines = []
+            for p in positions[:10]:
+                sym = p.get("symbol", "")
+                mkt = p.get("market", "us")
+                shares = float(p.get("shares", 0))
+                cost = float(p.get("cost_price", 0))
+                try:
+                    q = fetch_quote(sym, mkt)
+                    price = q.get("price", 0)
+                    if price and shares and cost:
+                        pnl = (price - cost) * shares
+                        pnl_pct = (price - cost) / cost * 100
+                        total_cost += cost * shares
+                        total_value += price * shares
+                        sign = "+" if pnl >= 0 else ""
+                        pnl_lines.append("- **{}**: {:.2f} → {:.2f} ({}{:.1f}%)".format(
+                            sym, cost, price, sign, pnl_pct))
+                except Exception:
+                    pass
+            if pnl_lines:
+                lines.append("## P&L Summary")
+                lines.extend(pnl_lines)
+                if total_cost > 0:
+                    total_pnl_pct = (total_value - total_cost) / total_cost * 100
+                    lines.append("\n**Total: {}{:.1f}%**".format(
+                        "+" if total_pnl_pct >= 0 else "", total_pnl_pct))
+                lines.append("")
+        except Exception:
+            pass
+
+    # Weekly AI report
+    if weekly_report:
+        lines.append("---\n")
+        lines.append(weekly_report)
+
+    lines.append("\n---")
+    lines.append("*Buffett Research — AI-Powered Value Intelligence*")
+    lines.append("*This is an automated weekly digest. Manage your preferences in Settings.*")
+
+    title = "Buffett Research Weekly Digest — {}".format(today)
+    return title, "\n".join(lines)
+
+
 def _markdown_to_simple_html(md: str) -> str:
     """简单的 Markdown -> HTML 转换（不依赖外部库）"""
     import re
