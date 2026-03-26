@@ -177,7 +177,7 @@ with tab_notify:
         col_test, col_push = st.columns(2)
         with col_test:
             if st.button("Send Test Push", type="secondary"):
-                test_title = "Buffett Research — Test"
+                test_title = "AI Buffett — Test"
                 test_content = "Test notification. Time: {}".format(
                     __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 success = send_notification(test_title, test_content, notify)

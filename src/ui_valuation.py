@@ -1005,7 +1005,7 @@ body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:0}
 </style></head><body>
 <div class="share-card">
     <div class="sc-header">
-        <div class="sc-logo">Buffett Research</div>
+        <div class="sc-logo">AI Buffett</div>
         <div class="sc-date">{date}</div>
     </div>
 
@@ -1037,7 +1037,7 @@ body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:0}
     </div>
 
     <div class="sc-footer">
-        <div class="sc-watermark">Buffett Research &copy; 2025</div>
+        <div class="sc-watermark">AI Buffett &copy; 2025</div>
         <div class="sc-cta">AI-Powered Value Intelligence</div>
     </div>
 </div>

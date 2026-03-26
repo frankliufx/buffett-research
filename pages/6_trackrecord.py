@@ -66,6 +66,27 @@ def _html(body, height=300):
 with st.spinner("加载分析历史…"):
     records = load_user_analysis_history(uid, limit=200)
 
+# ── 空状态引导（首次使用）────────────────────────────────────────────────────
+if not records:
+    _html("""
+<div style="padding:80px 48px;background:#06060A;text-align:center;">
+  <div style="font-size:0.52rem;letter-spacing:6px;color:#C9A962;
+    text-transform:uppercase;font-weight:500;margin-bottom:24px;">Track Record</div>
+  <div class="serif" style="font-size:2.4rem;font-weight:300;color:#3A3A4A;margin-bottom:16px;">
+    你的战绩档案即将开始
+  </div>
+  <p style="font-size:0.85rem;color:#2A2A36;line-height:2;max-width:440px;margin:0 auto 32px;">
+    每次分析自动存档。回到 Analysis 页面，分析任意股票——<br>
+    第一条记录就会出现在这里，飞轮开始转动。
+  </p>
+  <div style="display:inline-block;padding:12px 32px;border:1px solid #2A2A36;
+    font-size:0.65rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;">
+    前往 Analysis → 开始第一次分析
+  </div>
+</div>
+""", height=380)
+    st.stop()
+
 # Fetch current prices for all unique symbols
 _sym_markets = list({(r["symbol"], r["market"]) for r in records})
 current_prices = {}

@@ -232,7 +232,7 @@ def format_weekly_portfolio_email(uid: str, weekly_report: str = "") -> tuple:
     from src.user_data import load_portfolio
 
     today = datetime.now().strftime("%Y-%m-%d")
-    lines = ["**Buffett Research Weekly Digest — {}**\n".format(today)]
+    lines = ["**AI Buffett Weekly Digest — {}**\n".format(today)]
 
     # Portfolio section
     positions = load_portfolio(uid)
@@ -286,10 +286,10 @@ def format_weekly_portfolio_email(uid: str, weekly_report: str = "") -> tuple:
         lines.append(weekly_report)
 
     lines.append("\n---")
-    lines.append("*Buffett Research — AI-Powered Value Intelligence*")
+    lines.append("*AI Buffett — AI-Powered Value Intelligence*")
     lines.append("*This is an automated weekly digest. Manage your preferences in Settings.*")
 
-    title = "Buffett Research Weekly Digest — {}".format(today)
+    title = "AI Buffett Weekly Digest — {}".format(today)
     return title, "\n".join(lines)
 
 

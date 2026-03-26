@@ -13,6 +13,7 @@ from src.user_data import (
     load_watchlist, add_to_watchlist, remove_from_watchlist,
     load_journal, save_journal_entry, save_all_journal,
 )
+from src.tracker import load_user_analysis_history
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,21 @@ if "journal_loaded" not in st.session_state or st.session_state.get("_journal_ui
     st.session_state._journal_uid = _uid
 elif "journal_entries" not in st.session_state:
     st.session_state.journal_entries = []
+
+# ── Load MOAT scores from analysis history (flywheel) ─────────────────────────
+if "analysis_scores" not in st.session_state or st.session_state.get("_scores_uid") != _uid:
+    _hist = load_user_analysis_history(_uid, limit=200)
+    # Keep only most recent record per symbol:market
+    _scores = {}
+    for _r in reversed(_hist):  # oldest first so latest overwrites
+        _k = "{}:{}".format(_r.get("market", ""), _r.get("symbol", ""))
+        _scores[_k] = {
+            "score": _r.get("score_total", 0),
+            "grade": _r.get("grade", ""),
+            "verdict": _r.get("verdict", ""),
+        }
+    st.session_state.analysis_scores = _scores
+    st.session_state._scores_uid = _uid
 
 # ── Global CSS ────────────────────────────────────────────────────────────────
 st.markdown(get_global_css(), unsafe_allow_html=True)
@@ -266,6 +282,7 @@ if stocks_list:
         if not stocks:
             st.caption("No stocks in this market.")
             return
+        scores = st.session_state.get("analysis_scores", {})
         rows_html = ""
         for s in stocks:
             price = s.get("price", 0)
@@ -295,16 +312,36 @@ if stocks_list:
 
             pe_fmt = "{:.1f}".format(pe) if pe and pe > 0 else "--"
 
+            # MOAT score from flywheel
+            _score_key = "{}:{}".format(s["market"], s["symbol"])
+            _score_data = scores.get(_score_key)
+            if _score_data:
+                _sc = _score_data["score"]
+                if _sc >= 80:
+                    _sc_color = "#3ECF8E"
+                elif _sc >= 60:
+                    _sc_color = "#C9A962"
+                else:
+                    _sc_color = "#EF4444"
+                _verdict = _score_data.get("verdict", "")
+                _score_html = (
+                    '<span style="font-weight:700;color:{c};">{sc:.0f}</span>'
+                    '<span style="font-size:0.55rem;color:#5A5A6A;margin-left:3px;">{v}</span>'
+                ).format(c=_sc_color, sc=_sc, v=_verdict[:4] if _verdict else "")
+            else:
+                _score_html = '<span style="color:#2A2A36;font-size:0.6rem;">—</span>'
+
             rows_html += '''<tr>
                 <td class="sym">{sym}</td>
                 <td class="name">{name}</td>
                 <td class="price">{price}</td>
                 <td class="chg" style="color:{chg_color}">{arrow} {chg:+.2f}%</td>
+                <td class="score">{score}</td>
                 <td class="pe">{pe}</td>
                 <td class="cap">{cap}</td>
             </tr>'''.format(sym=s["symbol"], name=s["name"][:14],
                            price=price_fmt, chg_color=chg_color, arrow=arrow,
-                           chg=chg, pe=pe_fmt, cap=cap_fmt)
+                           chg=chg, score=_score_html, pe=pe_fmt, cap=cap_fmt)
 
         components.html('''<!DOCTYPE html><html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -327,11 +364,12 @@ tr:hover{{background:#0F0F18}}
 .name{{color:#6A6A80;font-size:0.65rem}}
 .price{{color:#E8E8F0;font-weight:500}}
 .chg{{font-weight:600;letter-spacing:0.5px}}
+.score{{white-space:nowrap}}
 .pe{{color:#6A6A80}}
 .cap{{color:#6A6A80;font-size:0.65rem}}
 </style></head><body>
 <table>
-<tr><th>Symbol</th><th>Name</th><th>Price</th><th>Change</th><th>PE</th><th>Mkt Cap</th></tr>
+<tr><th>Symbol</th><th>Name</th><th>Price</th><th>Change</th><th>MOAT</th><th>PE</th><th>Mkt Cap</th></tr>
 {rows}
 </table>
 </body></html>'''.format(rows=rows_html), height=max(60, len(stocks) * 42 + 40), scrolling=False)
@@ -358,6 +396,28 @@ else:
 
 st.markdown("<div style='height:16px;border-top:1px solid #1A1A22;margin-top:16px'></div>",
             unsafe_allow_html=True)
+
+# ── 分析提醒：关注列表中超过30天未分析的股票 ──────────────────────────────
+if stocks_list:
+    _scores_map = st.session_state.get("analysis_scores", {})
+    _now_ts = datetime.datetime.now(datetime.timezone.utc)
+    _stale = []
+    for _s in stocks_list:
+        _k = "{}:{}".format(_s["market"], _s["symbol"])
+        if _k not in _scores_map:
+            _stale.append(_s["symbol"])
+    if _stale:
+        _stale_str = "、".join(_stale[:5])
+        if len(_stale) > 5:
+            _stale_str += " 等{}只".format(len(_stale))
+        st.markdown(
+            '<div style="background:#0C0C12;border:1px solid #2A1A00;border-left:3px solid #C9A962;'
+            'padding:10px 16px;margin:12px 0;font-size:0.78rem;color:#8A7A5A;">'
+            '💡 <b style="color:#C9A962;">{}只股票</b> 尚未运行分析（{}）— '
+            '前往 <b>Analysis</b> 页面获取 AI 评分和投资结论。'
+            '</div>'.format(len(_stale), _stale_str),
+            unsafe_allow_html=True,
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -44,7 +44,7 @@ PE: {pe} | PB: {pb} | ROE: {roe}
   "score_change_note": "与上次分析相比的关键变化，如无历史则输出空字符串"
 }}"""
 
-CHAT_SYSTEM_PROMPT = """你是 Buffett Research 的首席投资顾问——一位融合了巴菲特和段永平投资智慧的AI合伙人。
+CHAT_SYSTEM_PROMPT = """你是 AI Buffett 的首席投资顾问——一位融合了巴菲特和段永平投资智慧的AI合伙人。
 
 ## 你的身份
 你不是一个通用AI助手。你是一位拥有30年实战经验的价值投资者，深度研究并内化了巴菲特的股东信（1965-2024全部）、伯克希尔年度会议记录、以及段永平在雪球等平台的所有公开言论。你像一位真正的投资合伙人一样与用户对话。
@@ -192,7 +192,7 @@ RSI: {rsi} | 趋势: {trend} | 动量: {momentum}
   "buffett_verdict": "15-20字，巴菲特视角总结（这家公司是否值得拥有）"
 }}"""
 
-WEEKLY_REPORT_PROMPT = """你是 Buffett Research 的首席策略分析师，结合巴菲特和段永平的投资哲学，输出一份深度周报。
+WEEKLY_REPORT_PROMPT = """你是 AI Buffett 的首席策略分析师，结合巴菲特和段永平的投资哲学，输出一份深度周报。
 
 ## 本周市场数据
 {market_data}

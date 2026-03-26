@@ -647,7 +647,7 @@ def render_stock_analysis(symbol, name, market, config):
                                        moat, normalized, _share_currency)
         import streamlit.components.v1 as _components
         _components.html(share_html, height=480, scrolling=False)
-        st.caption("Screenshot this card and share with friends. Watermarked with Buffett Research branding.")
+        st.caption("Screenshot this card and share with friends. Watermarked with AI Buffett branding.")
 
     # ===== Tabs =====
     tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai, tab_thesis = st.tabs(
