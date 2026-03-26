@@ -284,6 +284,66 @@ def load_user_settings(uid: str) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PLAN & USAGE（免费/付费 + 用量追踪）
+# ══════════════════════════════════════════════════════════════════════════════
+
+FREE_MONTHLY_LIMIT = 3  # 免费用户每月分析次数
+
+
+def get_user_plan(uid: str) -> str:
+    """返回 'free' 或 'premium'"""
+    settings = load_user_settings(uid)
+    return settings.get("plan", "free")
+
+
+def get_monthly_usage(uid: str) -> int:
+    """返回当月已使用的分析次数"""
+    from datetime import datetime
+    settings = load_user_settings(uid)
+    usage = settings.get("monthly_usage", {})
+    month_key = datetime.now().strftime("%Y-%m")
+    return usage.get(month_key, 0)
+
+
+def increment_usage(uid: str) -> int:
+    """增加一次使用计数，返回当月累计"""
+    from datetime import datetime
+    settings = load_user_settings(uid)
+    usage = settings.get("monthly_usage", {})
+    month_key = datetime.now().strftime("%Y-%m")
+    count = usage.get(month_key, 0) + 1
+    usage[month_key] = count
+    # 清理旧月份（只保留最近 3 个月）
+    all_months = sorted(usage.keys())
+    if len(all_months) > 3:
+        for old_key in all_months[:-3]:
+            usage.pop(old_key, None)
+    settings["monthly_usage"] = usage
+    save_user_settings(uid, settings)
+    return count
+
+
+def can_analyze(uid: str) -> tuple:
+    """检查用户是否可以执行分析
+
+    Returns: (allowed: bool, remaining: int, plan: str)
+    """
+    plan = get_user_plan(uid)
+    if plan == "premium":
+        return True, 999, "premium"
+    used = get_monthly_usage(uid)
+    remaining = max(0, FREE_MONTHLY_LIMIT - used)
+    return remaining > 0, remaining, "free"
+
+
+def set_user_plan(uid: str, plan: str) -> bool:
+    """设置用户计划（admin 用）"""
+    settings = load_user_settings(uid)
+    settings["plan"] = plan
+    return save_user_settings(uid, settings)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PORTFOLIO（持仓追踪）
 # ══════════════════════════════════════════════════════════════════════════════
 

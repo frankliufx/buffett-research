@@ -917,6 +917,132 @@ def _buffett_quick_check(normalized, dcf):
     return passed, total, detail
 
 
+def render_share_card(symbol: str, name: str, price: float, dcf: dict,
+                       moat: dict, normalized: dict, currency: str = "$") -> str:
+    """生成可分享的分析摘要卡片 HTML（带水印）
+
+    用于截图分享，吸引新用户。
+    """
+    grade = moat.get("grade", "?") if moat else "?"
+    score = moat.get("percentage", 0) if moat else 0
+    grade_color = {"S": "#00C853", "A": "#69F0AE", "B": "#C9A962",
+                   "C": "#FF9800", "D": "#F44336"}.get(grade, "#5A5A6A")
+
+    # Valuation
+    verdict = dcf.get("verdict", "--") if dcf and dcf.get("method") != "insufficient" else "--"
+    iv = dcf.get("intrinsic_value") if dcf and dcf.get("method") != "insufficient" else None
+    sm = dcf.get("safety_margin_pct") if dcf and dcf.get("method") != "insufficient" else None
+    vc = _verdict_color(verdict)
+
+    # Key metrics
+    roe = normalized.get("roe") if normalized else None
+    pe = normalized.get("pe_trailing") if normalized else None
+    gm = normalized.get("gross_margin") if normalized else None
+
+    roe_str = "{:.1f}%".format(roe) if roe is not None else "--"
+    pe_str = "{:.1f}".format(pe) if pe is not None else "--"
+    gm_str = "{:.1f}%".format(gm) if gm is not None else "--"
+    iv_str = _fmt_price(iv, currency) if iv else "--"
+    sm_str = "{:+.1f}%".format(sm) if sm is not None else "--"
+    sm_color = "#00C853" if sm and sm >= 0 else "#F44336"
+
+    from datetime import datetime
+    date_str = datetime.now().strftime("%Y-%m-%d")
+
+    return '''<!DOCTYPE html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:0}}
+.share-card{{
+    width:480px;margin:0 auto;
+    background:linear-gradient(135deg,#0A0A10 0%,#0F0F1A 100%);
+    border:1px solid #1E1E2A;border-radius:8px;
+    padding:32px;position:relative;overflow:hidden;
+}}
+.share-card::before{{
+    content:'';position:absolute;top:0;left:0;width:100%;height:3px;
+    background:linear-gradient(90deg,#C9A962,#E8D5A0,#C9A962);
+}}
+
+.sc-header{{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px}}
+.sc-logo{{font-family:'Cormorant Garamond',serif;font-size:0.7rem;letter-spacing:4px;color:#C9A962;text-transform:uppercase}}
+.sc-date{{font-size:0.55rem;color:#3A3A4A;letter-spacing:2px}}
+
+.sc-stock{{margin-bottom:20px}}
+.sc-symbol{{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:700;color:#E8E8F0;letter-spacing:2px;line-height:1}}
+.sc-name{{font-size:0.7rem;color:#5A5A6A;margin-top:4px;letter-spacing:1px}}
+.sc-price{{font-size:1.1rem;color:#AAAABC;font-weight:500;margin-top:8px}}
+
+.sc-verdict-row{{display:flex;align-items:center;gap:16px;margin-bottom:20px;
+    padding:16px;background:rgba(201,169,98,0.04);border:1px solid #1A1A22;border-radius:4px}}
+.sc-grade{{
+    width:48px;height:48px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:700;
+    border:2px solid {grade_color};color:{grade_color};
+}}
+.sc-verdict-text{{flex:1}}
+.sc-verdict-label{{font-size:0.5rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase;margin-bottom:4px}}
+.sc-verdict-val{{font-size:1.3rem;font-weight:700;color:{vc};letter-spacing:1px}}
+
+.sc-metrics{{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}}
+.sc-m{{text-align:center;padding:10px;background:#0A0A12;border:1px solid #1A1A22;border-radius:3px}}
+.sc-m-label{{font-size:0.45rem;letter-spacing:2px;color:#5A5A6A;text-transform:uppercase;margin-bottom:4px}}
+.sc-m-val{{font-size:0.9rem;font-weight:600;color:#E8E8F0}}
+
+.sc-footer{{display:flex;justify-content:space-between;align-items:center;
+    padding-top:16px;border-top:1px solid #1A1A22}}
+.sc-watermark{{font-family:'Cormorant Garamond',serif;font-size:0.6rem;letter-spacing:3px;color:#2A2A36;text-transform:uppercase}}
+.sc-cta{{font-size:0.5rem;color:#C9A962;letter-spacing:2px;text-transform:uppercase;opacity:0.6}}
+</style></head><body>
+<div class="share-card">
+    <div class="sc-header">
+        <div class="sc-logo">Buffett Research</div>
+        <div class="sc-date">{date}</div>
+    </div>
+
+    <div class="sc-stock">
+        <div class="sc-symbol">{symbol}</div>
+        <div class="sc-name">{name}</div>
+        <div class="sc-price">{currency}{price:.2f}</div>
+    </div>
+
+    <div class="sc-verdict-row">
+        <div class="sc-grade">{grade}</div>
+        <div class="sc-verdict-text">
+            <div class="sc-verdict-label">AI Valuation Verdict</div>
+            <div class="sc-verdict-val">{verdict}</div>
+        </div>
+        <div style="text-align:right">
+            <div class="sc-verdict-label">Safety Margin</div>
+            <div style="font-size:1.1rem;font-weight:700;color:{sm_color}">{sm_str}</div>
+        </div>
+    </div>
+
+    <div class="sc-metrics">
+        <div class="sc-m"><div class="sc-m-label">Moat Score</div><div class="sc-m-val">{score}/100</div></div>
+        <div class="sc-m"><div class="sc-m-label">Intrinsic Value</div><div class="sc-m-val">{iv_str}</div></div>
+        <div class="sc-m"><div class="sc-m-label">ROE</div><div class="sc-m-val">{roe}</div></div>
+        <div class="sc-m"><div class="sc-m-label">PE</div><div class="sc-m-val">{pe}</div></div>
+        <div class="sc-m"><div class="sc-m-label">Gross Margin</div><div class="sc-m-val">{gm}</div></div>
+        <div class="sc-m"><div class="sc-m-label">Verdict</div><div class="sc-m-val" style="color:{vc}">{verdict}</div></div>
+    </div>
+
+    <div class="sc-footer">
+        <div class="sc-watermark">Buffett Research &copy; 2025</div>
+        <div class="sc-cta">AI-Powered Value Intelligence</div>
+    </div>
+</div>
+</body></html>'''.format(
+        date=date_str, symbol=symbol, name=name, currency=currency,
+        price=price, grade=grade, grade_color=grade_color,
+        verdict=verdict, vc=vc, score=score,
+        iv_str=iv_str, sm_str=sm_str, sm_color=sm_color,
+        roe=roe_str, pe=pe_str, gm=gm_str,
+    )
+
+
 def _hex_to_rgb(hex_color: str) -> str:
     h = hex_color.lstrip("#")
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)

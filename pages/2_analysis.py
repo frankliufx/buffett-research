@@ -8,6 +8,8 @@ from plotly.subplots import make_subplots
 from datetime import datetime
 
 from src.config import get_active_provider, get_premium_provider, StockItem
+from src.auth import get_current_user
+from src.user_data import can_analyze, increment_usage, FREE_MONTHLY_LIMIT
 from src.data.price import fetch_history, fetch_quote
 from src.data.financial import fetch_fundamentals
 from src.data.news import fetch_stock_news, fetch_earnings_calendar, fetch_market_news
@@ -20,7 +22,7 @@ from src.ai.knowledge_base import BUFFETT_PHILOSOPHY, DUAN_YONGPING_PHILOSOPHY
 from src.analysis.valuation import calc_dcf
 from src.ui_valuation import (render_valuation_verdict, render_price_spectrum,
                                render_scenario_cards, render_assumptions_panel,
-                               render_insight_cards)
+                               render_insight_cards, render_share_card)
 from src.ui_theme import (get_global_css, render_hero_header, render_buffett_quote,
                           render_grade_badge, render_moat_bar, render_detail_item,
                           render_stock_header, render_moat_dimension,
@@ -477,6 +479,18 @@ def render_stock_analysis(symbol, name, market, config):
     premium_provider = get_premium_provider(config)
     _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote,
                            tech_signal=result.tech_signal, provider=premium_provider)
+
+    # ===== Share Card =====
+    currency_map = {"us": "$", "hk": "HK$", "a_share": "¥"}
+    _share_currency = currency_map.get(market, "$")
+    _dcf_for_share = calc_dcf(price, fundamentals, normalized)
+
+    with st.expander("Share This Analysis", expanded=False):
+        share_html = render_share_card(symbol, name, price, _dcf_for_share,
+                                       moat, normalized, _share_currency)
+        import streamlit.components.v1 as _components
+        _components.html(share_html, height=480, scrolling=False)
+        st.caption("Screenshot this card and share with friends. Watermarked with Buffett Research branding.")
 
     # ===== Tabs =====
     tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai = st.tabs(
@@ -1326,6 +1340,24 @@ for tab, market_key, market_name in [
             st.session_state["_current_symbol"] = selected.symbol
             st.session_state["_current_market"] = market_key
             st.session_state["_current_name"] = selected.name
+
+            # Freemium gate
+            _a_uid = (get_current_user() or {}).get("username", "anonymous")
+            allowed, remaining, plan = can_analyze(_a_uid)
+            if not allowed:
+                st.warning(
+                    "You've used all **{} free analyses** this month. "
+                    "Upgrade to **Premium** for unlimited access.".format(FREE_MONTHLY_LIMIT))
+                st.info("Contact admin to upgrade your plan.")
+                st.stop()
+
+            # Show remaining quota for free users
+            if plan == "free":
+                st.caption("Free plan: {}/{} analyses remaining this month".format(
+                    remaining, FREE_MONTHLY_LIMIT))
+
+            # Track usage
+            increment_usage(_a_uid)
 
             out = render_stock_analysis(selected.symbol, selected.name, market_key, config)
             if out:

@@ -19,8 +19,15 @@ st.markdown("""
 </div>
 """.format(text=COLORS["text"], muted=COLORS["text_muted"], border=COLORS["border"]), unsafe_allow_html=True)
 
-tab_api, tab_notify, tab_alerts, tab_strategy, tab_watchlist = st.tabs(
-    ["API", "NOTIFICATIONS", "PRICE ALERTS", "STRATEGY", "WATCHLIST"]
+from src.auth import get_current_user
+from src.user_data import get_user_plan, get_monthly_usage, set_user_plan, FREE_MONTHLY_LIMIT
+
+_user = get_current_user()
+_uid = (_user or {}).get("username", "anonymous")
+_role = (_user or {}).get("role", "viewer")
+
+tab_api, tab_notify, tab_alerts, tab_strategy, tab_watchlist, tab_plan = st.tabs(
+    ["API", "NOTIFICATIONS", "PRICE ALERTS", "STRATEGY", "WATCHLIST", "PLAN"]
 )
 
 # ===== Tab 1: API =====
@@ -419,6 +426,64 @@ with tab_watchlist:
                     st.rerun()
 
         st.divider()
+
+# ===== Tab 6: Plan =====
+with tab_plan:
+    plan = get_user_plan(_uid)
+    used = get_monthly_usage(_uid)
+    remaining = max(0, FREE_MONTHLY_LIMIT - used)
+
+    st.markdown('<div style="color:{}; font-size:0.75rem; letter-spacing:1px; margin-bottom:0.8rem;">SUBSCRIPTION PLAN</div>'.format(
+        COLORS["text_muted"]), unsafe_allow_html=True)
+
+    plan_color = "#C9A962" if plan == "premium" else "#5A5A6A"
+    plan_label = "PREMIUM" if plan == "premium" else "FREE"
+
+    st.markdown(
+        '<div style="background:#0D0D14;border:1px solid #1E1E2A;border-left:3px solid {};'
+        'border-radius:4px;padding:16px 20px;margin-bottom:16px">'
+        '<div style="font-size:0.5rem;letter-spacing:3px;color:{};text-transform:uppercase;margin-bottom:6px">Current Plan</div>'
+        '<div style="font-size:1.5rem;font-weight:700;color:{};letter-spacing:2px">{}</div>'
+        '</div>'.format(plan_color, plan_color, plan_color, plan_label),
+        unsafe_allow_html=True)
+
+    if plan == "free":
+        st.markdown(
+            '<div style="background:#0D0D14;border:1px solid #1E1E2A;border-radius:4px;padding:16px 20px">'
+            '<div style="font-size:0.6rem;color:#5A5A6A;letter-spacing:2px;margin-bottom:8px">MONTHLY USAGE</div>'
+            '<div style="font-size:1.2rem;color:#E8E8F0">{used}/{limit} analyses used</div>'
+            '<div style="font-size:0.7rem;color:#C9A962;margin-top:4px">{rem} remaining this month</div>'
+            '</div>'.format(used=used, limit=FREE_MONTHLY_LIMIT, rem=remaining),
+            unsafe_allow_html=True)
+
+        st.markdown("")
+        st.markdown("**Free Plan includes:**")
+        st.markdown("- {} stock analyses per month".format(FREE_MONTHLY_LIMIT))
+        st.markdown("- Basic DCF valuation")
+        st.markdown("- Market sentiment data")
+        st.markdown("")
+        st.markdown("**Premium Plan includes:**")
+        st.markdown("- Unlimited stock analyses")
+        st.markdown("- AI-powered insight cards")
+        st.markdown("- Weekly AI market report")
+        st.markdown("- Portfolio tracking")
+        st.markdown("- Priority support")
+        st.markdown("")
+        st.info("Contact admin to upgrade to Premium.")
+    else:
+        st.success("You have unlimited access to all features.")
+
+    # Admin: manage user plans
+    if _role == "admin":
+        st.markdown("---")
+        st.markdown("**Admin: Manage User Plans**")
+        admin_uid = st.text_input("Username", key="admin_uid_plan")
+        admin_plan = st.selectbox("Plan", ["free", "premium"], key="admin_plan_sel")
+        if st.button("Update Plan", key="admin_plan_btn"):
+            if admin_uid.strip():
+                set_user_plan(admin_uid.strip().lower(), admin_plan)
+                st.success("Plan updated for {}".format(admin_uid))
+
 
 # ===== 全局保存按钮（固定在页面底部）=====
 st.markdown("---")
