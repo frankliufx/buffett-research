@@ -692,7 +692,7 @@ def get_global_css():
         [data-testid="stSidebar"] { min-width: 0 !important; }
 
         /* Stack columns vertically */
-        .stApp .block-container { padding: 0.5rem 0.8rem !important; max-width: 100% !important; }
+        .stApp .block-container { padding: 0.5rem 0.8rem !important; max-width: 100%% !important; }
 
         /* Make metric cards full-width */
         .metric-card { padding: 0.6rem !important; }
@@ -707,7 +707,7 @@ def get_global_css():
         .hero-header h1 { font-size: 1.3rem !important; }
 
         /* Plotly charts responsive */
-        .js-plotly-plot { width: 100% !important; }
+        .js-plotly-plot { width: 100%% !important; }
 
         /* Tabs - horizontal scroll on mobile */
         .stTabs [data-baseweb="tab-list"] {
@@ -725,7 +725,7 @@ def get_global_css():
         .stApp table { font-size: 0.7rem !important; }
 
         /* Chat input fix */
-        .stChatInput { max-width: 100% !important; }
+        .stChatInput { max-width: 100%% !important; }
 
         /* Expander text */
         .stApp details summary span { font-size: 0.8rem !important; }
