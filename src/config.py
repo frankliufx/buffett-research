@@ -263,10 +263,12 @@ def load_config(path: Optional[Path] = None) -> AppConfig:
 
 
 def save_config(config: AppConfig, path: Optional[Path] = None):
-    """保存配置到文件"""
+    """保存配置到文件（api_key 不写入磁盘，仅通过环境变量/Secrets 注入）"""
     p = path or CONFIG_PATH
     data = config.model_dump()
-    # 不保存空 api_key 到文件（安全考虑，key 可在 UI 中输入）
+    # 安全：清除所有 api_key，防止明文泄露到磁盘
+    for provider in data.get("api", {}).get("providers", []):
+        provider["api_key"] = ""
     with open(p, "w") as f:
         yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 

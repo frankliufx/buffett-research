@@ -13,7 +13,7 @@ _client = None
 _initialized = False
 
 
-def _get_supabase_credentials() -> tuple[str, str]:
+def _get_supabase_credentials():
     """从环境变量或 Streamlit secrets 读取 Supabase 凭证"""
     url, key = "", ""
     # 优先从环境变量读取

@@ -153,7 +153,10 @@ def _parse_sina_financial_table(html: str) -> dict:
     return result
 
 
-def _fetch_sina_fundamentals(stock_id: str, year: int = 2024) -> dict:
+def _fetch_sina_fundamentals(stock_id: str, year: int = None) -> dict:
+    if year is None:
+        from datetime import datetime
+        year = datetime.now().year
     """从新浪财经获取 A 股财务指标数据"""
     url = (f"https://money.finance.sina.com.cn/corp/go.php/vFD_FinancialGuideLine/"
            f"stockid/{stock_id}/ctrl/{year}/displaytype/4.phtml")

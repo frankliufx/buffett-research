@@ -43,13 +43,13 @@ def render_valuation_verdict(dcf: dict, symbol: str, name: str, currency: str = 
         missing = ", ".join(dcf.get("missing_fields", [])) if dcf else "全部"
         return _render_insufficient(symbol, name, missing)
 
-    verdict = dcf["verdict"]
-    confidence = dcf["confidence"]
-    iv = dcf["intrinsic_value"]
-    sm = dcf["safety_margin_pct"]
-    price = dcf["current_price"]
-    stop = dcf["stop_loss"]
-    method = dcf["method"]
+    verdict = dcf.get("verdict", "--")
+    confidence = dcf.get("confidence", "低")
+    iv = dcf.get("intrinsic_value", 0)
+    sm = dcf.get("safety_margin_pct", 0)
+    price = dcf.get("current_price", 0)
+    stop = dcf.get("stop_loss", 0)
+    method = dcf.get("method", "N/A")
     vc = _verdict_color(verdict)
 
     sm_label = "+{:.1f}%".format(sm) if sm >= 0 else "{:.1f}%".format(sm)

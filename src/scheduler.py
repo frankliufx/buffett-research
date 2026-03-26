@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(mes
 logger = logging.getLogger(__name__)
 
 # ── Background thread state ────────────────────────────────────────────────
-_bg_thread: threading.Thread | None = None
+_bg_thread = None  # type: threading.Thread | None
 _bg_lock = threading.Lock()
 _LAST_RUN_FILE = Path(__file__).parent.parent / "data" / "cache" / "last_scheduler_run.txt"
 
@@ -115,8 +115,9 @@ def run_and_push():
                 except Exception:
                     pass
 
-            # Format and send weekly digest (use first user or "anonymous")
-            title, content = format_weekly_portfolio_email("anonymous", weekly_ai)
+            # Format and send weekly digest
+            # TODO: iterate all users when multi-user scheduler is implemented
+            title, content = format_weekly_portfolio_email("frank", weekly_ai)
             send_notification(title, content, config.notify)
             logger.info("Weekly portfolio digest sent")
         except Exception as e:

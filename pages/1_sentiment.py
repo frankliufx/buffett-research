@@ -336,13 +336,18 @@ if st.button("生成 AI 情绪研判", type="primary"):
         for s in data.get("stock_flow_in", [])[:5]:
             stock_in_summary += "- " + s["name"] + " (" + s["code"] + "): " + str(s["change_pct"]) + "%, 主力净流入 " + str(s["net_flow"]) + "亿\n"
 
+        _amt = data.get("total_amount_yi", 0)
+        _north = data.get("northbound_yi", 0)
+        _vix = data.get("vix", 0)
+        _vs200 = data.get("sp500_vs_200d", 0)
+
         prompt = (
             "你是一位深谙巴菲特价值投资哲学的市场情绪分析师。基于以下实时市场数据，给出今日情绪研判。\n\n"
             "## 实时数据\n"
             "恐惧贪婪指数: " + str(score) + "/100 (" + mood + ")\n"
-            "两市成交额: " + str(round(amt)) + " 亿\n"
-            "北向资金: " + str(north) + " 亿\n\n"
-            "## 大盘指数\n" + idx_summary + "\n"
+            + ("VIX: " + str(_vix) + " | S&P vs 200d: " + str(_vs200) + "%\n" if is_yfinance
+               else "两市成交额: " + str(round(_amt)) + " 亿\n北向资金: " + str(_north) + " 亿\n") +
+            "\n## 大盘指数\n" + idx_summary + "\n"
             "## 板块资金流向 Top 5\n" + sector_summary + "\n"
             "## 个股主力净流入 Top 5\n" + stock_in_summary + "\n"
             "---\n"

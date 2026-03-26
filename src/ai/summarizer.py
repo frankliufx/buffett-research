@@ -13,11 +13,18 @@ from src.config import ApiProvider
 logger = logging.getLogger(__name__)
 
 
+_client_cache = {}  # key: (provider_type, api_key, base_url) -> (client_type, client)
+
+
 def _create_client(provider: ApiProvider):
-    """根据 provider 类型创建对应的 client"""
+    """根据 provider 类型创建对应的 client（带缓存，避免重复创建连接池）"""
+    cache_key = (provider.provider, provider.api_key, provider.base_url)
+    if cache_key in _client_cache:
+        return _client_cache[cache_key]
+
     if provider.provider == "anthropic":
         from anthropic import Anthropic
-        return "anthropic", Anthropic(api_key=provider.api_key)
+        result = "anthropic", Anthropic(api_key=provider.api_key)
     elif provider.provider in ("openai_compatible", "openai", "deepseek"):
         try:
             from openai import OpenAI
@@ -26,9 +33,12 @@ def _create_client(provider: ApiProvider):
         kwargs = {"api_key": provider.api_key}
         if provider.base_url:
             kwargs["base_url"] = provider.base_url
-        return "openai", OpenAI(**kwargs)
+        result = "openai", OpenAI(**kwargs)
     else:
-        raise ValueError(f"Unknown provider: {provider.provider}")
+        raise ValueError("Unknown provider: {}".format(provider.provider))
+
+    _client_cache[cache_key] = result
+    return result
 
 
 def _call_llm(provider: ApiProvider, messages: list, max_tokens: int = 2000) -> str:

@@ -272,7 +272,7 @@ body {
 </head>
 <body>
 <div class="footer">
-    &copy; 2025 BUFFETT RESEARCH &nbsp;&middot;&nbsp; CONFIDENTIAL
+    &copy; 2025-2026 BUFFETT RESEARCH &nbsp;&middot;&nbsp; CONFIDENTIAL
 </div>
 </body>
 </html>
