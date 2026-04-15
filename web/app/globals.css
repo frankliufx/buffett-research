@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+:root {
+  --bg:       #08080C;
+  --bg-card:  #0D0D14;
+  --bg-hover: #111118;
+  --border:   #1A1A24;
+  --border-bright: #2A2A36;
+  --gold:     #C9A962;
+  --gold-dim: rgba(201, 169, 98, 0.45);
+  --gold-faint: rgba(201, 169, 98, 0.08);
+  --text:     #E8E8F0;
+  --text-dim: #8A8A98;
+  --text-muted: #5A5A6A;
+  --green:    #00C853;
+  --red:      #F44336;
+  --orange:   #FF9800;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 细滚动条 */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+/* 衬线大数字 */
+.serif { font-family: 'Georgia', 'Cambria', serif; }
