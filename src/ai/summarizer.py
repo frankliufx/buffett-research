@@ -8,7 +8,8 @@ from typing import Optional, List
 
 from src.ai.prompts import (BUFFETT_ANALYSIS_PROMPT, MARKET_OVERVIEW_PROMPT,
                              CHAT_SYSTEM_PROMPT, DIMENSION_BRIEF_PROMPT,
-                             INSIGHT_CARDS_PROMPT, WEEKLY_REPORT_PROMPT)
+                             INSIGHT_CARDS_PROMPT, WEEKLY_REPORT_PROMPT,
+                             ASHARE_BRIEF_PROMPT, ASHARE_ANALYSIS_PROMPT)
 from src.config import ApiProvider
 
 logger = logging.getLogger(__name__)
@@ -404,6 +405,193 @@ def chat_with_analyst(messages: list, provider: Optional[ApiProvider] = None,
     except Exception as e:
         logger.error(f"Chat failed: {e}")
         return "AI 对话出错: {}".format(e)
+
+
+def get_ashare_brief(result, moat: dict, policy_data: dict,
+                     provider: Optional[ApiProvider] = None,
+                     history_context: str = "", peer_context: str = "",
+                     policy_news: Optional[List] = None) -> Optional[dict]:
+    """A股政策驱动结构化投资简报（JSON 格式）
+
+    Args:
+        result: 股票分析结果对象
+        moat: 护城河评分 dict
+        policy_data: get_fifteen_five_alignment() 返回值，含 level/tier1/tier2/all_tags/score 字段
+        provider: API provider
+        history_context: 历史分析上下文
+        peer_context: 同行比较上下文（保留参数，当前未注入 prompt）
+        policy_news: 政策新闻列表，每项含 title 字段，最多取前3条
+
+    Returns:
+        dict with: verdict, confidence, reason, dimensions, bull_points, bear_points
+        Returns None if API unavailable or parsing failed.
+    """
+    if not provider or not provider.api_key:
+        return None
+
+    fund = result.fundamentals
+
+    dq = _check_data_quality(fund)
+
+    # 政策标签，最多8个
+    policy_tags = ", ".join(policy_data.get("all_tags", [])[:8]) if policy_data else "N/A"
+
+    # 政策级别
+    policy_level = policy_data.get("level", "N/A") if policy_data else "N/A"
+
+    # 政策新闻标题，最多3条，用"|"分隔
+    if policy_news:
+        titles = [n.get("title", "") for n in policy_news[:3] if n.get("title")]
+        policy_news_titles = " | ".join(titles) if titles else "暂无"
+    else:
+        policy_news_titles = "暂无"
+
+    prompt = ASHARE_BRIEF_PROMPT.format(
+        symbol=result.symbol,
+        name=result.name,
+        total_score=moat.get("percentage", 0),
+        grade=moat.get("grade", "N/A"),
+        pe=_fmt(fund.get("pe_trailing")),
+        pb=_fmt(fund.get("pb")),
+        roe=_fmt(fund.get("roe"), pct=True),
+        profit_margin=_fmt(fund.get("profit_margin"), pct=True),
+        revenue_growth=_fmt(fund.get("revenue_growth"), pct=True),
+        earnings_growth=_fmt(fund.get("earnings_growth"), pct=True),
+        trend=result.tech_signal.get("trend", "N/A"),
+        rsi=_fmt(result.tech_signal.get("rsi")),
+        policy_level=policy_level,
+        policy_tags=policy_tags,
+        policy_news_titles=policy_news_titles,
+        data_quality_warning=dq["warning_block"],
+        history_context=history_context,
+    )
+
+    try:
+        text = _call_llm(provider, [{"role": "user", "content": prompt}], max_tokens=700)
+        text = text.strip()
+        # Strip DeepSeek R1 think tags
+        think_match = re.search(r'</think>\s*(.*)', text, re.DOTALL)
+        if think_match:
+            text = think_match.group(1).strip()
+        # Strip markdown code blocks
+        text = re.sub(r'^```\w*\n?', '', text)
+        text = re.sub(r'\n?```$', '', text).strip()
+        return json.loads(text)
+    except Exception as e:
+        logger.warning("A股 AI brief failed for %s: %s", result.symbol, e)
+        return None
+
+
+def analyze_ashare_stock(result, provider: Optional[ApiProvider] = None,
+                         moat: Optional[dict] = None,
+                         policy_data: Optional[dict] = None,
+                         policy_news: Optional[List] = None) -> str:
+    """对单只A股进行政策驱动深度分析
+
+    Args:
+        result: 股票分析结果对象
+        provider: API provider
+        moat: 护城河评分 dict
+        policy_data: get_fifteen_five_alignment() 返回值，含 level/tier1/tier2/all_tags/score 字段
+        policy_news: 政策新闻列表，每项含 title/content 等字段
+
+    Returns:
+        str: Markdown 格式深度研报，失败返回默认提示字符串
+    """
+    if not provider or not provider.api_key:
+        return _fallback_analysis(result)
+
+    fund = result.buffett_result
+    tech = result.tech_signal
+    fundamentals = result.fundamentals
+
+    # Extract moat dimension scores if available
+    scores = moat.get("scores", {}) if moat else {}
+    def sc(name):
+        d = scores.get(name, {})
+        return d.get("score", 0), d.get("max", 1)
+    p_s, p_m = sc("盈利质量")
+    md_s, md_m = sc("护城河深度")
+    f_s, f_m = sc("财务堡垒")
+    g_s, g_m = sc("成长确定性")
+    op_s, op_m = sc("市场先生机会")
+
+    dq = _check_data_quality(fundamentals)
+
+    # 政策字段处理
+    if policy_data:
+        policy_level = policy_data.get("level", "N/A")
+        policy_tags = ", ".join(policy_data.get("all_tags", [])[:8])
+    else:
+        policy_level = "N/A"
+        policy_tags = "N/A"
+
+    # 政策新闻，最多5条，格式化为列表
+    if policy_news:
+        news_lines = []
+        for n in policy_news[:5]:
+            title = n.get("title", "")
+            if title:
+                news_lines.append("- {}".format(title))
+        policy_news_str = "\n".join(news_lines) if news_lines else "暂无相关政策新闻"
+    else:
+        policy_news_str = "暂无相关政策新闻"
+
+    # 申万行业，尝试从 fundamentals 获取，字段名可能为 sw_industry 或 industry
+    sw_industry = (fundamentals.get("sw_industry")
+                   or fundamentals.get("industry")
+                   or "N/A")
+
+    prompt = ASHARE_ANALYSIS_PROMPT.format(
+        symbol=result.symbol,
+        name=result.name,
+        price=result.price,
+        change_pct="{:.2f}".format(result.change_pct) if result.change_pct else "N/A",
+        sw_industry=sw_industry,
+        policy_level=policy_level,
+        policy_tags=policy_tags,
+        policy_news=policy_news_str,
+        moat_total=moat.get("percentage", 0) if moat else "N/A",
+        moat_grade=moat.get("grade", "N/A") if moat else "N/A",
+        profitability_score=p_s, profitability_max=p_m,
+        moat_depth_score=md_s, moat_depth_max=md_m,
+        fortress_score=f_s, fortress_max=f_m,
+        growth_score=g_s, growth_max=g_m,
+        opportunity_score=op_s, opportunity_max=op_m,
+        buffett_grade=fund.get("grade", "N/A"),
+        buffett_score=fund.get("total_score", 0),
+        buffett_max=fund.get("max_score", 100),
+        buffett_pct=fund.get("percentage", 0),
+        buffett_details="\n".join(fund.get("details", [])),
+        trend=tech.get("trend", "N/A"),
+        momentum=tech.get("momentum", "N/A"),
+        rsi=_fmt(tech.get("rsi")),
+        tech_signals="\n".join("- {}".format(s) for s in tech.get("signals", [])),
+        pe=_fmt(fundamentals.get("pe_trailing")),
+        pb=_fmt(fundamentals.get("pb")),
+        roe=_fmt(fundamentals.get("roe"), pct=True),
+        profit_margin=_fmt(fundamentals.get("profit_margin"), pct=True),
+        gross_margin=_fmt(fundamentals.get("gross_margin"), pct=True),
+        debt_to_equity=_fmt(fundamentals.get("debt_to_equity")),
+        current_ratio=_fmt(fundamentals.get("current_ratio")),
+        revenue_growth=_fmt(fundamentals.get("revenue_growth"), pct=True),
+        earnings_growth=_fmt(fundamentals.get("earnings_growth"), pct=True),
+        dividend_yield=_fmt(fundamentals.get("dividend_yield"), pct=True),
+        free_cashflow=_fmt(fundamentals.get("free_cashflow")),
+        data_quality_warning_section=("\n" + dq["warning_block"]) if dq["warning_block"] else "",
+        data_completeness=dq["completeness_pct"],
+    )
+
+    try:
+        text = _call_llm(provider, [{"role": "user", "content": prompt}], max_tokens=2500)
+        # Handle DeepSeek R1 think tags
+        think_match = re.search(r'</think>\s*(.*)', text, re.DOTALL)
+        if think_match:
+            text = think_match.group(1).strip()
+        return text
+    except Exception as e:
+        logger.error("A股 AI analysis failed for %s: %s", result.symbol, e)
+        return _fallback_analysis(result) + "\n\n(AI 分析不可用: {})".format(e)
 
 
 def _fallback_analysis(result) -> str:

@@ -6,6 +6,13 @@ from typing import Optional, List
 import yaml
 from pydantic import BaseModel
 
+# 从项目根目录的 .env 文件加载环境变量
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent.parent / ".env", override=False)
+except ImportError:
+    pass
+
 
 class StockItem(BaseModel):
     symbol: str
@@ -58,6 +65,9 @@ def _default_a():
         StockItem(symbol="sz000568", name="泸州老窖"),
         StockItem(symbol="sh600030", name="中信证券"),
         StockItem(symbol="sh601012", name="隆基绿能"),
+        StockItem(symbol="sz300124", name="汇川技术"),
+        StockItem(symbol="sh688256", name="寒武纪"),
+        StockItem(symbol="sh688981", name="中芯国际"),
     ]
 
 

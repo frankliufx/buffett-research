@@ -23,12 +23,19 @@ from src.analysis.technical import compute_indicators, generate_technical_signal
 from src.analysis.fundamental import analyze_buffett, _normalize_fundamentals
 from src.analysis.moat import score_moat
 from src.analysis.signals import AnalysisResult
-from src.ai.summarizer import analyze_stock, generate_market_overview, get_ai_brief, get_ai_insights
+from src.ai.summarizer import (analyze_stock, generate_market_overview, get_ai_brief,
+                                get_ai_insights, get_ashare_brief, analyze_ashare_stock)
 from src.ai.knowledge_base import BUFFETT_PHILOSOPHY, DUAN_YONGPING_PHILOSOPHY
-from src.analysis.valuation import calc_dcf
+from src.analysis.valuation import calc_dcf, calc_multi_model_valuation
+from src.analysis.risk import calculate_volatility, calculate_position_limit, generate_risk_report
+from src.analysis.technical import generate_ensemble_signal
+from src.ai.committee import convene_committee
+from src.ui_committee import render_committee_page
 from src.ui_valuation import (render_valuation_verdict, render_price_spectrum,
                                render_scenario_cards, render_assumptions_panel,
                                render_insight_cards, render_share_card)
+from src.data.policy import get_stock_policy_tags, get_fifteen_five_alignment, get_policy_news
+from src.ui_ashare import render_policy_hero, render_ashare_score_banner
 from src.ui_theme import (get_global_css, render_hero_header, render_buffett_quote,
                           render_grade_badge, render_moat_bar, render_detail_item,
                           render_stock_header, render_moat_dimension,
@@ -131,6 +138,18 @@ def _show_ai_loading(text="AI 正在深入分析这支股票"):
     )
 
 # ===== 缓存（含错误边界：单项失败不影响整页）=====
+@st.cache_data(ttl=86400, show_spinner=False)
+def cached_get_policy_data(symbol):
+    """A股专用：获取政策概念数据（24h缓存）"""
+    try:
+        alignment = get_fifteen_five_alignment(symbol)
+        news = get_policy_news(limit=5)
+        return alignment, news
+    except Exception as e:
+        logging.warning("policy data failed %s: %s", symbol, e)
+        return {"level": "暂无明显政策主题", "score": 0, "color": "#5A5A6A",
+                "tier1": [], "tier2": [], "all_tags": []}, []
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_fetch_history(symbol, market, days):
     try:
@@ -433,6 +452,64 @@ def _format_revenue(n):
     return "${:.0f}".format(a)
 
 
+# ===== 投资委员会 + 风控 + 多模型估值 =====
+def _render_committee_tab(symbol, name, market, result, fundamentals, normalized, moat, provider, df):
+    """投资委员会标签页 — 单一HTML页面，Blackstone品质"""
+    import streamlit.components.v1 as _cmp
+
+    price = result.price or 0
+
+    # 1. 五策略集成
+    ensemble = generate_ensemble_signal(df) if df is not None and not df.empty else None
+
+    # 2. 多模型估值
+    multi_val = calc_multi_model_valuation(price, fundamentals, normalized) if price > 0 else None
+
+    # 3. 风险管理
+    vol = calculate_volatility(df) if df is not None and not df.empty else None
+    pos = calculate_position_limit(vol)
+    dcf_for_risk = calc_dcf(price, fundamentals, normalized) if price > 0 else None
+    risk_report = generate_risk_report(vol, pos, dcf=dcf_for_risk)
+
+    # 4. 委员会按钮
+    committee_key = "committee_{}".format(symbol)
+    if st.button("召集投资委员会", key="committee_btn_{}".format(symbol), type="primary"):
+        if not provider:
+            st.warning("请先在「设置」页面配置 API Key")
+        else:
+            loading = _show_ai_loading("5 位投资大师正在独立分析")
+            dcf_for_comm = calc_dcf(price, fundamentals, normalized) if price > 0 else None
+            comm = convene_committee(result, fundamentals, normalized, moat, dcf_for_comm, provider)
+            st.session_state[committee_key] = comm
+            loading.empty()
+
+    committee_result = st.session_state.get(committee_key)
+
+    # 单一 HTML 渲染
+    page_html = render_committee_page(
+        ensemble=ensemble,
+        multi_val=multi_val,
+        price=price,
+        volatility=vol,
+        position=pos,
+        risk_report=risk_report,
+        committee=committee_result,
+    )
+
+    # 动态高度计算
+    h = 200  # base
+    if ensemble and ensemble.get("strategies"):
+        h += 220
+    if multi_val:
+        h += 280
+    if risk_report:
+        h += 180 + len(risk_report.get("recommendations", [])) * 30
+    if committee_result:
+        h += 320 + len(committee_result.get("members", [])) * 130
+
+    _cmp.html(page_html, height=h, scrolling=True)
+
+
 # ===== 渲染单只股票 =====
 def _render_thesis_panel(uid: str, symbol: str, market: str, name: str,
                          moat: dict, prev_analysis):
@@ -533,6 +610,66 @@ def _render_thesis_panel(uid: str, symbol: str, market: str, name: str,
             st.error("保存失败，请重试。")
 
 
+def _render_ashare_policy_tab(symbol, name, alignment, news, fundamentals, normalized, moat):
+    """A股专属政策分析Tab"""
+    import streamlit.components.v1 as components
+    from src.ui_ashare import render_policy_hero
+
+    # Section 1: 完整政策雷达（比顶部的更高更详细，height=600）
+    hero_html = render_policy_hero(symbol, name, alignment,
+                                   alignment.get("all_tags", []),
+                                   news, fundamentals, normalized)
+    components.html(hero_html, height=600, scrolling=True)
+
+    # Section 2: 政策新闻完整列表（用 st.markdown 显示，最多10条）
+    st.markdown(
+        '<div style="font-size:0.6rem;letter-spacing:4px;color:#C9A962;'
+        'text-transform:uppercase;font-weight:500;margin:24px 0 12px;">最新政策动态</div>',
+        unsafe_allow_html=True,
+    )
+    if news:
+        for item in news[:10]:
+            title = item.get("title", "")
+            date = item.get("date", "")
+            source = item.get("source", "人民网")
+            st.markdown(
+                '<div style="background:#0C0C12;border:1px solid #1E1E26;'
+                'border-left:2px solid #C9A962;padding:10px 14px;margin-bottom:8px;'
+                'border-radius:2px;">'
+                '<span style="font-size:0.58rem;color:#5A5A6A;letter-spacing:1px;">'
+                '{date} · {source}</span><br>'
+                '<span style="font-size:0.75rem;color:#C8C8D8;line-height:1.5;">'
+                '{title}</span></div>'.format(date=date[:10] if date else "", source=source, title=title[:80]),
+                unsafe_allow_html=True,
+            )
+    else:
+        st.info("暂无政策新闻（人民网数据加载中...）")
+
+    # Section 3: 申万行业 + 政策评分说明
+    st.markdown(
+        '<div style="font-size:0.6rem;letter-spacing:4px;color:#C9A962;'
+        'text-transform:uppercase;font-weight:500;margin:24px 0 12px;">评分说明</div>',
+        unsafe_allow_html=True,
+    )
+    level = alignment.get("level", "暂无明显政策主题")
+    tier1 = alignment.get("tier1", [])
+    tier2 = alignment.get("tier2", [])
+    score = alignment.get("score", 0)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("十五五对齐级别", level)
+    with col2:
+        st.metric("政策得分", "{}/15".format(score))
+    with col3:
+        st.metric("概念板块数量", len(alignment.get("all_tags", [])))
+
+    if tier1:
+        st.markdown("**核心主线：** " + " · ".join(tier1[:6]))
+    if tier2:
+        st.markdown("**受益方向：** " + " · ".join(tier2[:6]))
+
+
 def render_stock_analysis(symbol, name, market, config):
     provider = get_active_provider(config)
 
@@ -590,6 +727,11 @@ def render_stock_analysis(symbol, name, market, config):
     else:
         peer_ctx = st.session_state[_peer_key]
 
+    # ── A股：加载政策数据 ────────────────────────────────
+    _policy_alignment, _policy_news = (None, [])
+    if market == "a_share":
+        _policy_alignment, _policy_news = cached_get_policy_data(symbol)
+
     # ── 自动加载 AI 简报（含历史上下文 + 竞品对比）──────
     brief_key = "ai_brief_{}".format(symbol)
     if brief_key not in st.session_state:
@@ -603,9 +745,16 @@ def render_stock_analysis(symbol, name, market, config):
                 '</div>',
                 unsafe_allow_html=True,
             )
-            st.session_state[brief_key] = get_ai_brief(
-                result, moat, provider, history_context=hist_ctx, peer_context=peer_ctx
-            )
+            if market == "a_share" and _policy_alignment:
+                st.session_state[brief_key] = get_ashare_brief(
+                    result, moat, _policy_alignment, provider,
+                    history_context=hist_ctx, peer_context=peer_ctx,
+                    policy_news=_policy_news,
+                )
+            else:
+                st.session_state[brief_key] = get_ai_brief(
+                    result, moat, provider, history_context=hist_ctx, peer_context=peer_ctx
+                )
         else:
             st.session_state[brief_key] = None
     brief = st.session_state.get(brief_key)
@@ -664,10 +813,27 @@ def render_stock_analysis(symbol, name, market, config):
         moat["grade"], moat["label"], moat["color"], moat["percentage"]
     ), unsafe_allow_html=True)
 
-    # ===== 估值决策中枢（核心差异化 — 头部直接展示）=====
+    # ===== 估值/政策中枢（A股走政策逻辑，美股/港股走DCF）=====
     premium_provider = get_premium_provider(config)
-    _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote,
-                           tech_signal=result.tech_signal, provider=premium_provider)
+    if market == "a_share" and _policy_alignment is not None:
+        import streamlit.components.v1 as _cmp_ashare
+        # 政策评分横幅
+        tech_score = result.tech_signal.get("trend_score", 50) if result.tech_signal else 50
+        banner_html = render_ashare_score_banner(
+            _policy_alignment,
+            moat_score=moat.get("percentage", 0),
+            tech_score=tech_score,
+        )
+        _cmp_ashare.html(banner_html, height=90, scrolling=False)
+        # 政策雷达主面板
+        hero_html = render_policy_hero(
+            symbol, name, _policy_alignment, _policy_alignment.get("all_tags", []),
+            _policy_news, fundamentals, normalized,
+        )
+        _cmp_ashare.html(hero_html, height=520, scrolling=False)
+    else:
+        _render_valuation_hero(symbol, name, market, price, fundamentals, normalized, quote,
+                               tech_signal=result.tech_signal, provider=premium_provider)
 
     # ===== Share Card =====
     currency_map = {"us": "$", "hk": "HK$", "a_share": "¥"}
@@ -682,9 +848,19 @@ def render_stock_analysis(symbol, name, market, config):
         st.caption("Screenshot this card and share with friends. Watermarked with AI Buffett branding.")
 
     # ===== Tabs =====
-    tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai, tab_thesis = st.tabs(
-        ["MOAT", "TREND", "CHART", "FINANCIALS", "TECHNICAL", "AI REPORT", "📋 MY THESIS"]
-    )
+    if market == "a_share":
+        tab_policy, tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai, tab_committee, tab_thesis = st.tabs(
+            ["🏛️ 政策", "MOAT", "TREND", "CHART", "FINANCIALS", "TECHNICAL", "AI REPORT", "🏛 COMMITTEE", "📋 MY THESIS"]
+        )
+    else:
+        tab_policy = None
+        tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai, tab_committee, tab_thesis = st.tabs(
+            ["MOAT", "TREND", "CHART", "FINANCIALS", "TECHNICAL", "AI REPORT", "🏛 COMMITTEE", "📋 MY THESIS"]
+        )
+
+    if market == "a_share" and tab_policy is not None:
+        with tab_policy:
+            _render_ashare_policy_tab(symbol, name, _policy_alignment, _policy_news, fundamentals, normalized, moat)
 
     with tab_moat:
         render_moat_scorecard(moat, brief=brief, normalized=normalized)
@@ -831,7 +1007,8 @@ def render_stock_analysis(symbol, name, market, config):
 
     with tab_ai:
         ai_key = "ai_analysis_{}".format(symbol)
-        if st.button("生成深度研报", key="ai_btn_{}".format(symbol), type="primary"):
+        _btn_label = "生成A股政策研报" if market == "a_share" else "生成深度研报"
+        if st.button(_btn_label, key="ai_btn_{}".format(symbol), type="primary"):
             if not provider:
                 st.warning("请先在「设置」页面配置 API Key")
             else:
@@ -845,7 +1022,13 @@ def render_stock_analysis(symbol, name, market, config):
                     '</div>',
                     unsafe_allow_html=True,
                 )
-                ai_text = analyze_stock(result, provider=provider, moat=moat)
+                if market == "a_share":
+                    ai_text = analyze_ashare_stock(
+                        result, provider, moat=moat,
+                        policy_data=_policy_alignment, policy_news=_policy_news,
+                    )
+                else:
+                    ai_text = analyze_stock(result, provider=provider, moat=moat)
                 st.session_state[ai_key] = ai_text
                 ai_loading.empty()
 
@@ -865,6 +1048,10 @@ def render_stock_analysis(symbol, name, market, config):
                 "AI Deep Analysis",
                 "Click the button above to generate a Buffett-style research report"),
                 unsafe_allow_html=True)
+
+    # ── 投资委员会 Tab ──────────────────────────────────────────────
+    with tab_committee:
+        _render_committee_tab(symbol, name, market, result, fundamentals, normalized, moat, provider, df)
 
     # ── 投资论点 Tab ────────────────────────────────────────────────
     with tab_thesis:

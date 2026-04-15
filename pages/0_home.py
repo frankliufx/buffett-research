@@ -199,7 +199,86 @@ _html("""
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 03  THE MASTERS
+# 03  十五五投资主线
+# ══════════════════════════════════════════════════════════════════════════════
+st.markdown(
+    '<div style="font-size:0.6rem;letter-spacing:4px;color:#C9A962;'
+    'text-transform:uppercase;font-weight:500;margin:40px 0 20px;'
+    'padding-bottom:8px;border-bottom:1px solid #1E1E26;">十五五投资主线</div>',
+    unsafe_allow_html=True,
+)
+
+_THEMES = [
+    {
+        "icon": "🤖", "title": "人工智能+",
+        "desc": "大模型、算力基础设施、AI应用赋能各行业",
+        "stocks": "寒武纪・科大讯飞・中科曙光",
+        "policy": "十五五核心战略", "color": "#C9A962",
+    },
+    {
+        "icon": "⚡", "title": "新能源体系",
+        "desc": "光伏、储能、新能源汽车，2030年装机占比50%+目标",
+        "stocks": "宁德时代・隆基绿能・比亚迪",
+        "policy": "十五五核心战略", "color": "#3ECF8E",
+    },
+    {
+        "icon": "🦾", "title": "机器人产业",
+        "desc": "工业机器人、人形机器人，\"机器人+\"应用全面扩展",
+        "stocks": "汇川技术・埃斯顿・海天精工",
+        "policy": "十五五核心战略", "color": "#C9A962",
+    },
+    {
+        "icon": "💊", "title": "生物医药",
+        "desc": "创新药、精准医疗、CXO，国家战略性新兴产业",
+        "stocks": "百济神州・恒瑞医药・迈瑞医疗",
+        "policy": "十五五核心战略", "color": "#7B9E87",
+    },
+    {
+        "icon": "🔬", "title": "半导体国产替代",
+        "desc": "芯片设计、制造、设备全链条自主可控",
+        "stocks": "中芯国际・北方华创・兆易创新",
+        "policy": "十五五核心战略", "color": "#8A6FE8",
+    },
+    {
+        "icon": "✈️", "title": "低空经济",
+        "desc": "eVTOL、无人机物流、低空基础设施建设",
+        "stocks": "中航西飞・澜起科技",
+        "policy": "新兴产业布局", "color": "#5BA4CF",
+    },
+]
+
+def _theme_card(t):
+    return (
+        '<div style="background:#0D0D14;border:1px solid #1E1E2A;border-top:2px solid {color};'
+        'border-radius:4px;padding:20px;height:180px;position:relative;">'
+        '<div style="font-size:1.5rem;margin-bottom:8px;">{icon}</div>'
+        '<div style="font-size:0.85rem;font-weight:600;color:#E8E8F0;margin-bottom:6px;">{title}</div>'
+        '<div style="font-size:0.65rem;color:#5A5A6A;line-height:1.5;margin-bottom:8px;">{desc}</div>'
+        '<div style="font-size:0.6rem;color:#C9A962;margin-bottom:4px;">{stocks}</div>'
+        '<div style="font-size:0.55rem;color:#3A3A4A;letter-spacing:1px;position:absolute;'
+        'bottom:12px;left:20px;">{policy}</div>'
+        '</div>'
+    ).format(**t)
+
+_row1 = st.columns(3)
+_row2 = st.columns(3)
+for _i, _col in enumerate(_row1):
+    with _col:
+        st.markdown(_theme_card(_THEMES[_i]), unsafe_allow_html=True)
+for _i, _col in enumerate(_row2):
+    with _col:
+        st.markdown(_theme_card(_THEMES[_i + 3]), unsafe_allow_html=True)
+
+st.markdown(
+    '<div style="font-size:0.68rem;color:#5A5A6A;text-align:center;margin:16px 0 32px;">'
+    '以上主题基于十五五规划（2026-2030）核心方向 · 点击左侧「分析」页深度研究个股'
+    '</div>',
+    unsafe_allow_html=True,
+)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 04  THE MASTERS
 # ══════════════════════════════════════════════════════════════════════════════
 _html(f"""
 <style>

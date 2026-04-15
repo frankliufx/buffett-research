@@ -31,7 +31,7 @@ def _history_path(uid: str) -> Path:
 
 def _thesis_path(uid: str, symbol: str, market: str) -> Path:
     safe_sym = symbol.replace("/", "_").replace(".", "_")
-    return _DATA_DIR / "thesis_{}_{}_{}".format(uid, market, safe_sym) + ".json"
+    return _DATA_DIR / "thesis_{}_{}_{}.json".format(uid, market, safe_sym)
 
 def _load_local_history(uid: str) -> list:
     p = _history_path(uid)
