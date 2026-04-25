@@ -42,6 +42,7 @@ from src.ui_theme import (get_global_css, render_hero_header, render_buffett_quo
                           render_kpi_card, render_sidebar_status,
                           render_empty_state, render_news_item,
                           render_calendar_card, COLORS)
+from src.ui_components import render_quote
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -1349,20 +1350,19 @@ def _render_valuation_reference(symbol, normalized, moat):
         fail_count = sum(1 for s, _ in checks if s == "fail")
 
         if fail_count == 0 and pass_count >= 3:
-            quote = "以合理的价格买入优秀的企业，远胜于以便宜的价格买入平庸的企业。"
-            author = "Warren Buffett"
+            quote_text = "以合理的价格买入优秀的企业，远胜于以便宜的价格买入平庸的企业。"
+            quote_author = "buffett"
         elif fail_count >= 2:
-            quote = "Stop Doing List 比 To Do List 更重要。不懂不做，这四个字价值万亿。"
-            author = "段永平"
+            quote_text = "Stop Doing List 比 To Do List 更重要。不懂不做，这四个字价值万亿。"
+            quote_author = "duan"
         elif pe and pe > 30:
-            quote = "价格是你付出的，价值是你得到的。市场短期是投票机，长期是称重机。"
-            author = "Warren Buffett"
+            quote_text = "价格是你付出的，价值是你得到的。市场短期是投票机，长期是称重机。"
+            quote_author = "buffett"
         else:
-            quote = "投资最重要的是不要亏大钱。好公司遇到暂时困难时，往往是最好的买入机会。"
-            author = "段永平"
+            quote_text = "投资最重要的是不要亏大钱。好公司遇到暂时困难时，往往是最好的买入机会。"
+            quote_author = "duan"
 
-        st.markdown("> *\"" + quote + "\"*")
-        st.caption("— " + author)
+        render_quote(quote_text, author=quote_author)
 
 
 def _render_ai_verdict(symbol, name, market, price, change, moat, normalized, result, provider):

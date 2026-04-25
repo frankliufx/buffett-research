@@ -12,6 +12,7 @@ from src.ai.knowledge_base import (
     EVALUATION_FRAMEWORK, MOAT_TYPES,
 )
 from src.ui_theme import get_global_css, COLORS
+from src.ui_components import render_page_header
 
 if "config" not in st.session_state:
     st.session_state.config = load_config()
@@ -22,24 +23,13 @@ config = st.session_state.config
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
 # ── Header ────────────────────────────────────────────────────────────────────
-components.html("""
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:24px 0 8px;text-align:center}
-.icon{font-size:2.2rem;margin-bottom:12px;opacity:0.8}
-.title{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.6rem;font-weight:300;color:#E8E8F0;letter-spacing:4px;text-transform:uppercase}
-.title b{font-weight:700;color:#C9A962}
-.sub{font-size:0.55rem;letter-spacing:4px;color:#5A5A6A;text-transform:uppercase;margin-top:6px}
-.divider{height:1px;background:linear-gradient(90deg,transparent,#C9A962 30%,transparent);margin-top:16px;opacity:0.3}
-</style></head><body>
-<div class="icon">&#x1F9D0;</div>
-<div class="title">AI <b>Advisor</b></div>
-<div class="sub">Buffett &middot; Duan Yongping &middot; Value Investing Partner</div>
-<div class="divider"></div>
-</body></html>
-""", height=130, scrolling=False)
+render_page_header(
+    "AI",
+    accent="Advisor",
+    subtitle="Buffett · Duan Yongping · Value Investing Partner",
+    icon="🧐",
+    height=130,
+)
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────

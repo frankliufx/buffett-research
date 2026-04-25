@@ -7,6 +7,7 @@ import streamlit.components.v1 as components
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from src.ui_theme import get_global_css, COLORS
+from src.ui_components import render_page_header
 from src.auth import get_current_user
 from src.config import load_config
 from src.user_data import load_portfolio, add_position, delete_position
@@ -34,22 +35,12 @@ def _currency(market: str) -> str:
 
 
 # ── Header ────────────────────────────────────────────────────────────────────
-components.html("""
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:24px 0 8px}
-.title{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.8rem;font-weight:300;color:#E8E8F0;letter-spacing:3px;text-transform:uppercase}
-.title b{font-weight:700;color:#C9A962}
-.sub{font-size:0.55rem;letter-spacing:4px;color:#5A5A6A;text-transform:uppercase;margin-top:6px}
-.divider{height:1px;background:linear-gradient(90deg,transparent,#C9A962 30%,transparent);margin-top:16px;opacity:0.3}
-</style></head><body>
-<div class="title">My <b>Portfolio</b></div>
-<div class="sub">Position Tracking &middot; Profit & Loss &middot; Allocation</div>
-<div class="divider"></div>
-</body></html>
-""", height=90, scrolling=False)
+render_page_header(
+    "My",
+    accent="Portfolio",
+    subtitle="Position Tracking · Profit & Loss · Allocation",
+    height=90,
+)
 
 
 # ── Load positions + live prices ──────────────────────────────────────────────

@@ -8,6 +8,7 @@ import streamlit.components.v1 as components
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from src.ui_theme import get_global_css, COLORS
+from src.ui_components import render_page_header
 from src.auth import get_current_user
 from src.user_data import (
     load_watchlist, add_to_watchlist, remove_from_watchlist,
@@ -88,22 +89,12 @@ st.markdown(get_global_css(), unsafe_allow_html=True)
 # ── Header ────────────────────────────────────────────────────────────────────
 display_name = (user or {}).get("name", "Investor")
 
-components.html(f"""
-<!DOCTYPE html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-<style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:28px 0 8px}}
-.greeting{{font-size:0.55rem;letter-spacing:4px;color:#C9A962;text-transform:uppercase;margin-bottom:6px}}
-.title{{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.8rem;font-weight:300;color:#E8E8F0;letter-spacing:3px;text-transform:uppercase}}
-.title b{{font-weight:700;color:#C9A962}}
-.divider{{height:1px;background:linear-gradient(90deg,transparent,#C9A962 30%,transparent);margin-top:18px;opacity:0.3}}
-</style></head><body>
-<div class="greeting">Welcome back, {display_name}</div>
-<div class="title">Command <b>Center</b></div>
-<div class="divider"></div>
-</body></html>
-""", height=100, scrolling=False)
+render_page_header(
+    "Command",
+    accent="Center",
+    eyebrow=f"Welcome back, {display_name}",
+    height=100,
+)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
