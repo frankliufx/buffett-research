@@ -1,38 +1,15 @@
-"""A股专属 UI 渲染组件
+"""Legacy A-share UI renderers (pre-A5.1).
 
-暗色金融主题（#08080C 背景，#C9A962 金色，Cormorant Garamond + Inter 字体）。
-所有渲染函数返回完整 HTML 字符串，配合 streamlit.components.v1.html() 使用。
+Kept importable for backward compat. New code should use the
+card components in `src/ui_ashare/` directly.
 """
 
-
-def _truncate(text: str, max_len: int = 50) -> str:
-    if not text:
-        return ""
-    return text[:max_len] + "…" if len(text) > max_len else text
-
-
-def _fmt_date(pub_date: str) -> str:
-    """从 RFC 822 日期字符串提取可读日期"""
-    if not pub_date:
-        return ""
-    # e.g. "Mon, 01 Apr 2026 10:00:00 +0800"
-    parts = pub_date.split()
-    if len(parts) >= 4:
-        return " ".join(parts[1:4])
-    return pub_date[:16]
-
-
-# ── Google Fonts head snippet ────────────────────────────────────────────────
-_FONTS_HEAD = (
-    '<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond'
-    ':wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" '
-    'rel="stylesheet">'
+from src.ui_ashare._base import (
+    FONTS_HEAD as _FONTS_HEAD,
+    BASE_CSS as _BASE_CSS,
+    truncate as _truncate,
+    fmt_date as _fmt_date,
 )
-
-_BASE_CSS = """
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:0}
-"""
 
 
 # ── render_policy_hero ───────────────────────────────────────────────────────

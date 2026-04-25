@@ -1,5 +1,10 @@
 # 本地数据缓存（不提交，部署环境运行时自动创建目录）
-/data/
+# 注意: /data/cn_policy_themes.yaml 是 curated 产品资产，必须 commit (A5.1)
+/data/cache/
+/data/runtime/
+/data/*.json
+/data/*.csv
+/data/*.parquet
 
 # Python 虚拟环境
 .venv/

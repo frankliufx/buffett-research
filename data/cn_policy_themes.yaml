@@ -1,0 +1,252 @@
+# A股政策主题知识库 (v1 — AI 起草，待人工 review)
+#
+# 维护流程 (option B):
+#   1. 每季度初由 AI 生成草案 PR
+#   2. 人工 review：核对 lifecycle 阶段 + last_catalyst 日期 + decay_after 估计
+#   3. 合并后通过 src/data/policy_themes.py 加载
+#
+# 字段约束（详见 schemas/policy.py PolicyTheme）：
+#   id              稳定 slug，**不要改**，会破坏历史数据
+#   tier            1=核心主线 / 2=受益方向 / 3=政策外延
+#   lifecycle.phase 蓄势期 / 爆发期 / 退坡期 / 未知
+#   keywords        子串包含即命中（粗匹配，宁多勿少）
+#
+# 当前快照基准日: 2026-04 (十四五收官 + 十五五开局)
+# Review TODO: 红框字段为 AI 草稿估计值，请人工核对
+#   - 所有 last_catalyst / next_window / decay_after 日期
+#   - tier 等级（特别是 tier 1/2 边界）
+
+themes:
+  - id: ai_infrastructure
+    name: 人工智能基础设施
+    plan: 十五五
+    pillar: 新质生产力
+    tier: 1
+    lifecycle:
+      phase: 爆发期
+      since: 2024-10-01           # 十四五末密集表态 → 十五五承接
+      last_catalyst: 2026-03-05    # REVIEW: 估计为两会
+      next_window: 2026-09-01      # REVIEW: 估计三季度部委细则
+      decay_after: 2028-06-01      # REVIEW: 预期 2028 年中后周期切换
+      notes: |
+        覆盖大模型、算力中心、AI 芯片等子方向。爆发期建议持有，
+        但需关注算力供给过剩信号 (decay_after 节点提前)。
+    keywords:
+      - 人工智能
+      - 大模型
+      - 算力
+      - AI芯片
+      - 智算中心
+      - GPU
+      - AIGC
+    related_industries:
+      - 计算机
+      - 通信
+      - 电子
+
+  - id: semiconductor_self_sufficiency
+    name: 半导体自主可控
+    plan: 十五五
+    pillar: 安全自主可控
+    tier: 1
+    lifecycle:
+      phase: 爆发期
+      since: 2023-01-01
+      last_catalyst: 2026-01-15    # REVIEW
+      next_window: 2026-07-01
+      decay_after: 2030-12-31      # 长期主线，远期退坡
+    keywords:
+      - 半导体
+      - 芯片
+      - 国产替代
+      - 光刻
+      - EDA
+      - 晶圆
+      - 第三代半导体
+    related_industries:
+      - 电子
+      - 半导体
+
+  - id: new_energy_vehicle
+    name: 新能源汽车
+    plan: 十四五
+    pillar: 绿色低碳
+    tier: 2
+    lifecycle:
+      phase: 退坡期
+      since: 2020-01-01
+      last_catalyst: 2024-12-01    # REVIEW: 大补贴政策已退出
+      next_window: null            # 不再有大规模直接补贴
+      decay_after: 2026-01-01      # 已进入退坡期
+      notes: |
+        从政策驱动转为市场化竞争。重点关注智能驾驶、海外出口、
+        固态电池等结构性子方向（见单独主题）。
+    keywords:
+      - 新能源汽车
+      - 动力电池
+      - 充电桩
+      - 智能驾驶
+    related_industries:
+      - 汽车
+      - 电力设备
+
+  - id: new_productive_forces
+    name: 新质生产力
+    plan: 十五五
+    pillar: 新质生产力
+    tier: 1
+    lifecycle:
+      phase: 爆发期
+      since: 2024-03-01            # 两会首次提出
+      last_catalyst: 2026-03-05    # REVIEW: 两会再次强调
+      next_window: 2026-10-01
+      decay_after: 2029-12-31
+      notes: |
+        官方主推主线，是十五五贯穿性概念。涵盖高端装备、
+        工业母机、低空经济等。
+    keywords:
+      - 新质生产力
+      - 工业母机
+      - 高端装备
+      - 低空经济
+      - 商业航天
+    related_industries:
+      - 机械
+      - 国防军工
+
+  - id: innovative_drugs
+    name: 创新药出海
+    plan: 十五五
+    pillar: 健康中国
+    tier: 1
+    lifecycle:
+      phase: 蓄势期
+      since: 2025-09-01            # REVIEW: 集采免疫政策起步
+      last_catalyst: 2026-02-01    # REVIEW
+      next_window: 2026-08-01      # 医保支付改革预期窗口
+      decay_after: 2030-06-01
+      notes: |
+        从仿制药内卷转向创新药出海 + 集采免疫品种。
+        蓄势期建议布局，等待医保支付改革落地。
+    keywords:
+      - 创新药
+      - 出海
+      - 集采免疫
+      - 生物医药
+      - License-out
+      - ADC
+    related_industries:
+      - 医药生物
+
+  - id: data_elements
+    name: 数据要素
+    plan: 十五五
+    pillar: 数字中国
+    tier: 2
+    lifecycle:
+      phase: 蓄势期
+      since: 2024-06-01
+      last_catalyst: 2026-01-01    # REVIEW: 国家数据局动作
+      next_window: 2026-12-01
+      decay_after: 2029-06-01
+      notes: |
+        数据交易所、算力调度、公共数据授权运营。商业模式
+        尚未跑通，蓄势期估值波动大。
+    keywords:
+      - 数据要素
+      - 数据交易
+      - 算力调度
+      - 公共数据
+      - 数据资产入表
+    related_industries:
+      - 计算机
+      - 通信
+
+  - id: commercial_aerospace
+    name: 商业航天
+    plan: 十五五
+    pillar: 新质生产力
+    tier: 2
+    lifecycle:
+      phase: 蓄势期
+      since: 2024-03-01            # 首次写入政府工作报告
+      last_catalyst: 2025-12-01    # REVIEW
+      next_window: 2026-09-01
+      decay_after: 2030-06-01
+      notes: |
+        卫星互联网组网 + 可回收火箭。订单兑现度是关键观察点。
+    keywords:
+      - 商业航天
+      - 卫星互联网
+      - 火箭
+      - 卫星
+      - 北斗
+    related_industries:
+      - 国防军工
+      - 通信
+
+  - id: large_storage
+    name: 大型储能
+    plan: 十四五
+    pillar: 绿色低碳
+    tier: 3
+    lifecycle:
+      phase: 退坡期
+      since: 2022-01-01
+      last_catalyst: 2024-06-01
+      next_window: null
+      decay_after: 2025-12-01
+      notes: |
+        强配储能政策退出，行业进入价格战。除非有海外/工商业储能
+        差异化能力，否则慎入。
+    keywords:
+      - 储能
+      - 储能电池
+      - 钠电
+    related_industries:
+      - 电力设备
+
+  - id: defense_modernization
+    name: 国防装备升级
+    plan: 十五五
+    pillar: 安全自主可控
+    tier: 2
+    lifecycle:
+      phase: 爆发期
+      since: 2023-09-01
+      last_catalyst: 2026-03-01    # REVIEW
+      next_window: 2026-08-01      # 军工订单兑现窗口
+      decay_after: 2030-12-31
+      notes: |
+        十四五末订单兑现 + 十五五新一轮装备升级。注意
+        订单的可见性和兑现节奏。
+    keywords:
+      - 国防军工
+      - 军工
+      - 航空发动机
+      - 导弹
+      - 军工集团
+    related_industries:
+      - 国防军工
+
+  - id: quantum_technology
+    name: 量子科技
+    plan: 十五五
+    pillar: 前沿科技
+    tier: 3
+    lifecycle:
+      phase: 蓄势期
+      since: 2025-01-01
+      last_catalyst: 2026-02-01    # REVIEW
+      next_window: 2027-06-01
+      decay_after: 2032-01-01      # 长周期蓄势
+      notes: |
+        长周期主题，商业化应用未成熟。短期题材属性强于业绩属性。
+    keywords:
+      - 量子
+      - 量子计算
+      - 量子通信
+      - 量子芯片
+    related_industries:
+      - 计算机
+      - 通信

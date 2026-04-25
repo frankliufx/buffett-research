@@ -34,8 +34,15 @@ from src.ui_committee import render_committee_page
 from src.ui_valuation import (render_valuation_verdict, render_price_spectrum,
                                render_scenario_cards, render_assumptions_panel,
                                render_insight_cards, render_share_card)
-from src.data.policy import get_stock_policy_tags, get_fifteen_five_alignment, get_policy_news
-from src.ui_ashare import render_policy_hero, render_ashare_score_banner
+from src.data.policy import (
+    get_stock_policy_tags, get_fifteen_five_alignment, get_policy_news,
+    get_policy_alignment,
+)
+from src.ui_ashare import (
+    render_policy_hero, render_ashare_score_banner,        # legacy (top-of-page banner kept)
+    render_decision_banner, render_alignment_card,
+    render_lifecycle_card, render_capital_card, render_risk_card,
+)
 from src.ui_theme import (get_global_css, render_hero_header, render_buffett_quote,
                           render_grade_badge, render_moat_bar, render_detail_item,
                           render_stock_header, render_moat_dimension,
@@ -406,17 +413,38 @@ def _render_thesis_panel(uid: str, symbol: str, market: str, name: str,
 
 
 def _render_ashare_policy_tab(symbol, name, alignment, news, fundamentals, normalized, moat):
-    """A股专属政策分析Tab"""
-    import streamlit.components.v1 as components
-    from src.ui_ashare import render_policy_hero
+    """A股政策面板 (A5.1 redesign).
 
-    # Section 1: 完整政策雷达（比顶部的更高更详细，height=600）
-    hero_html = render_policy_hero(symbol, name, alignment,
-                                   alignment.get("all_tags", []),
-                                   news, fundamentals, normalized)
-    components.html(hero_html, height=600, scrolling=True)
+    4-card layout backed by the curated YAML knowledge base in
+    `data/cn_policy_themes.yaml`:
 
-    # Section 2: 政策新闻完整列表（用 st.markdown 显示，最多10条）
+        ┌── 决策横幅 (主线对齐 + 主导周期 + 一句话定调) ──┐
+        ┌─ 主题对齐 ─┬─ 政策周期 ─┬─ 资金面 ─┬─ 风险面 ─┐
+
+    `alignment` here is the legacy dict (kept for back-compat with
+    other callers); we re-fetch the typed PolicyAlignment via
+    `get_policy_alignment(symbol)` which sources the same concept
+    map but scores against the YAML themes.
+    """
+    typed_alignment = get_policy_alignment(symbol)
+
+    # Top: decision banner
+    render_decision_banner(typed_alignment)
+
+    # 4-card grid (responsive: 2x2 on narrow viewports via Streamlit columns)
+    col_a, col_b = st.columns(2)
+    with col_a:
+        render_alignment_card(typed_alignment)
+    with col_b:
+        render_lifecycle_card(typed_alignment)
+
+    col_c, col_d = st.columns(2)
+    with col_c:
+        render_capital_card(symbol)
+    with col_d:
+        render_risk_card(symbol)
+
+    # Policy news (kept — useful and already wired)
     st.markdown(
         '<div style="font-size:0.6rem;letter-spacing:4px;color:#C9A962;'
         'text-transform:uppercase;font-weight:500;margin:24px 0 12px;">最新政策动态</div>',
@@ -425,7 +453,7 @@ def _render_ashare_policy_tab(symbol, name, alignment, news, fundamentals, norma
     if news:
         for item in news[:10]:
             title = item.get("title", "")
-            date = item.get("date", "")
+            date = item.get("date", "") or item.get("pubDate", "")
             source = item.get("source", "人民网")
             st.markdown(
                 '<div style="background:#0C0C12;border:1px solid #1E1E26;'
@@ -439,30 +467,6 @@ def _render_ashare_policy_tab(symbol, name, alignment, news, fundamentals, norma
             )
     else:
         st.info("暂无政策新闻（人民网数据加载中...）")
-
-    # Section 3: 申万行业 + 政策评分说明
-    st.markdown(
-        '<div style="font-size:0.6rem;letter-spacing:4px;color:#C9A962;'
-        'text-transform:uppercase;font-weight:500;margin:24px 0 12px;">评分说明</div>',
-        unsafe_allow_html=True,
-    )
-    level = alignment.get("level", "暂无明显政策主题")
-    tier1 = alignment.get("tier1", [])
-    tier2 = alignment.get("tier2", [])
-    score = alignment.get("score", 0)
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("十五五对齐级别", level)
-    with col2:
-        st.metric("政策得分", "{}/15".format(score))
-    with col3:
-        st.metric("概念板块数量", len(alignment.get("all_tags", [])))
-
-    if tier1:
-        st.markdown("**核心主线：** " + " · ".join(tier1[:6]))
-    if tier2:
-        st.markdown("**受益方向：** " + " · ".join(tier2[:6]))
 
 
 def render_stock_analysis(symbol, name, market, config):

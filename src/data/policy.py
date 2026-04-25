@@ -178,6 +178,20 @@ def get_policy_news(limit: int = 5) -> list:
     return results
 
 
+def get_policy_alignment(symbol: str):
+    """Return a typed `PolicyAlignment` (schemas/policy.py) for the given stock.
+
+    Companion to the legacy `get_fifteen_five_alignment` (which returns a dict).
+    Sources the same concept-board data but scores against the curated YAML
+    knowledge base in `data/cn_policy_themes.yaml` instead of hardcoded keywords.
+    """
+    from src.data.policy_themes import score_alignment
+    code = symbol.replace("sh", "").replace("sz", "").replace(".", "").strip()
+    code = code[-6:] if len(code) >= 6 else code.zfill(6)
+    concepts = _get_concept_map().get(code, [])
+    return score_alignment(symbol, concepts)
+
+
 def get_fifteen_five_alignment(symbol: str) -> dict:
     """
     返回与十五五规划的对齐分析。
