@@ -45,6 +45,11 @@ from schemas.policy import (
     PolicyThemeMatch,
     PolicyAlignment,
     LifecycleSignal,
+    CapitalFlow,
+    CapitalFlowDay,
+    RegulatoryStatus,
+    ControllerType,
+    RiskLevel,
 )
 
 __all__ = [
@@ -81,4 +86,9 @@ __all__ = [
     "PolicyThemeMatch",
     "PolicyAlignment",
     "LifecycleSignal",
+    "CapitalFlow",
+    "CapitalFlowDay",
+    "RegulatoryStatus",
+    "ControllerType",
+    "RiskLevel",
 ]

@@ -38,6 +38,8 @@ from src.data.policy import (
     get_stock_policy_tags, get_fifteen_five_alignment, get_policy_news,
     get_policy_alignment,
 )
+from src.data.cn_capital_flow import get_capital_flow
+from src.data.cn_regulatory import get_regulatory_status
 from src.ui_ashare import (
     render_policy_hero, render_ashare_score_banner,        # legacy (top-of-page banner kept)
     render_decision_banner, render_alignment_card,
@@ -165,6 +167,26 @@ def cached_get_policy_data(symbol):
         logging.warning("policy data failed %s: %s", symbol, e)
         return {"level": "暂无明显政策主题", "score": 0, "color": "#5A5A6A",
                 "tier1": [], "tier2": [], "all_tags": []}, []
+
+
+@st.cache_data(ttl=21600, show_spinner=False)  # 6h — A-share T+1, 盘中也不宜短于 2h
+def cached_get_capital_flow(symbol):
+    """A股专用：获取资金面数据 (北向 + 主力 + 龙虎榜)。"""
+    try:
+        return get_capital_flow(symbol)
+    except Exception as e:
+        logging.warning("capital flow failed %s: %s", symbol, e)
+        return None
+
+
+@st.cache_data(ttl=21600, show_spinner=False)
+def cached_get_regulatory_status(symbol):
+    """A股专用：获取监管风险数据 (ST + 实控人 + 业绩预警)。"""
+    try:
+        return get_regulatory_status(symbol)
+    except Exception as e:
+        logging.warning("regulatory status failed %s: %s", symbol, e)
+        return None
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_fetch_history(symbol, market, days):
@@ -431,6 +453,10 @@ def _render_ashare_policy_tab(symbol, name, alignment, news, fundamentals, norma
     # Top: decision banner
     render_decision_banner(typed_alignment)
 
+    # Fetch the two A5.2 data sources (cached, 6h TTL, defensive: returns None on failure)
+    flow = cached_get_capital_flow(symbol)
+    regulatory = cached_get_regulatory_status(symbol)
+
     # 4-card grid (responsive: 2x2 on narrow viewports via Streamlit columns)
     col_a, col_b = st.columns(2)
     with col_a:
@@ -440,9 +466,9 @@ def _render_ashare_policy_tab(symbol, name, alignment, news, fundamentals, norma
 
     col_c, col_d = st.columns(2)
     with col_c:
-        render_capital_card(symbol)
+        render_capital_card(symbol, flow)
     with col_d:
-        render_risk_card(symbol)
+        render_risk_card(symbol, regulatory)
 
     # Policy news (kept — useful and already wired)
     st.markdown(

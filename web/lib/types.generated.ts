@@ -31,6 +31,59 @@ export interface AnalystResult {
   error?: string | null;
   [k: string]: unknown;
 }
+/**
+ * 资金面卡片的完整数据契约。
+ *
+ * All fetchers degrade gracefully — a missing data source sets the
+ * relevant fields to None, the UI shows a "数据加载失败" sub-line for
+ * that row only, and the rest of the card still renders.
+ */
+export interface CapitalFlow {
+  symbol: string;
+  /**
+   * 北向当前持有占流通股 %
+   */
+  northbound_holding_pct?: number | null;
+  /**
+   * 北向 5 日净流入（元）
+   */
+  northbound_5d_yuan?: number | null;
+  /**
+   * 北向 20 日净流入（元）
+   */
+  northbound_20d_yuan?: number | null;
+  northbound_history?: CapitalFlowDay[];
+  /**
+   * 主力 5 日累计净流入（元）
+   */
+  main_5d_yuan?: number | null;
+  main_history?: CapitalFlowDay[];
+  /**
+   * 近 30 日上龙虎榜次数
+   */
+  lhb_30d_count?: number | null;
+  /**
+   * 资金共识评分 — 由四个子指标聚合得到 (0-100)
+   */
+  consensus_score?: number | null;
+  consensus_label?: ("强共识" | "中性" | "弱共识" | "分歧") | null;
+  /**
+   * 哪些子指标抓取失败（用于 UI 显示局部降级）
+   */
+  fetch_errors?: string[];
+  [k: string]: unknown;
+}
+/**
+ * 单日资金流（北向 / 主力）。
+ */
+export interface CapitalFlowDay {
+  date: string;
+  /**
+   * 净流入金额（元）— 正=买入，负=卖出。
+   */
+  net_inflow_yuan?: number | null;
+  [k: string]: unknown;
+}
 export interface DCFResult {
   intrinsic_value?: number | null;
   safety_margin_pct?: number | null;
@@ -199,6 +252,33 @@ export interface QuotePayload {
   ticker: string;
   name: string;
   price: number;
+  [k: string]: unknown;
+}
+/**
+ * 风险面卡片的完整数据契约。
+ */
+export interface RegulatoryStatus {
+  symbol: string;
+  is_st?: boolean | null;
+  /**
+   * ST 类型: ST / *ST / 暂停上市 / null
+   */
+  st_label?: string | null;
+  controller_type?: "央企" | "地方国企" | "民营企业" | "外资企业" | "公众企业" | "无实控人" | "未知";
+  controller_name?: string | null;
+  /**
+   * 预亏 / 预减 / null
+   */
+  perf_warning?: string | null;
+  csrc_penalty_count_3y?: number | null;
+  /**
+   * 最近一次处罚事项摘要（截断）
+   */
+  csrc_penalty_recent?: string | null;
+  risk_level?: "低" | "中" | "高" | "极高";
+  risk_color?: string;
+  risk_reasons?: string[];
+  fetch_errors?: string[];
   [k: string]: unknown;
 }
 export interface RiskPayload {

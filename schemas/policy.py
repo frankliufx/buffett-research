@@ -94,6 +94,93 @@ class PolicyAlignment(_Loose):
     )
 
 
+class CapitalFlowDay(_Loose):
+    """单日资金流（北向 / 主力）。"""
+
+    date: date
+    net_inflow_yuan: Optional[float] = Field(
+        default=None,
+        description="净流入金额（元）— 正=买入，负=卖出。",
+    )
+
+
+class CapitalFlow(_Loose):
+    """资金面卡片的完整数据契约。
+
+    All fetchers degrade gracefully — a missing data source sets the
+    relevant fields to None, the UI shows a "数据加载失败" sub-line for
+    that row only, and the rest of the card still renders.
+    """
+
+    symbol: str
+    # 北向资金
+    northbound_holding_pct: Optional[float] = Field(
+        default=None,
+        description="北向当前持有占流通股 %",
+    )
+    northbound_5d_yuan: Optional[float] = Field(
+        default=None, description="北向 5 日净流入（元）"
+    )
+    northbound_20d_yuan: Optional[float] = Field(
+        default=None, description="北向 20 日净流入（元）"
+    )
+    northbound_history: list[CapitalFlowDay] = Field(default_factory=list)
+    # 主力资金
+    main_5d_yuan: Optional[float] = Field(
+        default=None, description="主力 5 日累计净流入（元）"
+    )
+    main_history: list[CapitalFlowDay] = Field(default_factory=list)
+    # 龙虎榜
+    lhb_30d_count: Optional[int] = Field(
+        default=None, description="近 30 日上龙虎榜次数"
+    )
+    # 综合评分
+    consensus_score: Optional[float] = Field(
+        default=None, ge=0, le=100,
+        description="资金共识评分 — 由四个子指标聚合得到 (0-100)",
+    )
+    consensus_label: Optional[Literal["强共识", "中性", "弱共识", "分歧"]] = None
+    # 数据健康
+    fetch_errors: list[str] = Field(
+        default_factory=list,
+        description="哪些子指标抓取失败（用于 UI 显示局部降级）",
+    )
+
+
+ControllerType = Literal[
+    "央企", "地方国企", "民营企业", "外资企业", "公众企业", "无实控人", "未知"
+]
+RiskLevel = Literal["低", "中", "高", "极高"]
+
+
+class RegulatoryStatus(_Loose):
+    """风险面卡片的完整数据契约。"""
+
+    symbol: str
+    # ST / 退市
+    is_st: Optional[bool] = None
+    st_label: Optional[str] = Field(
+        default=None, description="ST 类型: ST / *ST / 暂停上市 / null"
+    )
+    # 实控人 / 控股股东类型
+    controller_type: ControllerType = "未知"
+    controller_name: Optional[str] = None
+    # 业绩预警
+    perf_warning: Optional[str] = Field(
+        default=None, description="预亏 / 预减 / null"
+    )
+    # CSRC 处罚
+    csrc_penalty_count_3y: Optional[int] = None
+    csrc_penalty_recent: Optional[str] = Field(
+        default=None, description="最近一次处罚事项摘要（截断）"
+    )
+    # 综合风险等级
+    risk_level: RiskLevel = "低"
+    risk_color: str = "#3ECF8E"
+    risk_reasons: list[str] = Field(default_factory=list)
+    fetch_errors: list[str] = Field(default_factory=list)
+
+
 class LifecycleSignal(_Loose):
     """三档周期信号灯（替代单点判断），用于 UI 信号灯渲染。
 
