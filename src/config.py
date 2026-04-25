@@ -159,16 +159,19 @@ class NotifyConfig(BaseModel):
 
 
 class BuffettStrategy(BaseModel):
-    min_roe: float = 15
+    # NOTE: float defaults must be float literals (15.0 not 15) — Pydantic v2
+    # keeps `15` as int and Streamlit's number_input rejects mixed numeric
+    # types when paired with float min_value/max_value/step.
+    min_roe: float = 15.0
     roe_consistency_years: int = 5
     max_debt_to_equity: float = 0.5
     min_current_ratio: float = 1.5
-    min_interest_coverage: float = 5
+    min_interest_coverage: float = 5.0
     margin_of_safety: float = 0.25
-    max_pe: float = 25
-    max_pb: float = 3
-    min_revenue_growth: float = 5
-    min_earnings_growth: float = 8
+    max_pe: float = 25.0
+    max_pb: float = 3.0
+    min_revenue_growth: float = 5.0
+    min_earnings_growth: float = 8.0
     min_dividend_years: int = 5
     min_payout_ratio: float = 0.2
 

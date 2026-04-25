@@ -316,20 +316,20 @@ with tab_strategy:
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("**MOAT (30pts)**")
-        bs.min_roe = float(st.number_input("Min ROE (%)", value=bs.min_roe, min_value=0.0, max_value=50.0, step=1.0))
+        bs.min_roe = float(st.number_input("Min ROE (%)", value=float(bs.min_roe), min_value=0.0, max_value=50.0, step=1.0))
         bs.roe_consistency_years = st.number_input("ROE years required", value=bs.roe_consistency_years, min_value=1, max_value=10)
 
     with col2:
         st.markdown("**FINANCIAL HEALTH (20pts)**")
-        bs.max_debt_to_equity = float(st.number_input("Max D/E ratio", value=bs.max_debt_to_equity,
+        bs.max_debt_to_equity = float(st.number_input("Max D/E ratio", value=float(bs.max_debt_to_equity),
                                                        min_value=0.0, max_value=5.0, step=0.1))
-        bs.min_current_ratio = float(st.number_input("Min current ratio", value=bs.min_current_ratio,
+        bs.min_current_ratio = float(st.number_input("Min current ratio", value=float(bs.min_current_ratio),
                                                       min_value=0.0, max_value=5.0, step=0.1))
 
     with col3:
         st.markdown("**VALUATION (25pts)**")
-        bs.max_pe = float(st.number_input("Max PE", value=bs.max_pe, min_value=5.0, max_value=100.0, step=1.0))
-        bs.max_pb = float(st.number_input("Max PB", value=bs.max_pb, min_value=0.5, max_value=20.0, step=0.5))
+        bs.max_pe = float(st.number_input("Max PE", value=float(bs.max_pe), min_value=5.0, max_value=100.0, step=1.0))
+        bs.max_pb = float(st.number_input("Max PB", value=float(bs.max_pb), min_value=0.5, max_value=20.0, step=0.5))
         bs.margin_of_safety = float(st.slider("Margin of safety (%)", 5, 50,
                                                int(bs.margin_of_safety * 100))) / 100
 
@@ -338,13 +338,13 @@ with tab_strategy:
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("**GROWTH (20pts)**")
-        bs.min_revenue_growth = float(st.number_input("Min revenue growth (%)", value=bs.min_revenue_growth,
+        bs.min_revenue_growth = float(st.number_input("Min revenue growth (%)", value=float(bs.min_revenue_growth),
                                                        min_value=0.0, step=1.0))
-        bs.min_earnings_growth = float(st.number_input("Min earnings growth (%)", value=bs.min_earnings_growth,
+        bs.min_earnings_growth = float(st.number_input("Min earnings growth (%)", value=float(bs.min_earnings_growth),
                                                         min_value=0.0, step=1.0))
     with col2:
         st.markdown("**MANAGEMENT (5pts)**")
-        bs.min_payout_ratio = float(st.number_input("Min payout ratio", value=bs.min_payout_ratio,
+        bs.min_payout_ratio = float(st.number_input("Min payout ratio", value=float(bs.min_payout_ratio),
                                                      min_value=0.0, max_value=1.0, step=0.05))
 
     st.divider()
