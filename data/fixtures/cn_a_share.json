@@ -1,0 +1,264 @@
+{
+  "_meta": {
+    "purpose": "Offline / sandbox fixture for A-share data layer. Used when env USE_FIXTURES=1 is set.",
+    "covers": "5 representative A-shares spanning 白酒 / 半导体 / 锂电 / 新能源车. Hand-curated as of 2026-04 — values are plausible but illustrative; not investment data.",
+    "review_note": "Update concept_tags + lifecycle phase once a quarter to track YAML knowledge base drift."
+  },
+
+  "stocks": {
+    "600519": {
+      "code": "600519",
+      "symbol": "sh600519",
+      "name": "贵州茅台",
+      "market": "a_share",
+      "exchange": "sh",
+      "industry": "白酒",
+      "concept_tags": ["白酒概念", "高端消费", "MSCI概念", "茅指数", "国企改革", "贵州本地股"],
+      "fundamentals": {
+        "pe_trailing": 22.5,
+        "pb": 8.4,
+        "roe": 32.8,
+        "profit_margin": 51.5,
+        "gross_margin": 91.6,
+        "debt_to_equity": 0.05,
+        "current_ratio": 5.2,
+        "revenue_growth": 11.4,
+        "earnings_growth": 13.1,
+        "dividend_yield": 1.8,
+        "free_cashflow": 65000000000,
+        "market_cap": 2030000000000,
+        "52w_high": 1825.0,
+        "52w_low": 1240.0
+      },
+      "quote": {
+        "price": 1620.50,
+        "change_pct": 0.85,
+        "shortName": "贵州茅台",
+        "longName": "贵州茅台酒股份有限公司"
+      },
+      "history_days": 60,
+      "capital_flow": {
+        "northbound_holding_pct": 8.42,
+        "northbound_5d_yuan": 235000000,
+        "northbound_20d_yuan": 1180000000,
+        "main_5d_yuan": -45000000,
+        "lhb_30d_count": 0,
+        "consensus_score": 68,
+        "consensus_label": "强共识"
+      },
+      "regulatory": {
+        "is_st": false,
+        "st_label": null,
+        "controller_type": "地方国企",
+        "controller_name": "贵州省人民政府国有资产监督管理委员会",
+        "perf_warning": null,
+        "csrc_penalty_count_3y": 0,
+        "risk_level": "低"
+      }
+    },
+
+    "000858": {
+      "code": "000858",
+      "symbol": "sz000858",
+      "name": "五粮液",
+      "market": "a_share",
+      "exchange": "sz",
+      "industry": "白酒",
+      "concept_tags": ["白酒概念", "高端消费", "MSCI概念", "茅指数", "四川本地股", "国企改革"],
+      "fundamentals": {
+        "pe_trailing": 16.8,
+        "pb": 3.6,
+        "roe": 24.5,
+        "profit_margin": 38.2,
+        "gross_margin": 75.4,
+        "debt_to_equity": 0.08,
+        "current_ratio": 4.8,
+        "revenue_growth": 9.6,
+        "earnings_growth": 10.8,
+        "dividend_yield": 3.2,
+        "free_cashflow": 28000000000,
+        "market_cap": 565000000000,
+        "52w_high": 178.0,
+        "52w_low": 132.5
+      },
+      "quote": {
+        "price": 145.30,
+        "change_pct": -0.42,
+        "shortName": "五粮液",
+        "longName": "宜宾五粮液股份有限公司"
+      },
+      "history_days": 60,
+      "capital_flow": {
+        "northbound_holding_pct": 4.85,
+        "northbound_5d_yuan": -85000000,
+        "northbound_20d_yuan": 220000000,
+        "main_5d_yuan": -15000000,
+        "lhb_30d_count": 1,
+        "consensus_score": 52,
+        "consensus_label": "中性"
+      },
+      "regulatory": {
+        "is_st": false,
+        "st_label": null,
+        "controller_type": "地方国企",
+        "controller_name": "宜宾市国有资产监督管理委员会",
+        "perf_warning": null,
+        "csrc_penalty_count_3y": 0,
+        "risk_level": "低"
+      }
+    },
+
+    "688981": {
+      "code": "688981",
+      "symbol": "sh688981",
+      "name": "中芯国际",
+      "market": "a_share",
+      "exchange": "sh",
+      "industry": "半导体",
+      "concept_tags": ["半导体", "集成电路", "国产替代", "芯片", "光刻机", "科创板", "AI芯片", "国家大基金"],
+      "fundamentals": {
+        "pe_trailing": 88.4,
+        "pb": 4.2,
+        "roe": 5.8,
+        "profit_margin": 12.1,
+        "gross_margin": 22.8,
+        "debt_to_equity": 0.42,
+        "current_ratio": 2.4,
+        "revenue_growth": 28.5,
+        "earnings_growth": -22.4,
+        "dividend_yield": 0.0,
+        "free_cashflow": -2400000000,
+        "market_cap": 685000000000,
+        "52w_high": 92.5,
+        "52w_low": 58.2
+      },
+      "quote": {
+        "price": 85.40,
+        "change_pct": 2.15,
+        "shortName": "中芯国际",
+        "longName": "中芯国际集成电路制造有限公司"
+      },
+      "history_days": 60,
+      "capital_flow": {
+        "northbound_holding_pct": 3.18,
+        "northbound_5d_yuan": 320000000,
+        "northbound_20d_yuan": 1450000000,
+        "main_5d_yuan": 95000000,
+        "lhb_30d_count": 4,
+        "consensus_score": 82,
+        "consensus_label": "强共识"
+      },
+      "regulatory": {
+        "is_st": false,
+        "st_label": null,
+        "controller_type": "央企",
+        "controller_name": "中国信息通信科技集团（国务院国资委间接控股）",
+        "perf_warning": null,
+        "csrc_penalty_count_3y": 0,
+        "risk_level": "低"
+      }
+    },
+
+    "300750": {
+      "code": "300750",
+      "symbol": "sz300750",
+      "name": "宁德时代",
+      "market": "a_share",
+      "exchange": "sz",
+      "industry": "锂电池",
+      "concept_tags": ["新能源汽车", "动力电池", "锂电池", "储能", "钠电池", "创业板", "MSCI概念"],
+      "fundamentals": {
+        "pe_trailing": 18.2,
+        "pb": 4.8,
+        "roe": 22.4,
+        "profit_margin": 11.5,
+        "gross_margin": 23.2,
+        "debt_to_equity": 0.78,
+        "current_ratio": 1.6,
+        "revenue_growth": -9.8,
+        "earnings_growth": 4.2,
+        "dividend_yield": 1.1,
+        "free_cashflow": 52000000000,
+        "market_cap": 990000000000,
+        "52w_high": 285.0,
+        "52w_low": 168.5
+      },
+      "quote": {
+        "price": 224.80,
+        "change_pct": -1.32,
+        "shortName": "宁德时代",
+        "longName": "宁德时代新能源科技股份有限公司"
+      },
+      "history_days": 60,
+      "capital_flow": {
+        "northbound_holding_pct": 6.12,
+        "northbound_5d_yuan": -180000000,
+        "northbound_20d_yuan": -650000000,
+        "main_5d_yuan": -85000000,
+        "lhb_30d_count": 2,
+        "consensus_score": 28,
+        "consensus_label": "弱共识"
+      },
+      "regulatory": {
+        "is_st": false,
+        "st_label": null,
+        "controller_type": "民营企业",
+        "controller_name": "曾毓群",
+        "perf_warning": null,
+        "csrc_penalty_count_3y": 0,
+        "risk_level": "低"
+      }
+    },
+
+    "002594": {
+      "code": "002594",
+      "symbol": "sz002594",
+      "name": "比亚迪",
+      "market": "a_share",
+      "exchange": "sz",
+      "industry": "新能源汽车",
+      "concept_tags": ["新能源汽车", "动力电池", "智能驾驶", "汽车整车", "光伏", "MSCI概念", "深圳本地股"],
+      "fundamentals": {
+        "pe_trailing": 24.8,
+        "pb": 4.5,
+        "roe": 19.8,
+        "profit_margin": 5.4,
+        "gross_margin": 19.2,
+        "debt_to_equity": 0.65,
+        "current_ratio": 1.2,
+        "revenue_growth": 18.6,
+        "earnings_growth": 28.4,
+        "dividend_yield": 0.4,
+        "free_cashflow": 45000000000,
+        "market_cap": 850000000000,
+        "52w_high": 320.0,
+        "52w_low": 215.0
+      },
+      "quote": {
+        "price": 285.20,
+        "change_pct": 1.78,
+        "shortName": "比亚迪",
+        "longName": "比亚迪股份有限公司"
+      },
+      "history_days": 60,
+      "capital_flow": {
+        "northbound_holding_pct": 5.42,
+        "northbound_5d_yuan": 145000000,
+        "northbound_20d_yuan": 580000000,
+        "main_5d_yuan": 38000000,
+        "lhb_30d_count": 1,
+        "consensus_score": 65,
+        "consensus_label": "强共识"
+      },
+      "regulatory": {
+        "is_st": false,
+        "st_label": null,
+        "controller_type": "民营企业",
+        "controller_name": "王传福",
+        "perf_warning": null,
+        "csrc_penalty_count_3y": 0,
+        "risk_level": "低"
+      }
+    }
+  }
+}

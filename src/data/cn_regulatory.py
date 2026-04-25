@@ -186,6 +186,26 @@ def _level_from(rs: RegulatoryStatus) -> tuple[RiskLevel, list[str]]:
 
 def get_regulatory_status(symbol: str) -> RegulatoryStatus:
     code = _normalize_code(symbol)
+
+    # Fixture short-circuit
+    from src.data.fixtures import is_fixture_mode, get_a_share_stock
+    if is_fixture_mode():
+        fx = get_a_share_stock(code)
+        if fx:
+            reg = fx.get("regulatory", {}) or {}
+            rs = RegulatoryStatus(
+                symbol=symbol,
+                is_st=reg.get("is_st"),
+                st_label=reg.get("st_label"),
+                controller_type=reg.get("controller_type", "未知"),
+                controller_name=reg.get("controller_name"),
+                perf_warning=reg.get("perf_warning"),
+                csrc_penalty_count_3y=reg.get("csrc_penalty_count_3y"),
+            )
+            rs.risk_level, rs.risk_reasons = _level_from(rs)
+            rs.risk_color = _RISK_COLOR[rs.risk_level]
+            return rs
+
     rs = RegulatoryStatus(symbol=symbol)
     errors: list[str] = []
 

@@ -509,6 +509,40 @@ def _fetch_tencent_quote_data(symbol: str, market: str) -> dict:
         return {}
 
 
+def _fixture_fundamentals(symbol: str) -> "dict | None":
+    """Read fixture fundamentals and convert to the contract _normalize_fundamentals expects.
+
+    Fixture stores numbers in human-readable form (32.8 = "32.8%"); the
+    normalizer expects them in DECIMAL form (0.328) and multiplies x100.
+    Therefore we divide by 100 going out, and reverse-encode debt_to_equity
+    to the yfinance-style "percentage * 100" the normalizer parses.
+    """
+    from src.data.fixtures import is_fixture_mode, get_a_share_stock
+    if not is_fixture_mode():
+        return None
+    fx = get_a_share_stock(symbol)
+    if not fx:
+        return None
+    raw = dict(fx.get("fundamentals", {}))
+
+    # Percentage-decimal conversion (32.8% → 0.328)
+    for k in ("roe", "roa", "profit_margin", "operating_margin", "gross_margin",
+              "revenue_growth", "earnings_growth", "dividend_yield", "payout_ratio"):
+        v = raw.get(k)
+        if v is not None:
+            raw[k] = float(v) / 100.0
+
+    # debt_to_equity: fixture stores ratio (0.05); normalizer wants yfinance-style x100 (5.0)
+    dte = raw.get("debt_to_equity")
+    if dte is not None:
+        raw["debt_to_equity"] = float(dte) * 100.0
+
+    # Industry hint (used by some downstream callers)
+    raw.setdefault("industry", fx.get("industry"))
+    raw.setdefault("sw_industry", fx.get("industry"))
+    return raw
+
+
 def fetch_fundamentals(symbol: str, market: str) -> dict:
     """统一入口：获取基本面数据（带本地文件缓存，6小时TTL）
 
@@ -523,11 +557,30 @@ def fetch_fundamentals(symbol: str, market: str) -> dict:
     - pe_trailing, pb: raw values
     - free_cashflow: raw number (positive = good)
     """
+    # Fixture short-circuit (USE_FIXTURES=1, A-share only)
+    if market == "a_share":
+        fx = _fixture_fundamentals(symbol)
+        if fx is not None:
+            return fx
+
     # 本地缓存优先
     cache_path = _cache_key("fund", symbol, market)
     cached = _read_cache(cache_path, _FUNDAMENTALS_CACHE_TTL)
     if cached:
         return cached
+
+    # Multi-source chain (SEC EDGAR for US, TuShare for A-share)
+    try:
+        from src.data.sources import chain_fundamentals
+        cf = chain_fundamentals(symbol, market)
+        if cf:
+            try:
+                _write_cache(cache_path, cf)
+            except Exception:
+                pass
+            return cf
+    except Exception:
+        pass
 
     try:
         # ── 美股: 直接使用 yfinance（数据更全、更准确）──────────────────

@@ -182,12 +182,23 @@ class TechnicalConfig(BaseModel):
     lookback_days: int = 250
 
 
+class TushareConfig(BaseModel):
+    """Optional TuShare Pro token (A股 multi-source chain).
+
+    Resolution order (src/data/sources/tushare.py): env TUSHARE_TOKEN →
+    streamlit secrets → this field. Empty token = source disabled.
+    """
+
+    token: Optional[str] = None
+
+
 class AppConfig(BaseModel):
     api: ApiConfig = ApiConfig()
     watchlist: Watchlist = Watchlist()
     buffett_strategy: BuffettStrategy = BuffettStrategy()
     technical: TechnicalConfig = TechnicalConfig()
     notify: NotifyConfig = NotifyConfig()
+    tushare: TushareConfig = TushareConfig()
 
 
 _config: Optional[AppConfig] = None

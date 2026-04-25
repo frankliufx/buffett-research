@@ -136,9 +136,15 @@ def get_stock_policy_tags(symbol: str) -> list:
     返回:
         list[str] — 政策概念名称列表，无匹配时返回空列表
     """
-    # 提取6位代码
     code = symbol.replace("sh", "").replace("sz", "").replace(".", "").strip()
     code = code[-6:] if len(code) >= 6 else code.zfill(6)
+
+    # Fixture short-circuit (USE_FIXTURES=1)
+    from src.data.fixtures import is_fixture_mode, get_a_share_stock
+    if is_fixture_mode():
+        fx = get_a_share_stock(code)
+        if fx:
+            return list(fx.get("concept_tags") or [])
 
     concept_map = _get_concept_map()
     return concept_map.get(code, [])
@@ -184,10 +190,20 @@ def get_policy_alignment(symbol: str):
     Companion to the legacy `get_fifteen_five_alignment` (which returns a dict).
     Sources the same concept-board data but scores against the curated YAML
     knowledge base in `data/cn_policy_themes.yaml` instead of hardcoded keywords.
+
+    Fixture mode: when USE_FIXTURES=1 and the symbol is in the curated fixture
+    file, sources the concept list from there instead of akshare.
     """
     from src.data.policy_themes import score_alignment
     code = symbol.replace("sh", "").replace("sz", "").replace(".", "").strip()
     code = code[-6:] if len(code) >= 6 else code.zfill(6)
+
+    from src.data.fixtures import is_fixture_mode, get_a_share_stock
+    if is_fixture_mode():
+        fx = get_a_share_stock(code)
+        if fx:
+            return score_alignment(symbol, list(fx.get("concept_tags") or []))
+
     concepts = _get_concept_map().get(code, [])
     return score_alignment(symbol, concepts)
 

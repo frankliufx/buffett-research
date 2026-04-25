@@ -222,6 +222,27 @@ def _consensus_score(cf: CapitalFlow) -> tuple[Optional[float], Optional[str]]:
 def get_capital_flow(symbol: str) -> CapitalFlow:
     """Aggregate northbound + main + LHB into a typed CapitalFlow."""
     code = _normalize_code(symbol)
+
+    # Fixture short-circuit
+    from src.data.fixtures import is_fixture_mode, get_a_share_stock, synthesize_capital_history
+    if is_fixture_mode():
+        fx = get_a_share_stock(code)
+        if fx:
+            cap = fx.get("capital_flow", {}) or {}
+            nb_hist, main_hist = synthesize_capital_history(code, days=30)
+            return CapitalFlow(
+                symbol=symbol,
+                northbound_holding_pct=cap.get("northbound_holding_pct"),
+                northbound_5d_yuan=cap.get("northbound_5d_yuan"),
+                northbound_20d_yuan=cap.get("northbound_20d_yuan"),
+                northbound_history=[CapitalFlowDay(**d) for d in nb_hist],
+                main_5d_yuan=cap.get("main_5d_yuan"),
+                main_history=[CapitalFlowDay(**d) for d in main_hist],
+                lhb_30d_count=cap.get("lhb_30d_count"),
+                consensus_score=cap.get("consensus_score"),
+                consensus_label=cap.get("consensus_label"),
+            )
+
     cf = CapitalFlow(symbol=symbol)
     errors: list[str] = []
 

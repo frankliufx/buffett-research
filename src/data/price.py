@@ -330,6 +330,30 @@ def fetch_quote(symbol: str, market: str) -> dict:
     Returns dict with: price, prev_close, open, high, low, volume,
                        market_cap, pe, pb, dividend_yield, 52w_high, 52w_low, change_pct
     """
+    # Fixture short-circuit (USE_FIXTURES=1)
+    from src.data.fixtures import is_fixture_mode, get_a_share_stock
+    if is_fixture_mode() and market == "a_share":
+        fx = get_a_share_stock(symbol)
+        if fx:
+            quote = dict(fx.get("quote", {}))
+            fund = fx.get("fundamentals", {})
+            quote.setdefault("market_cap", fund.get("market_cap"))
+            quote.setdefault("pe", fund.get("pe_trailing"))
+            quote.setdefault("pb", fund.get("pb"))
+            quote.setdefault("52w_high", fund.get("52w_high"))
+            quote.setdefault("52w_low", fund.get("52w_low"))
+            return quote
+
+    # Multi-source chain (Stooq for US/HK, TuShare for A-share if token configured).
+    # Falls through to the legacy yfinance/Tencent path below if nothing returns.
+    try:
+        from src.data.sources import chain_quote
+        cq = chain_quote(symbol, market)
+        if cq:
+            return cq
+    except Exception:
+        pass
+
     if market == "us":
         return _fetch_yfinance_quote(symbol)
 
@@ -398,6 +422,24 @@ def fetch_history(symbol: str, market: str, days: int = 250) -> pd.DataFrame:
     Returns pd.DataFrame with columns: Open, High, Low, Close, Volume
     Index: DatetimeIndex named 'Date'
     """
+    # Fixture short-circuit
+    from src.data.fixtures import is_fixture_mode, get_a_share_stock, synthesize_price_history
+    if is_fixture_mode() and market == "a_share":
+        fx = get_a_share_stock(symbol)
+        if fx is not None:
+            df = synthesize_price_history(symbol, days=min(days, 90))
+            if df is not None:
+                return df
+
+    # Multi-source chain (Stooq for US/HK, TuShare for A-share)
+    try:
+        from src.data.sources import chain_history
+        ch = chain_history(symbol, market, days)
+        if ch is not None and len(ch) > 0:
+            return ch
+    except Exception:
+        pass
+
     if market == "us":
         # 本地缓存
         safe_sym = symbol.replace("/", "_").replace(".", "_")
