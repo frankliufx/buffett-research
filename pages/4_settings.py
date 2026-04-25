@@ -14,7 +14,7 @@ st.markdown(get_global_css(), unsafe_allow_html=True)
 
 st.markdown("""
 <div style="text-align:center; padding:1.5rem 0 1.2rem 0; border-bottom:1px solid {border}; margin-bottom:1rem;">
-    <h2 style="color:{text}; font-weight:300; letter-spacing:4px; margin:0;">SETTINGS</h2>
+    <h2 style="color:{text}; font-weight:300; letter-spacing:1.2px; margin:0;">SETTINGS</h2>
     <p style="color:{muted}; font-size:0.8rem; letter-spacing:2px; margin-top:0.4rem;">API · NOTIFICATIONS · STRATEGY</p>
 </div>
 """.format(text=COLORS["text"], muted=COLORS["text_muted"], border=COLORS["border"]), unsafe_allow_html=True)
@@ -226,7 +226,7 @@ with tab_alerts:
     # ── Active alerts ──────────────────────────────────────────────────
     if _active_alerts:
         st.markdown(
-            '<div style="font-size:0.5rem;letter-spacing:3px;color:#3A3A4A;'
+            '<div style="font-size:0.5rem;letter-spacing:1px;color:#5A5A66;'
             'text-transform:uppercase;margin-bottom:8px;">活跃提醒</div>',
             unsafe_allow_html=True,
         )
@@ -237,7 +237,7 @@ with tab_alerts:
             with _al_col1:
                 st.markdown(
                     '<span style="font-weight:600;color:#E8E8F0;">{sym}</span>'
-                    '&nbsp;<span style="font-size:0.65rem;color:#5A5A6A;">{name} [{mkt}]</span>'.format(
+                    '&nbsp;<span style="font-size:0.65rem;color:#5A5A66;">{name} [{mkt}]</span>'.format(
                         sym=_al["symbol"], name=_al.get("name", ""), mkt=_al["market"],
                     ), unsafe_allow_html=True,
                 )
@@ -254,7 +254,7 @@ with tab_alerts:
         st.divider()
     else:
         st.markdown(
-            '<div style="color:#3A3A4A;font-size:0.85rem;padding:8px 0 16px;">暂无活跃提醒。</div>',
+            '<div style="color:#5A5A66;font-size:0.85rem;padding:8px 0 16px;">暂无活跃提醒。</div>',
             unsafe_allow_html=True,
         )
 
@@ -426,7 +426,7 @@ with tab_plan:
     st.markdown(
         '<div style="background:#0D0D14;border:1px solid #1E1E2A;border-left:3px solid {};'
         'border-radius:4px;padding:16px 20px;margin-bottom:16px">'
-        '<div style="font-size:0.5rem;letter-spacing:3px;color:{};text-transform:uppercase;margin-bottom:6px">Current Plan</div>'
+        '<div style="font-size:0.5rem;letter-spacing:1px;color:{};text-transform:uppercase;margin-bottom:6px">Current Plan</div>'
         '<div style="font-size:1.5rem;font-weight:700;color:{};letter-spacing:2px">{}</div>'
         '</div>'.format(plan_color, plan_color, plan_color, plan_label),
         unsafe_allow_html=True)
@@ -434,7 +434,7 @@ with tab_plan:
     if plan == "free":
         st.markdown(
             '<div style="background:#0D0D14;border:1px solid #1E1E2A;border-radius:4px;padding:16px 20px">'
-            '<div style="font-size:0.6rem;color:#5A5A6A;letter-spacing:2px;margin-bottom:8px">MONTHLY USAGE</div>'
+            '<div style="font-size:0.6rem;color:#5A5A66;letter-spacing:2px;margin-bottom:8px">MONTHLY USAGE</div>'
             '<div style="font-size:1.2rem;color:#E8E8F0">{used}/{limit} analyses used</div>'
             '<div style="font-size:0.7rem;color:#C9A962;margin-top:4px">{rem} remaining this month</div>'
             '</div>'.format(used=used, limit=FREE_MONTHLY_LIMIT, rem=remaining),

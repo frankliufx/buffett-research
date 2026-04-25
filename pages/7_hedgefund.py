@@ -54,13 +54,13 @@ st.markdown("""
     font-family: 'Cormorant Garamond', 'Georgia', serif;
     font-size: 1.9rem;
     font-weight: 300;
-    letter-spacing: 4px;
+    letter-spacing:1.2px;
     color: #E8E8F0;
     margin-bottom: 4px;
 }
 .hf-hero-sub {
     font-size: 0.62rem;
-    letter-spacing: 5px;
+    letter-spacing:1.5px;
     color: rgba(201,169,98,0.55);
     text-transform: uppercase;
 }
@@ -78,8 +78,8 @@ st.markdown("""
 
 /* 分析师选择卡片 */
 .analyst-group-label {
-    font-size: 0.48rem;
-    letter-spacing: 4px;
+    font-size:0.62rem;
+    letter-spacing:1.2px;
     color: rgba(201,169,98,0.5);
     text-transform: uppercase;
     margin-bottom: 6px;
@@ -111,7 +111,7 @@ st.markdown("""
 .hf-meta {
     font-size: 0.58rem;
     letter-spacing: 2px;
-    color: #6A6A78;
+    color:#9A9AA8;
     margin-top: 6px;
 }
 .hf-vote-bar {
@@ -147,8 +147,8 @@ st.markdown("""
 .hf-gauge-labels {
     display: flex;
     justify-content: space-between;
-    font-size: 0.44rem;
-    color: #5A5A6A;
+    font-size:0.62rem;
+    color:#5A5A66;
     letter-spacing: 1px;
 }
 
@@ -179,8 +179,8 @@ st.markdown("""
     color: #E8E8F0;
 }
 .ac-style {
-    font-size: 0.48rem;
-    color: #6A6A78;
+    font-size:0.62rem;
+    color:#9A9AA8;
     letter-spacing: 2px;
     text-transform: uppercase;
     margin-top: 1px;
@@ -188,7 +188,7 @@ st.markdown("""
 .ac-signal {
     font-size: 0.5rem;
     font-weight: 700;
-    letter-spacing: 3px;
+    letter-spacing:1px;
     padding: 3px 10px;
     border: 1px solid;
     border-radius: 2px;
@@ -234,8 +234,8 @@ st.markdown("""
     margin-bottom: 20px;
 }
 .summary-table th {
-    font-size: 0.44rem;
-    letter-spacing: 3px;
+    font-size:0.62rem;
+    letter-spacing:1px;
     color: rgba(201,169,98,0.5);
     text-transform: uppercase;
     padding: 8px 12px;
@@ -259,7 +259,7 @@ st.markdown("""
     border-radius: 3px;
     padding: 14px 16px;
     font-size: 0.62rem;
-    color: #6A6A78;
+    color:#9A9AA8;
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
     line-height: 1.7;
     white-space: pre-wrap;
@@ -440,7 +440,7 @@ with result_col:
         <div class="hf-result-header" style="border-top-color:{sc}">
             <div style="display:flex;justify-content:space-between;align-items:flex-start">
                 <div>
-                    <div style="font-size:0.44rem;letter-spacing:5px;color:rgba(201,169,98,0.5);
+                    <div style="font-size:0.62rem;letter-spacing:1.5px;color:rgba(201,169,98,0.5);
                         text-transform:uppercase;border:1px solid rgba(201,169,98,0.15);
                         display:inline-block;padding:2px 10px;margin-bottom:8px">
                         {cons['unanimity']}
@@ -453,7 +453,7 @@ with result_col:
                     </div>
                 </div>
                 <div style="text-align:right">
-                    <div style="font-size:0.44rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase">综合得分</div>
+                    <div style="font-size:0.62rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase">综合得分</div>
                     <div class="hf-score-big" style="color:{sc}">{ws:+.0f}</div>
                 </div>
             </div>
@@ -473,7 +473,7 @@ with result_col:
                 <span style="font-size:0.58rem;color:#00C853">▲ 看多 {bull}</span>
                 <span style="font-size:0.58rem;color:#C9A962">● 中性 {neut}</span>
                 <span style="font-size:0.58rem;color:#F44336">▼ 看空 {bear}</span>
-                <span style="font-size:0.58rem;color:#5A5A6A;margin-left:auto">
+                <span style="font-size:0.58rem;color:#5A5A66;margin-left:auto">
                     置信度 {cons['confidence']}%
                 </span>
             </div>
@@ -506,7 +506,7 @@ with result_col:
                     </div>
                     <div class="ac-reasoning">{analyst['reasoning']}</div>
                     <div class="ac-conf-row">
-                        <span style="font-size:0.5rem;color:#5A5A6A;width:48px">置信度</span>
+                        <span style="font-size:0.5rem;color:#5A5A66;width:48px">置信度</span>
                         <div class="ac-conf-track">
                             <div class="ac-conf-fill" style="width:{conf}%;background:{asc}"></div>
                         </div>

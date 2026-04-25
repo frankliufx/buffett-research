@@ -32,7 +32,7 @@ _FONT = (
 )
 _BASE = (
     "*{margin:0;padding:0;box-sizing:border-box;}"
-    "body{background:#06060A;font-family:'Inter',-apple-system,sans-serif;"
+    "body{background:#0A0A0F;font-family:'Inter',-apple-system,sans-serif;"
     "color:#E8E8F0;-webkit-font-smoothing:antialiased;}"
     ".serif{font-family:'Cormorant Garamond',Georgia,serif;}"
     "@keyframes fu{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}"
@@ -68,13 +68,13 @@ _html("""
 
   <!-- top-right year tag -->
   <div class="fu d1" style="position:absolute;top:32px;right:52px;
-    font-size:0.42rem;letter-spacing:5px;color:#2A2A36;text-transform:uppercase;">Est. 2025</div>
+    font-size:0.62rem;letter-spacing:1.5px;color:#5A5A66;text-transform:uppercase;">Est. 2025</div>
 
   <div style="position:relative;max-width:920px;">
 
     <div class="fu d1" style="display:flex;align-items:center;gap:14px;margin-bottom:32px;">
       <div style="width:6px;height:6px;background:#C9A962;border-radius:50%;"></div>
-      <span style="font-size:0.52rem;letter-spacing:6px;color:#C9A962;text-transform:uppercase;font-weight:500;">
+      <span style="font-size:0.66rem;letter-spacing:1.5px;color:#C9A962;text-transform:uppercase;font-weight:500;">
         AI-Powered Value Intelligence Platform
       </span>
     </div>
@@ -92,7 +92,7 @@ _html("""
 
     <div class="fu d2" style="width:52px;height:2px;background:#C9A962;margin-bottom:28px;"></div>
 
-    <p class="fu d3" style="font-size:1rem;color:#6A6A78;line-height:1.9;font-weight:300;
+    <p class="fu d3" style="font-size:1rem;color:#9A9AA8;line-height:1.9;font-weight:300;
       max-width:580px;margin-bottom:52px;">
       A professional-grade investment intelligence platform built on the enduring
       principles of Warren Buffett and Duan Yongping&nbsp;&mdash;&nbsp;powered by AI to deliver
@@ -103,23 +103,23 @@ _html("""
     <div class="fu d4" style="display:flex;border:1px solid #1A1A22;">
       <div style="flex:1;padding:18px 20px;border-right:1px solid #1A1A22;text-align:center;">
         <div class="serif" style="font-size:2.1rem;font-weight:600;color:#C9A962;line-height:1;">3</div>
-        <div style="font-size:0.46rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;margin-top:6px;">Global Markets</div>
+        <div style="font-size:0.62rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-top:6px;">Global Markets</div>
       </div>
       <div style="flex:1;padding:18px 20px;border-right:1px solid #1A1A22;text-align:center;">
         <div class="serif" style="font-size:2.1rem;font-weight:600;color:#C9A962;line-height:1;">35+</div>
-        <div style="font-size:0.46rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;margin-top:6px;">Stocks Covered</div>
+        <div style="font-size:0.62rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-top:6px;">Stocks Covered</div>
       </div>
       <div style="flex:1;padding:18px 20px;border-right:1px solid #1A1A22;text-align:center;">
         <div class="serif" style="font-size:2.1rem;font-weight:600;color:#C9A962;line-height:1;">5</div>
-        <div style="font-size:0.46rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;margin-top:6px;">MOAT Dimensions</div>
+        <div style="font-size:0.62rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-top:6px;">MOAT Dimensions</div>
       </div>
       <div style="flex:1;padding:18px 20px;border-right:1px solid #1A1A22;text-align:center;">
         <div class="serif" style="font-size:2.1rem;font-weight:600;color:#C9A962;line-height:1;">100</div>
-        <div style="font-size:0.46rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;margin-top:6px;">Point Scoring</div>
+        <div style="font-size:0.62rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-top:6px;">Point Scoring</div>
       </div>
       <div style="flex:1;padding:18px 20px;text-align:center;">
         <div class="serif" style="font-size:2.1rem;font-weight:600;color:#C9A962;line-height:1;">AI</div>
-        <div style="font-size:0.46rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;margin-top:6px;">Deep Research</div>
+        <div style="font-size:0.62rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-top:6px;">Deep Research</div>
       </div>
     </div>
 
@@ -148,7 +148,7 @@ def _gauge(ratio):
         '<div style="position:absolute;top:-3px;left:' + str(round(pos, 1)) + '%;'
         'width:2px;height:10px;background:#FFF;border-radius:1px;transform:translateX(-50%);"></div>'
         '</div>'
-        '<div style="display:flex;justify-content:space-between;font-size:0.46rem;color:#2A2A36;">'
+        '<div style="display:flex;justify-content:space-between;font-size:0.62rem;color:#5A5A66;">'
         '<span>0</span><span>70%</span><span>90%</span><span>120%</span><span>150%</span><span>200%+</span>'
         '</div>'
     )
@@ -160,19 +160,19 @@ def _bi_card(d):
     bc = "#3ECF8E"   if live else "#3A3A4A"
     bt = "LIVE"      if live else "REF"
     return (
-        '<div style="background:#09090F;border:1px solid #1A1A22;padding:24px;">'
+        '<div style="background:#0A0A0F;border:1px solid #1A1A22;padding:24px;">'
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">'
         '<span style="font-size:0.9rem;font-weight:600;color:#E8E8F0;letter-spacing:0.3px;">' + d["name"] + '</span>'
-        '<span style="font-size:0.46rem;padding:2px 8px;letter-spacing:2px;text-transform:uppercase;'
+        '<span style="font-size:0.62rem;padding:2px 8px;letter-spacing:2px;text-transform:uppercase;'
         'background:' + bb + ';color:' + bc + ';">' + bt + '</span>'
         '</div>'
         '<div class="serif" style="font-size:2.8rem;font-weight:700;line-height:1;'
         'color:' + c + ';margin-bottom:4px;">' + str(d["ratio"]) + '%</div>'
-        '<div style="font-size:0.56rem;color:#2A2A36;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">Market Cap / GDP</div>'
+        '<div style="font-size:0.56rem;color:#5A5A66;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">Market Cap / GDP</div>'
         + _gauge(d["ratio"])
         + '<div style="display:inline-block;font-size:0.68rem;font-weight:600;padding:3px 10px;'
         'background:' + c + '14;color:' + c + ';letter-spacing:1px;margin:10px 0 8px;">' + d.get("label", "") + '</div>'
-        '<div style="font-size:0.76rem;color:#6A6A78;line-height:1.75;">' + d.get("advice", "") + '</div>'
+        '<div style="font-size:0.76rem;color:#9A9AA8;line-height:1.75;">' + d.get("advice", "") + '</div>'
         '</div>'
     )
 
@@ -183,11 +183,11 @@ if bi and all(k in bi for k in ("cn", "us", "hk")):
         + '</div>'
     )
 else:
-    _cards = '<div style="color:#3A3A4A;font-size:0.85rem;padding:20px 0;">Market data loading…</div>'
+    _cards = '<div style="color:#5A5A66;font-size:0.85rem;padding:20px 0;">Market data loading…</div>'
 
 _html("""
-<div style="padding:56px 52px 52px;border-top:1px solid #1A1A22;background:#08080E;">
-  <div style="font-size:0.52rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase;
+<div style="padding:56px 52px 52px;border-top:1px solid #1A1A22;background:#0A0A0F;">
+  <div style="font-size:0.66rem;letter-spacing:1.5px;color:#C9A962;text-transform:uppercase;
     font-weight:500;margin-bottom:10px;">Buffett Indicator</div>
   <h2 class="serif" style="font-size:2.2rem;font-weight:300;color:#E8E8F0;
     margin-bottom:10px;letter-spacing:-0.3px;">Global Market Valuation</h2>
@@ -202,7 +202,7 @@ _html("""
 # 03  十五五投资主线
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown(
-    '<div style="font-size:0.6rem;letter-spacing:4px;color:#C9A962;'
+    '<div style="font-size:0.6rem;letter-spacing:1.2px;color:#C9A962;'
     'text-transform:uppercase;font-weight:500;margin:40px 0 20px;'
     'padding-bottom:8px;border-bottom:1px solid #1E1E26;">十五五投资主线</div>',
     unsafe_allow_html=True,
@@ -253,9 +253,9 @@ def _theme_card(t):
         'border-radius:4px;padding:20px;height:180px;position:relative;">'
         '<div style="font-size:1.5rem;margin-bottom:8px;">{icon}</div>'
         '<div style="font-size:0.85rem;font-weight:600;color:#E8E8F0;margin-bottom:6px;">{title}</div>'
-        '<div style="font-size:0.65rem;color:#5A5A6A;line-height:1.5;margin-bottom:8px;">{desc}</div>'
+        '<div style="font-size:0.65rem;color:#5A5A66;line-height:1.5;margin-bottom:8px;">{desc}</div>'
         '<div style="font-size:0.6rem;color:#C9A962;margin-bottom:4px;">{stocks}</div>'
-        '<div style="font-size:0.55rem;color:#3A3A4A;letter-spacing:1px;position:absolute;'
+        '<div style="font-size:0.55rem;color:#5A5A66;letter-spacing:1px;position:absolute;'
         'bottom:12px;left:20px;">{policy}</div>'
         '</div>'
     ).format(**t)
@@ -270,7 +270,7 @@ for _i, _col in enumerate(_row2):
         st.markdown(_theme_card(_THEMES[_i + 3]), unsafe_allow_html=True)
 
 st.markdown(
-    '<div style="font-size:0.68rem;color:#5A5A6A;text-align:center;margin:16px 0 32px;">'
+    '<div style="font-size:0.68rem;color:#5A5A66;text-align:center;margin:16px 0 32px;">'
     '以上主题基于十五五规划（2026-2030）核心方向 · 点击左侧「分析」页深度研究个股'
     '</div>',
     unsafe_allow_html=True,
@@ -282,18 +282,18 @@ st.markdown(
 # ══════════════════════════════════════════════════════════════════════════════
 _html(f"""
 <style>
-.master{{flex:1;padding:44px 40px;border:1px solid #1A1A22;position:relative;overflow:hidden;background:#06060A;}}
+.master{{flex:1;padding:44px 40px;border:1px solid #1A1A22;position:relative;overflow:hidden;background:#0A0A0F;}}
 .master::before{{content:'';position:absolute;top:0;left:0;width:3px;height:100%;
   background:linear-gradient(180deg,transparent,var(--a) 25%,var(--a) 75%,transparent);}}
-.master-tag{{font-size:0.42rem;letter-spacing:5px;text-transform:uppercase;color:var(--a);margin-bottom:20px;font-weight:500;}}
+.master-tag{{font-size:0.62rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--a);margin-bottom:20px;font-weight:500;}}
 .master-name{{font-family:'Cormorant Garamond',serif;font-size:2.4rem;font-weight:300;
   color:#F0EEE8;line-height:1.1;margin-bottom:4px;}}
-.master-title{{font-size:0.6rem;letter-spacing:3px;color:#4A4A5A;text-transform:uppercase;margin-bottom:24px;}}
+.master-title{{font-size:0.6rem;letter-spacing:1px;color:#4A4A5A;text-transform:uppercase;margin-bottom:24px;}}
 .master-rule{{width:40px;height:1px;background:var(--a);margin-bottom:24px;opacity:0.6;}}
 .master-meta{{display:flex;gap:24px;margin-bottom:28px;}}
 .meta-item{{}}
 .meta-val{{font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:600;color:var(--a);line-height:1;}}
-.meta-lbl{{font-size:0.42rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;margin-top:4px;}}
+.meta-lbl{{font-size:0.62rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-top:4px;}}
 .principles{{margin-bottom:28px;}}
 .p-item{{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;}}
 .p-dot{{width:5px;height:5px;background:var(--a);border-radius:50%;margin-top:6px;flex-shrink:0;opacity:0.7;}}
@@ -301,11 +301,11 @@ _html(f"""
 .sig-quote{{border-left:2px solid var(--a);padding-left:20px;margin-top:4px;}}
 .sig-text{{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:300;
   font-style:italic;color:#D0D0DC;line-height:1.75;}}
-.sig-attr{{font-size:0.5rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;margin-top:10px;}}
+.sig-attr{{font-size:0.5rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-top:10px;}}
 </style>
 
 <div style="padding:60px 52px;border-top:1px solid #1A1A22;">
-  <div style="font-size:0.52rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase;
+  <div style="font-size:0.66rem;letter-spacing:1.5px;color:#C9A962;text-transform:uppercase;
     font-weight:500;margin-bottom:10px;">The Masters</div>
   <h2 class="serif" style="font-size:2.2rem;font-weight:300;color:#E8E8F0;
     margin-bottom:44px;letter-spacing:-0.3px;">
@@ -407,8 +407,8 @@ _cards_ab = _cards_a + _cards_a  # duplicate for seamless loop
 
 _html(f"""
 <style>
-.wall{{padding:48px 52px;border-top:1px solid #1A1A22;background:#08080E;overflow:hidden;}}
-.wall-hdr{{font-size:0.52rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase;
+.wall{{padding:48px 52px;border-top:1px solid #1A1A22;background:#0A0A0F;overflow:hidden;}}
+.wall-hdr{{font-size:0.66rem;letter-spacing:1.5px;color:#C9A962;text-transform:uppercase;
   font-weight:500;margin-bottom:32px;}}
 .mq-outer{{overflow:hidden;
   -webkit-mask-image:linear-gradient(90deg,transparent 0%,#08080E 5%,#08080E 95%,transparent 100%);
@@ -422,15 +422,15 @@ _html(f"""
   padding:28px 28px 24px;
   border:1px solid #1A1A22;
   border-top:2px solid var(--acc);
-  background:#06060A;
+  background:#0A0A0F;
   margin-right:10px;
 }}
 .qmark{{font-family:'Cormorant Garamond',serif;font-size:2.8rem;font-weight:700;
   color:var(--acc);line-height:1;margin-bottom:10px;opacity:0.5;}}
 .qtext{{font-family:'Cormorant Garamond',serif;font-size:1rem;font-weight:300;
   font-style:italic;color:#C8C8D8;line-height:1.7;margin-bottom:14px;}}
-.qby{{font-size:0.5rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;}}
-.qattr{{color:#2A2A36;}}
+.qby{{font-size:0.5rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;}}
+.qattr{{color:#5A5A66;}}
 </style>
 
 <div class="wall">
@@ -447,8 +447,8 @@ _html(f"""
 # ══════════════════════════════════════════════════════════════════════════════
 _html("""
 <style>
-.laws-wrap{padding:64px 52px;border-top:1px solid #1A1A22;background:#06060A;}
-.laws-title-sec{font-size:0.52rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase;
+.laws-wrap{padding:64px 52px;border-top:1px solid #1A1A22;background:#0A0A0F;}
+.laws-title-sec{font-size:0.66rem;letter-spacing:1.5px;color:#C9A962;text-transform:uppercase;
   font-weight:500;margin-bottom:10px;}
 .laws-h{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;
   color:#E8E8F0;letter-spacing:-0.3px;margin-bottom:48px;}
@@ -468,10 +468,10 @@ _html("""
 .law-sub{font-size:0.7rem;letter-spacing:2px;color:#C9A962;text-transform:uppercase;opacity:0.6;}
 
 .law-body{padding-top:6px;}
-.law-desc{font-size:0.82rem;color:#5A5A68;line-height:1.8;margin-bottom:8px;}
+.law-desc{font-size:0.82rem;color:#5A5A66;line-height:1.8;margin-bottom:8px;}
 .law-expand{font-size:0.78rem;color:#3A3A48;line-height:1.75;
   max-height:0;overflow:hidden;transition:max-height 0.4s ease,color 0.3s ease;}
-.law:hover .law-expand{max-height:80px;color:#6A6A78;}
+.law:hover .law-expand{max-height:80px;color:#9A9AA8;}
 </style>
 
 <div class="laws-wrap">
@@ -547,14 +547,14 @@ _html("""
 # ══════════════════════════════════════════════════════════════════════════════
 _html("""
 <style>
-.caps-wrap{padding:64px 52px;border-top:1px solid #1A1A22;background:#08080E;}
-.caps-label{font-size:0.52rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase;
+.caps-wrap{padding:64px 52px;border-top:1px solid #1A1A22;background:#0A0A0F;}
+.caps-label{font-size:0.66rem;letter-spacing:1.5px;color:#C9A962;text-transform:uppercase;
   font-weight:500;margin-bottom:10px;}
 .caps-h{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;
   color:#E8E8F0;letter-spacing:-0.3px;margin-bottom:40px;}
 .caps-grid{display:grid;grid-template-columns:2fr 1fr 1fr;grid-template-rows:auto auto;
   gap:1px;background:#1A1A22;}
-.cap{background:#06060A;padding:28px 26px;position:relative;overflow:hidden;
+.cap{background:#0A0A0F;padding:28px 26px;position:relative;overflow:hidden;
   transition:background 0.3s ease;}
 .cap:hover{background:#07070D;}
 .cap::after{content:'';position:absolute;bottom:0;left:0;width:0;height:1px;
@@ -562,10 +562,10 @@ _html("""
   transition:width 0.4s ease;}
 .cap:hover::after{width:60%;}
 .cap-big{grid-row:1/3;border-right:none;}
-.cap-num{font-size:0.42rem;letter-spacing:3px;color:#C9A962;text-transform:uppercase;
+.cap-num{font-size:0.62rem;letter-spacing:1px;color:#C9A962;text-transform:uppercase;
   margin-bottom:14px;font-weight:600;}
 .cap-title{font-size:0.95rem;font-weight:600;color:#E8E8F0;margin-bottom:10px;letter-spacing:0.3px;}
-.cap-desc{font-size:0.78rem;color:#5A5A68;line-height:1.8;}
+.cap-desc{font-size:0.78rem;color:#5A5A66;line-height:1.8;}
 .cap-big .cap-title{font-size:1.2rem;margin-bottom:14px;}
 .cap-big .cap-desc{font-size:0.85rem;}
 .cap-big .cap-icon{font-family:'Cormorant Garamond',serif;font-size:4rem;font-weight:300;
@@ -626,13 +626,13 @@ _html("""
 # 07  WISDOM IN NUMBERS
 # ══════════════════════════════════════════════════════════════════════════════
 _html("""
-<div style="padding:52px;border-top:1px solid #1A1A22;background:#06060A;">
-  <div style="font-size:0.52rem;letter-spacing:5px;color:#C9A962;
+<div style="padding:52px;border-top:1px solid #1A1A22;background:#0A0A0F;">
+  <div style="font-size:0.66rem;letter-spacing:1.5px;color:#C9A962;
     text-transform:uppercase;font-weight:500;margin-bottom:36px;">Wisdom in Numbers</div>
 
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#1A1A22;">
 
-    <div style="background:#06060A;padding:28px 26px;">
+    <div style="background:#0A0A0F;padding:28px 26px;">
       <div class="serif" style="font-size:2.8rem;font-weight:300;color:#C9A962;line-height:1;margin-bottom:10px;">10yr</div>
       <div style="font-size:0.75rem;color:#D0D0D8;font-weight:500;margin-bottom:8px;">持有门槛</div>
       <div style="font-size:0.72rem;color:#4A4A5A;line-height:1.75;">
@@ -640,7 +640,7 @@ _html("""
       </div>
     </div>
 
-    <div style="background:#06060A;padding:28px 26px;">
+    <div style="background:#0A0A0F;padding:28px 26px;">
       <div class="serif" style="font-size:2.8rem;font-weight:300;color:#C9A962;line-height:1;margin-bottom:10px;">≥25%</div>
       <div style="font-size:0.75rem;color:#D0D0D8;font-weight:500;margin-bottom:8px;">安全边际</div>
       <div style="font-size:0.72rem;color:#4A4A5A;line-height:1.75;">
@@ -648,7 +648,7 @@ _html("""
       </div>
     </div>
 
-    <div style="background:#06060A;padding:28px 26px;">
+    <div style="background:#0A0A0F;padding:28px 26px;">
       <div class="serif" style="font-size:2.8rem;font-weight:300;color:#C9A962;line-height:1;margin-bottom:10px;">15%+</div>
       <div style="font-size:0.75rem;color:#D0D0D8;font-weight:500;margin-bottom:8px;">ROE 基准</div>
       <div style="font-size:0.72rem;color:#4A4A5A;line-height:1.75;">
@@ -656,7 +656,7 @@ _html("""
       </div>
     </div>
 
-    <div style="background:#06060A;padding:28px 26px;">
+    <div style="background:#0A0A0F;padding:28px 26px;">
       <div class="serif" style="font-size:2.8rem;font-weight:300;color:#C9A962;line-height:1;margin-bottom:10px;">#1</div>
       <div style="font-size:0.75rem;color:#D0D0D8;font-weight:500;margin-bottom:8px;">第一法则</div>
       <div style="font-size:0.72rem;color:#4A4A5A;line-height:1.75;">
@@ -673,8 +673,8 @@ _html("""
 # 08  HOW IT WORKS
 # ══════════════════════════════════════════════════════════════════════════════
 _html("""
-<div style="padding:64px 52px;border-top:1px solid #1A1A22;background:#08080E;">
-  <div style="font-size:0.52rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase;
+<div style="padding:64px 52px;border-top:1px solid #1A1A22;background:#0A0A0F;">
+  <div style="font-size:0.66rem;letter-spacing:1.5px;color:#C9A962;text-transform:uppercase;
     font-weight:500;margin-bottom:10px;">Process</div>
   <h2 class="serif" style="font-size:2.2rem;font-weight:300;color:#E8E8F0;
     margin-bottom:52px;letter-spacing:-0.3px;">Three Steps to Conviction</h2>
@@ -691,7 +691,7 @@ _html("""
       <div style="font-size:0.9rem;font-weight:600;color:#E8E8F0;margin-bottom:10px;letter-spacing:0.3px;">
         Select a Stock
       </div>
-      <div style="font-size:0.78rem;color:#5A5A68;line-height:1.8;">
+      <div style="font-size:0.78rem;color:#5A5A66;line-height:1.8;">
         从美股、港股、A股三大市场中选择标的。支持自定义关注列表，可添加任意 Ticker。
         系统会自动识别市场来源并拉取实时数据。
       </div>
@@ -703,7 +703,7 @@ _html("""
       <div style="font-size:0.9rem;font-weight:600;color:#E8E8F0;margin-bottom:10px;letter-spacing:0.3px;">
         Run the Analysis
       </div>
-      <div style="font-size:0.78rem;color:#5A5A68;line-height:1.8;">
+      <div style="font-size:0.78rem;color:#5A5A66;line-height:1.8;">
         系统实时抓取财务数据，运行五维度护城河评分引擎，输出 ROE · 利润率 · 负债率
         等核心指标，以及完整的技术分析图表。
       </div>
@@ -715,7 +715,7 @@ _html("""
       <div style="font-size:0.9rem;font-weight:600;color:#E8E8F0;margin-bottom:10px;letter-spacing:0.3px;">
         Get AI Conviction
       </div>
-      <div style="font-size:0.78rem;color:#5A5A68;line-height:1.8;">
+      <div style="font-size:0.78rem;color:#5A5A66;line-height:1.8;">
         一键生成巴菲特视角深度研报：多空理由 · 护城河评估 · AI 置信度评分，
         给出明确的 Buy / Hold / Avoid 投资结论。
       </div>
@@ -730,7 +730,7 @@ _html("""
 # 09  CLOSING QUOTE — full-width dark feature
 # ══════════════════════════════════════════════════════════════════════════════
 _html("""
-<div style="padding:72px 52px;border-top:1px solid #1A1A22;background:#06060A;
+<div style="padding:72px 52px;border-top:1px solid #1A1A22;background:#0A0A0F;
   position:relative;overflow:hidden;">
 
   <!-- faint grid -->
@@ -744,7 +744,7 @@ _html("""
     background:linear-gradient(180deg,transparent,#C9A962 30%,#C9A962 70%,transparent);"></div>
 
   <div style="position:relative;max-width:800px;margin:0 auto;text-align:center;">
-    <div style="font-size:0.48rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase;
+    <div style="font-size:0.62rem;letter-spacing:1.5px;color:#C9A962;text-transform:uppercase;
       font-weight:500;margin-bottom:32px;">A Final Thought</div>
 
     <div class="serif" style="font-size:clamp(1.5rem,3vw,2.2rem);font-weight:300;
@@ -756,7 +756,7 @@ _html("""
 
     <div style="width:40px;height:1px;background:#C9A96260;margin:0 auto 20px;"></div>
 
-    <div style="font-size:0.52rem;letter-spacing:4px;color:#3A3A4A;text-transform:uppercase;">
+    <div style="font-size:0.66rem;letter-spacing:1.2px;color:#5A5A66;text-transform:uppercase;">
       The Philosophy of AI Buffett
     </div>
   </div>
@@ -771,10 +771,10 @@ _html("""
 <div style="padding:28px 52px;border-top:1px solid #1A1A22;background:#04040A;">
   <div style="display:flex;justify-content:space-between;align-items:center;">
     <div class="serif" style="font-size:0.95rem;font-weight:600;
-      color:#C9A962;letter-spacing:4px;text-transform:uppercase;">
+      color:#C9A962;letter-spacing:1.2px;text-transform:uppercase;">
       AI &middot; BUFFETT
     </div>
-    <div style="font-size:0.46rem;color:#1E1E26;letter-spacing:2px;
+    <div style="font-size:0.62rem;color:#1E1E26;letter-spacing:2px;
       text-transform:uppercase;text-align:right;line-height:1.9;">
       For Research &amp; Educational Purposes Only<br>
       Not Financial Advice &middot; Authorized Access Only

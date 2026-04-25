@@ -118,10 +118,10 @@ if not positions:
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:40px 0;text-align:center}
+body{background:#0A0A0F;font-family:'Inter',-apple-system,sans-serif;padding:40px 0;text-align:center}
 .empty-icon{font-size:2.5rem;margin-bottom:12px;opacity:0.3}
-.empty-title{font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:#5A5A6A;margin-bottom:6px}
-.empty-desc{font-size:0.7rem;color:#3A3A4A;letter-spacing:0.5px}
+.empty-title{font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:#5A5A66;margin-bottom:6px}
+.empty-desc{font-size:0.7rem;color:#5A5A66;letter-spacing:0.5px}
 </style></head><body>
 <div class="empty-icon">&#x1F4BC;</div>
 <div class="empty-title">No Positions Yet</div>
@@ -189,13 +189,13 @@ components.html('''<!DOCTYPE html><html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:16px 0}}
+body{{background:#0A0A0F;font-family:'Inter',-apple-system,sans-serif;padding:16px 0}}
 .summary-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}}
 .s-card{{background:#0D0D14;border:1px solid #1E1E2A;border-radius:4px;padding:18px 20px}}
-.s-label{{font-size:0.5rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase;margin-bottom:8px}}
+.s-label{{font-size:0.5rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-bottom:8px}}
 .s-value{{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.6rem;font-weight:700;color:#E8E8F0;line-height:1}}
 .s-value.pnl{{color:{pnl_color}}}
-.s-sub{{font-size:0.6rem;color:#5A5A6A;margin-top:4px;letter-spacing:0.5px}}
+.s-sub{{font-size:0.6rem;color:#5A5A66;margin-top:4px;letter-spacing:0.5px}}
 </style></head><body>
 <div class="summary-grid">
     <div class="s-card">
@@ -234,7 +234,7 @@ body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:16
 col_chart, col_table = st.columns([1, 2])
 
 with col_chart:
-    st.markdown('<div style="font-size:0.5rem;letter-spacing:4px;color:#C9A962;text-transform:uppercase;margin-bottom:8px">ALLOCATION</div>',
+    st.markdown('<div style="font-size:0.5rem;letter-spacing:1.2px;color:#C9A962;text-transform:uppercase;margin-bottom:8px">ALLOCATION</div>',
                 unsafe_allow_html=True)
     if total_value > 0:
         import plotly.graph_objects as go
@@ -262,7 +262,7 @@ with col_chart:
         st.caption("No market value data available.")
 
 with col_table:
-    st.markdown('<div style="font-size:0.5rem;letter-spacing:4px;color:#C9A962;text-transform:uppercase;margin-bottom:8px">POSITIONS</div>',
+    st.markdown('<div style="font-size:0.5rem;letter-spacing:1.2px;color:#C9A962;text-transform:uppercase;margin-bottom:8px">POSITIONS</div>',
                 unsafe_allow_html=True)
 
     # Sort by market value descending
@@ -296,9 +296,9 @@ with col_table:
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:0}}
+body{{background:#0A0A0F;font-family:'Inter',-apple-system,sans-serif;padding:0}}
 table{{width:100%;border-collapse:collapse}}
-th{{font-size:0.5rem;letter-spacing:2px;color:#5A5A6A;text-transform:uppercase;text-align:left;padding:6px 8px;border-bottom:1px solid #1A1A22;font-weight:500}}
+th{{font-size:0.5rem;letter-spacing:2px;color:#5A5A66;text-transform:uppercase;text-align:left;padding:6px 8px;border-bottom:1px solid #1A1A22;font-weight:500}}
 th:nth-child(n+2){{text-align:right}}
 td{{padding:8px 8px;border-bottom:1px solid #0F0F18;font-size:0.7rem;color:#AAAABC}}
 td:nth-child(n+2){{text-align:right}}

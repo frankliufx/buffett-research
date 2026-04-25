@@ -118,7 +118,7 @@ _AI_LOADING_CSS = """
 }
 .ai-loading-text {
     font-size: 0.82rem;
-    color: #6A6A78;
+    color:#9A9AA8;
     letter-spacing: 1px;
 }
 .ai-loading-text .dot1 { animation: ai-dot 1.4s 0s infinite; }
@@ -341,9 +341,9 @@ def _render_thesis_panel(uid: str, symbol: str, market: str, name: str,
     thesis = load_stock_thesis(uid, symbol, market)
 
     st.markdown(
-        '<div style="font-size:0.6rem;letter-spacing:4px;color:#C9A962;'
+        '<div style="font-size:0.6rem;letter-spacing:1.2px;color:#C9A962;'
         'text-transform:uppercase;font-weight:500;margin-bottom:4px;">My Investment Thesis</div>'
-        '<div style="font-size:0.82rem;color:#5A5A6A;margin-bottom:20px;">'
+        '<div style="font-size:0.82rem;color:#5A5A66;margin-bottom:20px;">'
         '记录你的买入理由和目标价——这些笔记会随着每次分析积累，成为你的私人投资档案。'
         '</div>',
         unsafe_allow_html=True,
@@ -398,11 +398,11 @@ def _render_thesis_panel(uid: str, symbol: str, market: str, name: str,
             _delta = int(_cs - _ps)
             _dc = "#3ECF8E" if _delta > 0 else ("#EF4444" if _delta < 0 else "#5A5A6A")
             st.markdown(
-                '<div style="background:#09090F;border:1px solid #1E1E26;padding:16px;'
+                '<div style="background:#0A0A0F;border:1px solid #1E1E26;padding:16px;'
                 'border-radius:2px;">'
-                '<div style="font-size:0.5rem;letter-spacing:3px;color:#C9A962;'
+                '<div style="font-size:0.5rem;letter-spacing:1px;color:#C9A962;'
                 'text-transform:uppercase;margin-bottom:12px;">分析历史</div>'
-                '<div style="font-size:0.78rem;color:#5A5A6A;line-height:2;">'
+                '<div style="font-size:0.78rem;color:#5A5A66;line-height:2;">'
                 '上次分析：<span style="color:#9A9AA8;">{} 天前</span><br>'
                 '上次评分：<span style="color:#C9A962;">{:.0f}</span> 分<br>'
                 '本次评分：<span style="color:#E8E8F0;font-weight:600;">{:.0f}</span> 分'
@@ -412,10 +412,10 @@ def _render_thesis_panel(uid: str, symbol: str, market: str, name: str,
             )
         else:
             st.markdown(
-                '<div style="background:#09090F;border:1px solid #1E1E26;padding:16px;">'
-                '<div style="font-size:0.5rem;letter-spacing:3px;color:#3A3A4A;'
+                '<div style="background:#0A0A0F;border:1px solid #1E1E26;padding:16px;">'
+                '<div style="font-size:0.5rem;letter-spacing:1px;color:#5A5A66;'
                 'text-transform:uppercase;margin-bottom:8px;">分析历史</div>'
-                '<div style="font-size:0.75rem;color:#3A3A4A;">首次分析，记录已保存。</div>'
+                '<div style="font-size:0.75rem;color:#5A5A66;">首次分析，记录已保存。</div>'
                 '</div>',
                 unsafe_allow_html=True,
             )
@@ -472,7 +472,7 @@ def _render_ashare_policy_tab(symbol, name, alignment, news, fundamentals, norma
 
     # Policy news (kept — useful and already wired)
     st.markdown(
-        '<div style="font-size:0.6rem;letter-spacing:4px;color:#C9A962;'
+        '<div style="font-size:0.6rem;letter-spacing:1.2px;color:#C9A962;'
         'text-transform:uppercase;font-weight:500;margin:24px 0 12px;">最新政策动态</div>',
         unsafe_allow_html=True,
     )
@@ -485,7 +485,7 @@ def _render_ashare_policy_tab(symbol, name, alignment, news, fundamentals, norma
                 '<div style="background:#0C0C12;border:1px solid #1E1E26;'
                 'border-left:2px solid #C9A962;padding:10px 14px;margin-bottom:8px;'
                 'border-radius:2px;">'
-                '<span style="font-size:0.58rem;color:#5A5A6A;letter-spacing:1px;">'
+                '<span style="font-size:0.58rem;color:#5A5A66;letter-spacing:1px;">'
                 '{date} · {source}</span><br>'
                 '<span style="font-size:0.75rem;color:#C8C8D8;line-height:1.5;">'
                 '{title}</span></div>'.format(date=date[:10] if date else "", source=source, title=title[:80]),
@@ -626,7 +626,7 @@ def render_stock_analysis(symbol, name, market, config):
         _delta_color = "#3ECF8E" if _delta > 0 else ("#EF4444" if _delta < 0 else "#5A5A6A")
         st.markdown(
             '<div style="background:#0C0C12;border:1px solid #1E1E26;border-left:3px solid #C9A962;'
-            'padding:10px 16px;margin-bottom:16px;font-size:0.78rem;color:#6A6A78;'
+            'padding:10px 16px;margin-bottom:16px;font-size:0.78rem;color:#9A9AA8;'
             'display:flex;align-items:center;gap:8px;">'
             '📋 <span style="color:#9A9AA8;">上次分析：{}天前</span>'
             '&nbsp;|&nbsp;评分 <span style="color:#C9A962;">{}</span> → '
@@ -752,7 +752,7 @@ def render_stock_analysis(symbol, name, market, config):
         _peer_ctx_stored = st.session_state.get("_peers_{}_{}".format(market, symbol), "")
         if _peer_ctx_stored:
             st.markdown(
-                '<div style="font-size:0.5rem;letter-spacing:4px;color:#C9A962;'
+                '<div style="font-size:0.5rem;letter-spacing:1.2px;color:#C9A962;'
                 'text-transform:uppercase;margin:24px 0 8px;">Peer Comparison</div>',
                 unsafe_allow_html=True,
             )
@@ -772,11 +772,11 @@ def render_stock_analysis(symbol, name, market, config):
                         except Exception:
                             _p_roe_s = _p_pe_s = _p_gm_s = "--"
                         st.markdown(
-                            '<div style="background:#09090F;border:1px solid #1E1E26;'
+                            '<div style="background:#0A0A0F;border:1px solid #1E1E26;'
                             'padding:14px 16px;border-radius:2px;">'
                             '<div style="font-size:0.6rem;color:#C9A962;font-weight:600;'
                             'letter-spacing:1px;margin-bottom:8px;">{sym}</div>'
-                            '<div style="font-size:0.65rem;color:#5A5A6A;margin-bottom:10px;">{name}</div>'
+                            '<div style="font-size:0.65rem;color:#5A5A66;margin-bottom:10px;">{name}</div>'
                             '<div style="font-size:0.72rem;color:#7A7A88;line-height:2;">'
                             'ROE: <span style="color:#C8C8D8;">{roe}</span><br>'
                             'PE: <span style="color:#C8C8D8;">{pe}</span><br>'
@@ -990,7 +990,7 @@ render_page_header(
 st.markdown("""
 <style>
 .search-bar-wrap {
-    background: #08080E;
+    background:#0A0A0F;
     border: 1px solid #1E1E26;
     border-radius: 2px;
     padding: 20px 24px 16px;
@@ -1005,7 +1005,7 @@ st.markdown("""
     padding: 10px 16px !important;
 }
 .search-label {
-    font-size: 0.5rem; letter-spacing: 5px; color: #C9A962;
+    font-size: 0.5rem; letter-spacing:1.5px; color: #C9A962;
     text-transform: uppercase; font-weight: 500; margin-bottom: 8px;
 }
 </style>
@@ -1060,7 +1060,7 @@ if st.session_state.get("_quick_search_symbol"):
     _qs_mkt = st.session_state.pop("_quick_search_market", "us")
     st.markdown("---")
     st.markdown(
-        '<div style="font-size:0.55rem;letter-spacing:4px;color:#C9A962;'
+        '<div style="font-size:0.55rem;letter-spacing:1.2px;color:#C9A962;'
         'text-transform:uppercase;margin-bottom:8px;">Quick Analysis</div>',
         unsafe_allow_html=True
     )
@@ -1094,11 +1094,11 @@ with st.sidebar:
     <style>
     .phil-section { margin-bottom: 4px; }
     .phil-header {
-        font-size: 0.68rem; letter-spacing: 3px; color: #C9A962;
+        font-size: 0.68rem; letter-spacing:1px; color: #C9A962;
         text-transform: uppercase; font-weight: 500; margin-bottom: 2px;
     }
     .phil-content {
-        font-size: 0.75rem; color: #6A6A78; line-height: 1.5;
+        font-size: 0.75rem; color:#9A9AA8; line-height: 1.5;
         padding: 8px 0 4px 8px; border-left: 1px solid #2A2A34;
     }
     .phil-principle {
@@ -1439,7 +1439,7 @@ with tab_overview:
                 with col_rank:
                     st.markdown(medal, unsafe_allow_html=True)
                 with col_sym:
-                    st.markdown("**{}** <span style='color:#5A5A68; font-size:0.8rem;'>[{}] {}</span>".format(
+                    st.markdown("**{}** <span style='color:#5A5A66; font-size:0.8rem;'>[{}] {}</span>".format(
                         row["Symbol"], row["Market"], row["Name"][:12]), unsafe_allow_html=True)
                 with col_score:
                     filled = int(row["Score"] / 100 * 20)
@@ -1451,7 +1451,7 @@ with tab_overview:
                     st.markdown(
                         '<span style="color:{gc}; font-family:monospace;">{bar}</span>'
                         ' <span style="color:{gc}; font-weight:700;">{score:.0f}</span>'
-                        '<span style="color:#5A5A68; font-size:0.8rem;">/{grade}</span>{fcf}'.format(
+                        '<span style="color:#5A5A66; font-size:0.8rem;">/{grade}</span>{fcf}'.format(
                             gc=gc, bar=bar, score=row["Score"], grade=g, fcf=fcf_tag),
                         unsafe_allow_html=True)
                 with col_meta:

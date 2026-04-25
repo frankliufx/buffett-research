@@ -38,9 +38,9 @@ with st.sidebar:
     if provider and provider.api_key:
         st.markdown(
             '<div style="background:#0D0D14;border:1px solid #1E1E2A;border-radius:4px;padding:10px 14px;margin-bottom:8px">'
-            '<div style="font-size:0.5rem;letter-spacing:3px;color:#00C853;text-transform:uppercase;margin-bottom:4px">ONLINE</div>'
+            '<div style="font-size:0.5rem;letter-spacing:1px;color:#00C853;text-transform:uppercase;margin-bottom:4px">ONLINE</div>'
             '<div style="font-size:0.75rem;color:#E8E8F0">{}</div>'
-            '<div style="font-size:0.6rem;color:#5A5A6A;margin-top:2px">{}</div>'
+            '<div style="font-size:0.6rem;color:#5A5A66;margin-top:2px">{}</div>'
             '</div>'.format(provider.name, provider.model),
             unsafe_allow_html=True)
     else:
@@ -55,7 +55,7 @@ with st.sidebar:
         gc = {"S": "#00C853", "A": "#69F0AE", "B": "#C9A962", "C": "#FF9800"}.get(grade, "#5A5A6A")
         st.markdown(
             '<div style="background:#0D0D14;border:1px solid #1E1E2A;border-left:3px solid {};border-radius:4px;padding:10px 14px;margin-bottom:8px">'
-            '<div style="font-size:0.5rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase;margin-bottom:4px">Discussing</div>'
+            '<div style="font-size:0.5rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-bottom:4px">Discussing</div>'
             '<div style="font-size:1rem;font-weight:600;color:#C9A962">{}</div>'
             '<div style="font-size:0.7rem;color:#8888A0;margin-top:2px">{} &middot; Grade {}</div>'
             '</div>'.format(gc, ctx["symbol"], ctx["name"], grade),
@@ -66,7 +66,7 @@ with st.sidebar:
         st.divider()
 
     # Quick topics
-    st.markdown('<div style="font-size:0.55rem;letter-spacing:3px;color:#C9A962;text-transform:uppercase;margin-bottom:8px">ASK ME</div>',
+    st.markdown('<div style="font-size:0.55rem;letter-spacing:1px;color:#C9A962;text-transform:uppercase;margin-bottom:8px">ASK ME</div>',
                 unsafe_allow_html=True)
     topics = [
         ("这只股票值得买吗？帮我做完整评估", "full_eval"),

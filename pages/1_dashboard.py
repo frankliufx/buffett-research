@@ -160,15 +160,15 @@ if pulse:
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:12px 0 0}}
-.pulse-header{{font-size:0.5rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase;margin-bottom:12px}}
+body{{background:#0A0A0F;font-family:'Inter',-apple-system,sans-serif;padding:12px 0 0}}
+.pulse-header{{font-size:0.5rem;letter-spacing:1.5px;color:#C9A962;text-transform:uppercase;margin-bottom:12px}}
 .pulse-grid{{display:flex;gap:10px;flex-wrap:wrap}}
 .pulse-card{{
     flex:1;min-width:120px;
     background:#0D0D14;border:1px solid #1E1E2A;border-radius:4px;
     padding:14px 16px;text-align:center;
 }}
-.pulse-label{{font-size:0.5rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase;margin-bottom:8px}}
+.pulse-label{{font-size:0.5rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-bottom:8px}}
 .pulse-value{{font-size:1.2rem;font-weight:600;color:#E8E8F0;margin-bottom:4px}}
 .pulse-change{{font-size:0.7rem;font-weight:600;letter-spacing:0.5px}}
 </style></head><body>
@@ -187,8 +187,8 @@ components.html('''<!DOCTYPE html><html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:8px 0 4px}
-.sec-label{font-size:0.5rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase}
+body{background:#0A0A0F;font-family:'Inter',-apple-system,sans-serif;padding:8px 0 4px}
+.sec-label{font-size:0.5rem;letter-spacing:1.5px;color:#C9A962;text-transform:uppercase}
 .sec-title{font-size:1.1rem;font-weight:600;color:#E8E8F0;letter-spacing:1px;margin-top:2px}
 </style></head><body>
 <div class="sec-label">Portfolio Intelligence</div>
@@ -335,10 +335,10 @@ if stocks_list:
                 _verdict = _score_data.get("verdict", "")
                 _score_html = (
                     '<span style="font-weight:700;color:{c};">{sc:.0f}</span>'
-                    '<span style="font-size:0.55rem;color:#5A5A6A;margin-left:3px;">{v}</span>'
+                    '<span style="font-size:0.55rem;color:#5A5A66;margin-left:3px;">{v}</span>'
                 ).format(c=_sc_color, sc=_sc, v=_verdict[:4] if _verdict else "")
             else:
-                _score_html = '<span style="color:#2A2A36;font-size:0.6rem;">—</span>'
+                _score_html = '<span style="color:#5A5A66;font-size:0.6rem;">—</span>'
 
             rows_html += '''<tr>
                 <td class="sym">{sym}</td>
@@ -356,10 +356,10 @@ if stocks_list:
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:4px 0 0}}
+body{{background:#0A0A0F;font-family:'Inter',-apple-system,sans-serif;padding:4px 0 0}}
 table{{width:100%;border-collapse:collapse}}
 th{{
-    font-size:0.5rem;letter-spacing:3px;color:#5A5A6A;text-transform:uppercase;
+    font-size:0.5rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;
     text-align:left;padding:8px 10px;border-bottom:1px solid #1A1A22;font-weight:500;
 }}
 th:nth-child(n+3){{text-align:right}}
@@ -437,8 +437,8 @@ components.html('''<!DOCTYPE html><html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:8px 0 4px}
-.sec-label{font-size:0.5rem;letter-spacing:5px;color:#C9A962;text-transform:uppercase}
+body{background:#0A0A0F;font-family:'Inter',-apple-system,sans-serif;padding:8px 0 4px}
+.sec-label{font-size:0.5rem;letter-spacing:1.5px;color:#C9A962;text-transform:uppercase}
 .sec-title{font-size:1.1rem;font-weight:600;color:#E8E8F0;letter-spacing:1px;margin-top:2px}
 </style></head><body>
 <div class="sec-label">AI Intelligence</div>
@@ -550,10 +550,10 @@ with st.expander("Investment Journal ({} entries)".format(len(st.session_state.j
                 '<div style="background:#0D0D12;border:1px solid #1E1E26;border-radius:2px;padding:10px 14px;margin-bottom:6px">'
                 '<div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px">'
                 '<span style="color:#C9A962;font-weight:600">{ticker}</span>'
-                '<span style="color:#3A3A4A;font-size:0.6rem;letter-spacing:2px">{date} · {action}</span>'
+                '<span style="color:#5A5A66;font-size:0.6rem;letter-spacing:2px">{date} · {action}</span>'
                 '</div>'
                 '<div style="font-size:0.75rem;color:#AAAABC;line-height:1.5;margin-bottom:4px">{thesis}</div>'
-                '<div style="font-size:0.55rem;color:#5A5A6A">CONVICTION <span style="color:#C9A962;font-family:monospace">{bar}</span> {c}/10</div>'
+                '<div style="font-size:0.55rem;color:#5A5A66">CONVICTION <span style="color:#C9A962;font-family:monospace">{bar}</span> {c}/10</div>'
                 '</div>'.format(ticker=e.get("ticker", "?"), date=e.get("date", ""),
                                 action=e.get("action", "").upper(), thesis=e.get("thesis", "—"),
                                 bar=bar, c=e.get("conviction", 5)),
@@ -619,7 +619,7 @@ with st.expander("Investment Journal ({} entries)".format(len(st.session_state.j
                 '<span style="color:#E8E8F0;font-weight:600">{title}</span>'
                 '<span style="color:{ic};font-size:0.6rem;font-weight:700;letter-spacing:1px">{impact}</span>'
                 '</div>'
-                '<div style="font-size:0.6rem;color:#3A3A4A;letter-spacing:2px;margin-bottom:4px">{date}</div>'
+                '<div style="font-size:0.6rem;color:#5A5A66;letter-spacing:2px;margin-bottom:4px">{date}</div>'
                 '<div style="font-size:0.75rem;color:#AAAABC;line-height:1.5">{body}</div>'
                 '</div>'.format(title=e.get("title", "?"), ic=ic,
                                 impact=e.get("impact", "").upper(),
