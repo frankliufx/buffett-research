@@ -24,6 +24,29 @@ _ACTION_COLORS = {
 }
 
 
+def ensure_verdict(symbol, name, market, price, change, moat, normalized, result, provider) -> dict:
+    """Compute (or recall) the verdict dict for a symbol; idempotent.
+
+    Used by the P2 sticky verdict banner at the top of an analysis surface,
+    so the headline action is computed eagerly instead of lazily inside
+    the tab fragment. Result is cached in session_state with the same key
+    `render_ai_verdict` uses, so both surfaces share state.
+    """
+    key = "ai_verdict_{}".format(symbol)
+    if key in st.session_state:
+        return st.session_state[key]
+    if provider:
+        with with_status("AI 综合投资建议生成中...", complete_label="投资建议已就绪"):
+            st.session_state[key] = _generate_verdict(
+                symbol, name, market, price, change, moat, normalized, result, provider
+            )
+    else:
+        st.session_state[key] = _local_verdict(
+            symbol, name, price, change, moat, normalized, result
+        )
+    return st.session_state[key] or {}
+
+
 @st.fragment
 def render_ai_verdict(symbol, name, market, price, change, moat, normalized, result, provider):
     """Render the final AI investment recommendation card for a stock."""

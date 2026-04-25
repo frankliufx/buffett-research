@@ -28,6 +28,25 @@ COLORS = {
     "grade_B": "#60A5FA",
     "grade_C": "#F5A623",
     "grade_D": "#EF4444",
+    # ── v2 token aliases (P1 redesign) ─────────────────────────────────
+    # Surface scale: 3 dark levels (was 8 near-blacks scattered across files).
+    "surface_canvas":  "#0A0A0F",
+    "surface_raised":  "#101018",
+    "surface_hover":   "#16161F",
+    # Ink scale: 4 explicit levels.
+    "ink_primary":     "#F2F2F5",
+    "ink_secondary":   "#9A9AA8",
+    "ink_muted":       "#5A5A66",
+    "ink_disabled":    "#2A2A33",
+    # Semantic — single tone each (was 4 alpha variants).
+    "bull":            "#3ECF8E",
+    "bear":            "#EF4444",
+    "neutral":         "#5BA4CF",
+    "caution":         "#F5A623",
+    # Brand mark.
+    "gold_v2":         "#C9A962",
+    # User-generated artifacts (thesis / journal / alerts) get their own hue.
+    "user_ink":        "#7C8BFF",
 }
 
 
@@ -36,13 +55,104 @@ def get_global_css():
 <style>
     /* ===== 高端金融风 — 极简黑底 ===== */
 
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
+    /* ═══════════════════════════════════════════════════════════════════
+       v2 design tokens (P1 — 2026-04 redesign)
+       ─────────────────────────────────────────────────────────────────── */
+    :root {
+        --font-sans:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --font-serif: 'Cormorant Garamond', Georgia, serif;
+        --font-mono:  'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+        /* Surface — 3 dark levels (was 8) */
+        --surface-canvas: #0A0A0F;
+        --surface-raised: #101018;
+        --surface-hover:  #16161F;
+
+        /* Ink — 4 levels */
+        --ink-primary:    #F2F2F5;
+        --ink-secondary:  #9A9AA8;
+        --ink-muted:      #5A5A66;
+        --ink-disabled:   #2A2A33;
+
+        /* Brand + semantic — 1 tone each */
+        --gold:    #C9A962;
+        --bull:    #3ECF8E;
+        --bear:    #EF4444;
+        --neutral: #5BA4CF;
+        --caution: #F5A623;
+        --user:    #7C8BFF;
+
+        /* Spacing (4px base) */
+        --s-1: 4px;  --s-2: 8px;  --s-3: 12px;
+        --s-4: 16px; --s-5: 20px; --s-6: 24px;
+        --s-7: 28px; --s-8: 32px; --s-10: 40px;
+
+        /* Radii */
+        --r-sm: 3px; --r-md: 6px; --r-lg: 10px;
+    }
+
+    /* v2 typography utilities — pages opt-in by adding the class */
+    .display-serif {
+        font-family: var(--font-serif);
+        font-weight: 600;
+        letter-spacing: 0.005em;
+        line-height: 1.15;
+    }
+    .title-sans {
+        font-family: var(--font-sans);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        line-height: 1.3;
+    }
+    .body-sans {
+        font-family: var(--font-sans);
+        font-weight: 400;
+        line-height: 1.55;
+    }
+    .caption {
+        font-family: var(--font-sans);
+        font-size: 0.72rem;
+        font-weight: 500;
+        color: var(--ink-muted);
+        line-height: 1.4;
+    }
+    .eyebrow {
+        /* Soften the legacy 0.42rem/5px-tracking eyebrows: still small but actually readable */
+        font-family: var(--font-sans);
+        font-size: 0.62rem;
+        font-weight: 500;
+        color: var(--ink-muted);
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+    }
+    .num, .tabular {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
+    }
+
+    /* Sticky utility (used by sticky verdict banner on analysis page) */
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: var(--surface-canvas);
+    }
+
+    /* Subtle global polish: tighten body line-height, restore tabular nums on Streamlit native widgets */
     .stApp {
         background-color: %(bg)s;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        letter-spacing: 0.01em;
+        letter-spacing: 0.005em;
         color: %(text)s;
+    }
+    /* Streamlit metric numbers benefit from tabular nums automatically */
+    [data-testid="stMetricValue"], [data-testid="stMetricDelta"] {
+        font-family: var(--font-mono) !important;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.01em;
     }
 
     /* 全局文字颜色覆盖 */

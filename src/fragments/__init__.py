@@ -17,7 +17,7 @@ re-runs scope to a single pillar instead of the whole page.
 from src.fragments.fundamental import render_moat_scorecard, render_valuation_reference
 from src.fragments.technical import plot_candlestick, render_trend_analysis
 from src.fragments.valuation import render_valuation_hero
-from src.fragments.risk import render_ai_verdict
+from src.fragments.risk import render_ai_verdict, ensure_verdict
 
 __all__ = [
     "render_moat_scorecard",
@@ -26,4 +26,5 @@ __all__ = [
     "render_trend_analysis",
     "render_valuation_hero",
     "render_ai_verdict",
+    "ensure_verdict",
 ]

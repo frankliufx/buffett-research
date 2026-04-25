@@ -51,11 +51,11 @@ from src.ui_theme import (get_global_css, render_hero_header, render_buffett_quo
                           render_kpi_card, render_sidebar_status,
                           render_empty_state, render_news_item,
                           render_calendar_card, COLORS)
-from src.ui_components import render_quote
+from src.ui_components import render_quote, render_verdict_banner, render_page_header
 from src.fragments import (
     render_moat_scorecard, render_valuation_reference,
     plot_candlestick, render_trend_analysis,
-    render_valuation_hero, render_ai_verdict,
+    render_valuation_hero, render_ai_verdict, ensure_verdict,
 )
 from src.fragments._shared import (
     PLOT_LAYOUT, fmt_pct, trend_label, momentum_label, format_number, format_revenue,
@@ -646,6 +646,27 @@ def render_stock_analysis(symbol, name, market, config):
         moat["grade"], moat["label"], moat["color"], moat["percentage"]
     ), unsafe_allow_html=True)
 
+    # ── P2 sticky verdict banner ─────────────────────────────────────────
+    # Decision-first: the user's #1 question ("what should I do?") gets answered
+    # before any of the supporting analysis. Reuses the same session-state cache
+    # as the legacy bottom-of-page render_ai_verdict so they stay in sync.
+    _verdict = ensure_verdict(symbol, name, market, price, change, moat, normalized, result, provider)
+    if _verdict:
+        _chips = []
+        if _verdict.get("confidence"):
+            _chips.append(f'置信度 · {_verdict["confidence"]}')
+        if market == "a_share":
+            _chips.append("A股")
+        render_verdict_banner(
+            _verdict.get("action", "观望"),
+            confidence=None,  # rendered as a chip instead
+            rationale=_verdict.get("reason"),
+            score=moat.get("percentage"),
+            score_label="MOAT",
+            sticky=True,
+            extra_chips=_chips,
+        )
+
     # ===== 估值/政策中枢（A股走政策逻辑，美股/港股走DCF）=====
     premium_provider = get_premium_provider(config)
     if market == "a_share" and _policy_alignment is not None:
@@ -680,16 +701,45 @@ def render_stock_analysis(symbol, name, market, config):
         _components.html(share_html, height=480, scrolling=False)
         st.caption("Screenshot this card and share with friends. Watermarked with AI Buffett branding.")
 
-    # ===== Tabs =====
+    # ───────────────────────────────────────────────────────────────────
+    # P2 redesign: 9 outcome-noise tabs collapsed into 4 outcome-named tabs.
+    #   CASE     → moat scorecard + AI report (the argument)
+    #   NUMBERS  → financials + technical + chart + trend (the evidence)
+    #   CONTEXT  → policy (A股) + peers + news + earnings calendar (the world)
+    #   THESIS   → notes + committee + share card (your work)
+    # The old 9 tab vars are still set so the existing `with tab_X:` blocks
+    # below run unchanged inside their new outcome-tab parent.
+    # ───────────────────────────────────────────────────────────────────
+    tab_case, tab_numbers, tab_context, tab_thesis_outer = st.tabs(
+        ["CASE", "NUMBERS", "CONTEXT", "YOUR THESIS"]
+    )
+
+    # Map old tab handles → new outcome containers
     if market == "a_share":
-        tab_policy, tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai, tab_committee, tab_thesis = st.tabs(
-            ["🏛️ 政策", "MOAT", "TREND", "CHART", "FINANCIALS", "TECHNICAL", "AI REPORT", "🏛 COMMITTEE", "📋 MY THESIS"]
-        )
+        with tab_context:
+            tab_policy_inner = st.container()
+        tab_policy = tab_policy_inner
     else:
         tab_policy = None
-        tab_moat, tab_trend, tab_chart, tab_finance, tab_tech, tab_ai, tab_committee, tab_thesis = st.tabs(
-            ["MOAT", "TREND", "CHART", "FINANCIALS", "TECHNICAL", "AI REPORT", "🏛 COMMITTEE", "📋 MY THESIS"]
+
+    with tab_case:
+        tab_moat = st.container()
+        tab_ai = st.container()
+
+    with tab_numbers:
+        # Sub-tabs for the dense data — keeps each chart/table in its own canvas
+        sub_finance, sub_tech, sub_chart, sub_trend = st.tabs(
+            ["FINANCIALS", "TECHNICAL", "CHART", "TREND"]
         )
+        tab_finance = sub_finance
+        tab_tech = sub_tech
+        tab_chart = sub_chart
+        tab_trend = sub_trend
+
+    with tab_thesis_outer:
+        sub_thesis_main, sub_committee = st.tabs(["NOTES", "COMMITTEE"])
+        tab_thesis = sub_thesis_main
+        tab_committee = sub_committee
 
     if market == "a_share" and tab_policy is not None:
         with tab_policy:
@@ -898,10 +948,13 @@ def render_stock_analysis(symbol, name, market, config):
     with tab_thesis:
         _render_thesis_panel(_uid, symbol, market, name, moat, prev_analysis)
 
-    # ═══════════════════════════════════════════════════════════════
-    # AI 综合建议 — 产品核心能力
-    # ═══════════════════════════════════════════════════════════════
-    render_ai_verdict(symbol, name, market, price, change, moat, normalized, result, provider)
+    # P2 redesign: bottom AI verdict moved to the sticky banner at the top of
+    # the analysis surface (see ensure_verdict + render_verdict_banner above).
+    # Refresh / detail expander still available via the legacy render_ai_verdict
+    # — kept as a small detail panel inside the CASE tab (after the AI report).
+    with tab_case:
+        with st.expander("🔄 Refresh AI verdict / details", expanded=False):
+            render_ai_verdict(symbol, name, market, price, change, moat, normalized, result, provider)
 
     return result, moat
 
@@ -923,8 +976,15 @@ if "config" not in st.session_state:
     st.session_state.config = load_config()
 config = st.session_state.config
 
-st.markdown(render_hero_header(), unsafe_allow_html=True)
-st.markdown(render_buffett_quote(), unsafe_allow_html=True)
+# P2 redesign: deleted render_hero_header() + render_buffett_quote() —
+# the user is here to analyze, not to read a luxury preamble. Search bar
+# below is now the page hero. Page header (with brand mark) lives in nav.
+render_page_header(
+    "Stock",
+    accent="Analysis",
+    subtitle="Buffett-style fundamental research · A股 / HK / US",
+    height=92,
+)
 
 # ===== 快速搜索框 =====
 st.markdown("""

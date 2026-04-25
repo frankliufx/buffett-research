@@ -45,7 +45,8 @@ def render_page_header(
     """
     title_html = _html.escape(title)
     if accent:
-        title_html += " <b>" + _html.escape(accent) + "</b>"
+        # v2: accent word is serif italic (.accent class), not bold-gold caps.
+        title_html += ' <span class="accent">' + _html.escape(accent) + "</span>"
 
     eyebrow_block = (
         f'<div class="eyebrow">{_html.escape(eyebrow)}</div>' if eyebrow else ""
@@ -55,18 +56,22 @@ def render_page_header(
         f'<div class="sub">{_html.escape(subtitle)}</div>' if subtitle else ""
     )
 
+    # v2 typography (P1 redesign):
+    # - Title is sans (Inter 600), not full-Cormorant; only the accent word is serif.
+    # - Letter-spacing softened from 3-4px to 0.6-1.5px (was 8x too tight to read).
+    # - Bottom divider is tighter (60% width centered) — less "luxury catalog" feel.
     components.html(
         f"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <link href="{_FONTS}" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:24px 0 8px;text-align:center}}
-.eyebrow{{font-size:0.55rem;letter-spacing:4px;color:#C9A962;text-transform:uppercase;margin-bottom:6px}}
-.icon{{font-size:2.2rem;margin-bottom:12px;opacity:0.8}}
-.title{{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.7rem;font-weight:300;color:#E8E8F0;letter-spacing:3px;text-transform:uppercase}}
-.title b{{font-weight:700;color:#C9A962}}
-.sub{{font-size:0.55rem;letter-spacing:4px;color:#5A5A6A;text-transform:uppercase;margin-top:6px}}
-.divider{{height:1px;background:linear-gradient(90deg,transparent,#C9A962 30%,transparent);margin-top:16px;opacity:0.3}}
+body{{background:#0A0A0F;font-family:'Inter',-apple-system,sans-serif;padding:20px 0 10px;text-align:center;color:#F2F2F5;letter-spacing:0.005em}}
+.eyebrow{{font-size:0.66rem;letter-spacing:1.5px;color:#9A9AA8;text-transform:uppercase;margin-bottom:6px;font-weight:500}}
+.icon{{font-size:1.8rem;margin-bottom:8px;opacity:0.85}}
+.title{{font-family:'Inter',-apple-system,sans-serif;font-size:1.45rem;font-weight:600;color:#F2F2F5;letter-spacing:-0.015em;line-height:1.25}}
+.title .accent{{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;color:#C9A962;font-style:italic;letter-spacing:0.005em;padding:0 0.05em}}
+.sub{{font-size:0.74rem;letter-spacing:0.5px;color:#9A9AA8;margin-top:6px;font-weight:400}}
+.divider{{height:1px;background:linear-gradient(90deg,transparent 20%,#C9A962 50%,transparent 80%);margin:14px auto 0;opacity:0.35;max-width:60%}}
 </style></head><body>
 {eyebrow_block}
 {icon_block}

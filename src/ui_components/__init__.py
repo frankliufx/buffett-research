@@ -19,10 +19,19 @@ from src.ui_components.header import render_page_header
 from src.ui_components.quotes import render_quote
 from src.ui_components.layout import render_section_divider
 from src.ui_components.loading import with_status
+# v2 canonical components (P1 redesign)
+from src.ui_components.verdict_banner import render_verdict_banner
+from src.ui_components.stock_chip import render_stock_chip
+from src.ui_components.score_card import render_score_card
 
 __all__ = [
+    # legacy
     "render_page_header",
     "render_quote",
     "render_section_divider",
     "with_status",
+    # v2
+    "render_verdict_banner",
+    "render_stock_chip",
+    "render_score_card",
 ]
