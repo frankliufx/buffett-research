@@ -93,6 +93,70 @@ def get_global_css():
         --r-sm: 3px; --r-md: 6px; --r-lg: 10px;
     }
 
+    /* ── v2 build marker — fixed top-right badge so users can confirm new code ── */
+    body::after {
+        content: "v2 · 2026.04";
+        position: fixed;
+        top: 8px;
+        right: 14px;
+        font-family: var(--font-mono);
+        font-size: 0.62rem;
+        color: var(--gold);
+        background: rgba(201,169,98,0.08);
+        border: 1px solid rgba(201,169,98,0.35);
+        padding: 2px 8px;
+        border-radius: 3px;
+        letter-spacing: 0.5px;
+        z-index: 9999;
+        pointer-events: none;
+        opacity: 0.7;
+    }
+
+    /* Streamlit's main canvas: stronger contrast vs sidebar so users feel the layout */
+    [data-testid="stAppViewContainer"] > .main {
+        background: var(--surface-canvas);
+    }
+    [data-testid="stAppViewContainer"] > .main .block-container {
+        padding-top: 1.5rem;
+        max-width: 1400px;
+    }
+    /* Stronger sidebar separator */
+    [data-testid="stSidebar"] {
+        background: var(--surface-raised) !important;
+        border-right: 1px solid var(--ink-disabled) !important;
+    }
+    /* Tabs: more visible v2 styling */
+    [data-baseweb="tab-list"] {
+        border-bottom: 1px solid var(--ink-disabled) !important;
+        gap: 8px !important;
+    }
+    [data-baseweb="tab"] {
+        font-family: var(--font-sans) !important;
+        font-size: 0.78rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.05em !important;
+        color: var(--ink-secondary) !important;
+        padding: 10px 18px !important;
+    }
+    [data-baseweb="tab"][aria-selected="true"] {
+        color: var(--gold) !important;
+        border-bottom: 2px solid var(--gold) !important;
+    }
+    /* Buttons: tighter, more "work tool" feel */
+    .stButton > button {
+        font-family: var(--font-sans) !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.02em !important;
+        border-radius: var(--r-sm) !important;
+        transition: all 120ms ease !important;
+    }
+    /* Expanders: cleaner */
+    [data-testid="stExpander"] details {
+        background: var(--surface-raised) !important;
+        border: 1px solid var(--ink-disabled) !important;
+        border-radius: var(--r-md) !important;
+    }
+
     /* v2 typography utilities — pages opt-in by adding the class */
     .display-serif {
         font-family: var(--font-serif);

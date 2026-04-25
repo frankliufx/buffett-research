@@ -51,10 +51,155 @@ def _html(body: str, height: int = 400):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 01  HERO
+# 01  WORKSPACE HERO  (v2 redesign — replaces the marketing scroll up top)
+# ══════════════════════════════════════════════════════════════════════════════
+# Authenticated user lands here. We give them a *workspace* greeting +
+# their flywheel stats + 4 quick actions, NOT a marketing pitch. The
+# original luxury hero is preserved for unauthenticated visitors at the
+# bottom of this file (search '01_LEGACY_HERO').
+
+# Personal flywheel data (uses tracker history if available)
+_uid_for_hero = "anonymous"
+try:
+    from src.auth import get_current_user as _gcu_hero
+    _u = _gcu_hero()
+    _uid_for_hero = (_u or {}).get("username", "anonymous")
+    _display_name = (_u or {}).get("name", "Investor")
+except Exception:
+    _display_name = "Investor"
+
+try:
+    from src.tracker import load_user_analysis_history as _hist_load
+    _flywheel = _hist_load(_uid_for_hero, limit=200)
+except Exception:
+    _flywheel = []
+
+# Compute the three flywheel stats
+import datetime as _dt
+_now = _dt.datetime.now()
+_30d_ago = _now - _dt.timedelta(days=30)
+_recent_count = sum(
+    1 for r in _flywheel
+    if r.get("timestamp") and _dt.datetime.fromisoformat(str(r["timestamp"])[:19]) > _30d_ago
+)
+_avg_grade_score = (
+    round(sum(r.get("score_total", 0) for r in _flywheel) / len(_flywheel), 1)
+    if _flywheel else 0.0
+)
+_unique_stocks = len({(r.get("market"), r.get("symbol")) for r in _flywheel if r.get("symbol")})
+
+# Greeting based on local time
+_h = _now.hour
+_greet = ("Good morning" if 5 <= _h < 12 else
+          "Good afternoon" if _h < 18 else
+          "Good evening")
+
+_html(f"""
+<div style="position:relative;padding:48px 52px 36px;background:linear-gradient(135deg,#0A0A0F 0%,#0F0F18 100%);">
+
+  <!-- subtle gold accent line -->
+  <div style="position:absolute;left:0;top:0;width:2px;height:100%;
+    background:linear-gradient(180deg,transparent 0%,#C9A962 30%,#C9A962 70%,transparent 100%);"></div>
+
+  <!-- top-right v2 build mark for confirmation -->
+  <div style="position:absolute;top:24px;right:36px;
+    font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:#C9A962;
+    background:rgba(201,169,98,0.08);border:1px solid rgba(201,169,98,0.3);
+    padding:3px 10px;border-radius:3px;letter-spacing:0.5px;">
+    workspace · v2
+  </div>
+
+  <div style="max-width:1100px;margin:0 auto;">
+
+    <!-- greeting line — workspace, not marketing -->
+    <div class="fu d1" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div style="width:6px;height:6px;background:#C9A962;border-radius:50%;"></div>
+      <span style="font-size:0.7rem;letter-spacing:1.5px;color:#9A9AA8;text-transform:uppercase;font-weight:500;">
+        {_now.strftime('%A · %Y.%m.%d')}
+      </span>
+    </div>
+
+    <h1 class="fu d2 serif" style="font-size:clamp(2rem,4vw,2.8rem);font-weight:600;
+      color:#F2F2F5;line-height:1.15;letter-spacing:-0.01em;margin-bottom:6px;">
+      {_greet},
+      <span style="color:#C9A962;font-style:italic;">{_display_name}</span>.
+    </h1>
+
+    <p class="fu d2" style="font-size:0.95rem;color:#9A9AA8;line-height:1.55;font-weight:400;
+      max-width:620px;margin-bottom:32px;">
+      Your value-investing workspace. Pick up where you left off, or browse the
+      philosophy below.
+    </p>
+
+    <!-- 3-stat flywheel row (your work, not marketing claims) -->
+    <div class="fu d3" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
+
+      <div style="background:#101018;border:1px solid #2A2A33;border-radius:6px;padding:18px 20px;">
+        <div style="font-size:0.6rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;font-weight:500;margin-bottom:6px;">
+          Analyses · last 30 d
+        </div>
+        <div class="serif" style="font-family:'JetBrains Mono',monospace;font-size:1.9rem;font-weight:600;color:#F2F2F5;line-height:1;">
+          {_recent_count}
+        </div>
+        <div style="font-size:0.66rem;color:#5A5A66;margin-top:6px;">
+          {_unique_stocks} unique tickers tracked
+        </div>
+      </div>
+
+      <div style="background:#101018;border:1px solid #2A2A33;border-radius:6px;padding:18px 20px;">
+        <div style="font-size:0.6rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;font-weight:500;margin-bottom:6px;">
+          Avg MOAT score
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:1.9rem;font-weight:600;color:{'#3ECF8E' if _avg_grade_score >= 65 else '#C9A962' if _avg_grade_score >= 50 else '#9A9AA8'};line-height:1;">
+          {_avg_grade_score:.0f}<span style="font-size:0.85rem;color:#5A5A66;font-weight:400;"> /100</span>
+        </div>
+        <div style="font-size:0.66rem;color:#5A5A66;margin-top:6px;">
+          {'core thesis quality' if _flywheel else 'no analyses yet'}
+        </div>
+      </div>
+
+      <div style="background:#101018;border:1px solid #2A2A33;border-radius:6px;padding:18px 20px;">
+        <div style="font-size:0.6rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;font-weight:500;margin-bottom:6px;">
+          Markets enabled
+        </div>
+        <div class="serif" style="font-size:1.9rem;font-weight:600;color:#F2F2F5;line-height:1;">
+          US · HK · A
+        </div>
+        <div style="font-size:0.66rem;color:#5A5A66;margin-top:6px;">
+          unified value lens
+        </div>
+      </div>
+
+    </div>
+
+    <!-- quick action chips — direct entry to the 4 main loops -->
+    <div class="fu d4" style="display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="background:#101018;border:1px solid #C9A962;color:#C9A962;border-radius:4px;padding:10px 16px;font-size:0.78rem;font-weight:500;cursor:pointer;">
+        → Analyze a stock
+      </div>
+      <div style="background:#101018;border:1px solid #2A2A33;color:#9A9AA8;border-radius:4px;padding:10px 16px;font-size:0.78rem;font-weight:500;cursor:pointer;">
+        → Hedge fund (13 analysts)
+      </div>
+      <div style="background:#101018;border:1px solid #2A2A33;color:#9A9AA8;border-radius:4px;padding:10px 16px;font-size:0.78rem;font-weight:500;cursor:pointer;">
+        → AI advisor chat
+      </div>
+      <div style="background:#101018;border:1px solid #2A2A33;color:#9A9AA8;border-radius:4px;padding:10px 16px;font-size:0.78rem;font-weight:500;cursor:pointer;">
+        → Track record
+      </div>
+    </div>
+
+  </div>
+</div>
+""", height=460)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 01_LEGACY_HERO  (preserved — original "Invest with the Wisdom of Masters"
+# block; kept as a section divider before the philosophy/marquee content
+# below so users with that emotional attachment still see it.)
 # ══════════════════════════════════════════════════════════════════════════════
 _html("""
-<div style="position:relative;overflow:hidden;padding:80px 52px 68px;min-height:100%;">
+<div style="position:relative;overflow:hidden;padding:48px 52px 40px;min-height:100%;background:#0A0A0F;border-top:1px solid #2A2A33;">
 
   <!-- grid texture -->
   <div style="position:absolute;inset:0;pointer-events:none;opacity:0.028;
@@ -68,7 +213,7 @@ _html("""
 
   <!-- top-right year tag -->
   <div class="fu d1" style="position:absolute;top:32px;right:52px;
-    font-size:0.62rem;letter-spacing:1.5px;color:#5A5A66;text-transform:uppercase;">Est. 2025</div>
+    font-size:0.62rem;letter-spacing:1.5px;color:#5A5A66;text-transform:uppercase;">Our Philosophy</div>
 
   <div style="position:relative;max-width:920px;">
 
