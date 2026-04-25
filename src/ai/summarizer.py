@@ -479,17 +479,28 @@ def chat_with_analyst_stream(messages: list, provider: Optional[ApiProvider] = N
 def get_ashare_brief(result, moat: dict, policy_data: dict,
                      provider: Optional[ApiProvider] = None,
                      history_context: str = "", peer_context: str = "",
-                     policy_news: Optional[List] = None) -> Optional[dict]:
+                     policy_news: Optional[List] = None,
+                     typed_alignment=None,
+                     capital_flow=None,
+                     regulatory=None) -> Optional[dict]:
     """A股政策驱动结构化投资简报（JSON 格式）
+
+    A5.3: prompt now consumes a structured policy_context block built from
+    typed objects (PolicyAlignment + CapitalFlow + RegulatoryStatus). The
+    legacy `policy_data` dict is still accepted for back-compat but only
+    used for fallback fields if the typed objects are missing.
 
     Args:
         result: 股票分析结果对象
         moat: 护城河评分 dict
-        policy_data: get_fifteen_five_alignment() 返回值，含 level/tier1/tier2/all_tags/score 字段
+        policy_data: get_fifteen_five_alignment() 返回值（legacy）
         provider: API provider
         history_context: 历史分析上下文
         peer_context: 同行比较上下文（保留参数，当前未注入 prompt）
-        policy_news: 政策新闻列表，每项含 title 字段，最多取前3条
+        policy_news: 政策新闻列表（legacy；新版 prompt 不再依赖）
+        typed_alignment: PolicyAlignment 对象（来自 get_policy_alignment）
+        capital_flow:    CapitalFlow 对象（来自 get_capital_flow）
+        regulatory:      RegulatoryStatus 对象（来自 get_regulatory_status）
 
     Returns:
         dict with: verdict, confidence, reason, dimensions, bull_points, bear_points
@@ -499,21 +510,16 @@ def get_ashare_brief(result, moat: dict, policy_data: dict,
         return None
 
     fund = result.fundamentals
-
     dq = _check_data_quality(fund)
 
-    # 政策标签，最多8个
-    policy_tags = ", ".join(policy_data.get("all_tags", [])[:8]) if policy_data else "N/A"
-
-    # 政策级别
-    policy_level = policy_data.get("level", "N/A") if policy_data else "N/A"
-
-    # 政策新闻标题，最多3条，用"|"分隔
-    if policy_news:
-        titles = [n.get("title", "") for n in policy_news[:3] if n.get("title")]
-        policy_news_titles = " | ".join(titles) if titles else "暂无"
-    else:
-        policy_news_titles = "暂无"
+    # A5.3 — single structured context block replaces legacy policy_level /
+    # policy_tags / policy_news_titles fields in the prompt.
+    from src.ai.ashare_context import build_ashare_context
+    policy_context = build_ashare_context(
+        alignment=typed_alignment,
+        capital_flow=capital_flow,
+        regulatory=regulatory,
+    )
 
     prompt = ASHARE_BRIEF_PROMPT.format(
         symbol=result.symbol,
@@ -528,9 +534,7 @@ def get_ashare_brief(result, moat: dict, policy_data: dict,
         earnings_growth=_fmt(fund.get("earnings_growth"), pct=True),
         trend=result.tech_signal.get("trend", "N/A"),
         rsi=_fmt(result.tech_signal.get("rsi")),
-        policy_level=policy_level,
-        policy_tags=policy_tags,
-        policy_news_titles=policy_news_titles,
+        policy_context=policy_context,
         data_quality_warning=dq["warning_block"],
         history_context=history_context,
     )
@@ -554,15 +558,26 @@ def get_ashare_brief(result, moat: dict, policy_data: dict,
 def analyze_ashare_stock(result, provider: Optional[ApiProvider] = None,
                          moat: Optional[dict] = None,
                          policy_data: Optional[dict] = None,
-                         policy_news: Optional[List] = None) -> str:
+                         policy_news: Optional[List] = None,
+                         typed_alignment=None,
+                         capital_flow=None,
+                         regulatory=None) -> str:
     """对单只A股进行政策驱动深度分析
+
+    A5.3: prompt now reads from a structured `policy_context` block built
+    from typed objects (PolicyAlignment + CapitalFlow + RegulatoryStatus).
+    The legacy `policy_data` / `policy_news` parameters are accepted for
+    back-compat but no longer drive the prompt.
 
     Args:
         result: 股票分析结果对象
         provider: API provider
         moat: 护城河评分 dict
-        policy_data: get_fifteen_five_alignment() 返回值，含 level/tier1/tier2/all_tags/score 字段
-        policy_news: 政策新闻列表，每项含 title/content 等字段
+        policy_data: legacy dict (accepted but unused by new prompt)
+        policy_news: legacy news list (accepted but unused by new prompt)
+        typed_alignment: PolicyAlignment object
+        capital_flow:    CapitalFlow object
+        regulatory:      RegulatoryStatus object
 
     Returns:
         str: Markdown 格式深度研报，失败返回默认提示字符串
@@ -587,24 +602,14 @@ def analyze_ashare_stock(result, provider: Optional[ApiProvider] = None,
 
     dq = _check_data_quality(fundamentals)
 
-    # 政策字段处理
-    if policy_data:
-        policy_level = policy_data.get("level", "N/A")
-        policy_tags = ", ".join(policy_data.get("all_tags", [])[:8])
-    else:
-        policy_level = "N/A"
-        policy_tags = "N/A"
-
-    # 政策新闻，最多5条，格式化为列表
-    if policy_news:
-        news_lines = []
-        for n in policy_news[:5]:
-            title = n.get("title", "")
-            if title:
-                news_lines.append("- {}".format(title))
-        policy_news_str = "\n".join(news_lines) if news_lines else "暂无相关政策新闻"
-    else:
-        policy_news_str = "暂无相关政策新闻"
+    # A5.3 — single structured context block replaces legacy policy_level /
+    # policy_tags / policy_news fields in the prompt.
+    from src.ai.ashare_context import build_ashare_context
+    policy_context = build_ashare_context(
+        alignment=typed_alignment,
+        capital_flow=capital_flow,
+        regulatory=regulatory,
+    )
 
     # 申万行业，尝试从 fundamentals 获取，字段名可能为 sw_industry 或 industry
     sw_industry = (fundamentals.get("sw_industry")
@@ -617,9 +622,7 @@ def analyze_ashare_stock(result, provider: Optional[ApiProvider] = None,
         price=result.price,
         change_pct="{:.2f}".format(result.change_pct) if result.change_pct else "N/A",
         sw_industry=sw_industry,
-        policy_level=policy_level,
-        policy_tags=policy_tags,
-        policy_news=policy_news_str,
+        policy_context=policy_context,
         moat_total=moat.get("percentage", 0) if moat else "N/A",
         moat_grade=moat.get("grade", "N/A") if moat else "N/A",
         profitability_score=p_s, profitability_max=p_m,

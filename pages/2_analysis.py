@@ -571,10 +571,18 @@ def render_stock_analysis(symbol, name, market, config):
                 unsafe_allow_html=True,
             )
             if market == "a_share" and _policy_alignment:
+                # A5.3: feed typed objects so the prompt's structured context
+                # block can be built from real data instead of LLM guesswork.
+                _typed_alignment = get_policy_alignment(symbol)
+                _capital_flow = cached_get_capital_flow(symbol)
+                _regulatory = cached_get_regulatory_status(symbol)
                 st.session_state[brief_key] = get_ashare_brief(
                     result, moat, _policy_alignment, provider,
                     history_context=hist_ctx, peer_context=peer_ctx,
                     policy_news=_policy_news,
+                    typed_alignment=_typed_alignment,
+                    capital_flow=_capital_flow,
+                    regulatory=_regulatory,
                 )
             else:
                 st.session_state[brief_key] = get_ai_brief(
@@ -848,9 +856,17 @@ def render_stock_analysis(symbol, name, market, config):
                     unsafe_allow_html=True,
                 )
                 if market == "a_share":
+                    # A5.3: pass typed objects (alignment + capital + regulatory)
+                    # so the prompt's structured context block uses real data.
+                    _typed_alignment = get_policy_alignment(symbol)
+                    _capital_flow = cached_get_capital_flow(symbol)
+                    _regulatory = cached_get_regulatory_status(symbol)
                     ai_text = analyze_ashare_stock(
                         result, provider, moat=moat,
                         policy_data=_policy_alignment, policy_news=_policy_news,
+                        typed_alignment=_typed_alignment,
+                        capital_flow=_capital_flow,
+                        regulatory=_regulatory,
                     )
                 else:
                     ai_text = analyze_stock(result, provider=provider, moat=moat)
