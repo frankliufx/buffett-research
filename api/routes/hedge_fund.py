@@ -1,9 +1,8 @@
 """AI 对冲基金接口"""
 
-from typing import List, Optional
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
+from schemas import Analyst, HedgeFundResult, HedgeFundRunRequest
 from src.config import load_config, get_active_provider
 from src.data.price import fetch_quote, fetch_history
 from src.data.financial import fetch_fundamentals
@@ -17,13 +16,7 @@ from src.ai.hedge_fund_agents import HEDGE_FUND_ANALYSTS
 router = APIRouter()
 
 
-class RunRequest(BaseModel):
-    ticker: str
-    market: str = "US"
-    analyst_ids: Optional[List[str]] = None  # None = 全部
-
-
-@router.get("/analysts")
+@router.get("/analysts", response_model=list[Analyst])
 def list_analysts():
     """返回所有可用分析师列表"""
     return [
@@ -39,8 +32,8 @@ def list_analysts():
     ]
 
 
-@router.post("/run")
-def run_analysis(req: RunRequest):
+@router.post("/run", response_model=HedgeFundResult)
+def run_analysis(req: HedgeFundRunRequest):
     """运行多大师并行分析"""
     ticker = req.ticker.upper()
     market = req.market

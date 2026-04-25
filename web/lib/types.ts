@@ -1,58 +1,68 @@
+/**
+ * Public type surface for the Next.js app.
+ *
+ * Most interfaces are auto-generated from `schemas/` (Pydantic v2) — see
+ * `types.generated.ts`. This file:
+ *   1. Re-exports the generated types so callers `import { StockData } from "./types"`.
+ *   2. Adds the `Signal` alias used across the UI.
+ *   3. Hand-assembles the `StreamEvent` discriminated union (event-name
+ *      literals come from FastAPI's `_sse(event, ...)` calls — see
+ *      `api/routes/analysis.py`).
+ *
+ * To regenerate the auto part: `make types` (from project root).
+ */
+
+import type {
+  AISummaryPayload,
+  FundamentalsPayload,
+  MessagePayload,
+  QuotePayload,
+  RiskPayload,
+  StepPayload,
+  TechnicalPayload,
+  ValuationPayload,
+} from "./types.generated"
+
+// Re-export the full generated surface so consumers have one import path.
+export type {
+  AISummaryPayload,
+  Analyst,
+  AnalystResult,
+  DCFResult,
+  FundamentalsPayload,
+  HedgeFundConsensus,
+  HedgeFundResult,
+  HedgeFundRunRequest,
+  MessagePayload,
+  MoatDimension,
+  MoatScore,
+  Quote,
+  QuotePayload,
+  RiskPayload,
+  StepPayload,
+  StockData,
+  TechSignal,
+  TechnicalPayload,
+  ValuationPayload,
+} from "./types.generated"
+
+/** Verdict polarity used across signal badges and consensus cards. */
 export type Signal = "bullish" | "bearish" | "neutral"
 
-export interface StockData {
-  ticker: string
-  market: string
-  name: string
-  price: number
-  change_pct: number | null
-  normalized: Record<string, number | null>
-  buffett: Record<string, unknown>
-  moat: { percentage: number; grade: string; dimensions?: unknown[] }
-  dcf: { intrinsic_value?: number; safety_margin_pct?: number; method?: string }
-  tech: { trend?: string; momentum?: string; rsi?: number; macd?: number }
-}
-
-export interface Analyst {
-  id: string
-  name: string
-  name_cn: string
-  icon: string
-  group: string
-  style: string
-}
-
-export interface AnalystResult extends Analyst {
-  signal: Signal
-  confidence: number
-  reasoning: string
-  error: string | null
-}
-
-export interface HedgeFundResult {
-  symbol: string
-  analysts: AnalystResult[]
-  consensus: {
-    signal: Signal
-    verdict: string
-    unanimity: string
-    confidence: number
-  }
-  weighted_score: number
-  bullish_count: number
-  bearish_count: number
-  neutral_count: number
-}
-
-// SSE stream events
+/**
+ * SSE events emitted by `GET /api/analysis/{ticker}/stream`.
+ *
+ * Event-name literals must stay in sync with `_sse(event, ...)` calls
+ * in `api/routes/analysis.py`. Payload shapes come from `schemas/stream.py`.
+ */
 export type StreamEvent =
-  | { event: "step";        data: { step: string; msg: string } }
-  | { event: "quote";       data: { ticker: string; name: string; price: number } }
-  | { event: "fundamentals";data: { normalized: Record<string, number | null> } }
-  | { event: "technical";   data: { tech: Record<string, unknown>; ensemble: unknown } }
-  | { event: "valuation";   data: { buffett: unknown; moat: unknown; dcf: unknown; multi_val: unknown } }
-  | { event: "risk";        data: { volatility: unknown; position: unknown; risk_report: unknown } }
-  | { event: "ai";          data: { summary: string } }
-  | { event: "ai_error";    data: { msg: string } }
-  | { event: "error";       data: { msg: string } }
-  | { event: "done";        data: { msg: string } }
+  | { event: "step";         data: StepPayload }
+  | { event: "quote";        data: QuotePayload }
+  | { event: "fundamentals"; data: FundamentalsPayload }
+  | { event: "technical";    data: TechnicalPayload }
+  | { event: "valuation";    data: ValuationPayload }
+  | { event: "risk";         data: RiskPayload }
+  | { event: "ai";           data: AISummaryPayload }
+  | { event: "ai_error";     data: MessagePayload }
+  | { event: "error";        data: MessagePayload }
+  | { event: "done";         data: MessagePayload }

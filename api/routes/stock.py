@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
+from schemas import StockData
 from src.data.price import fetch_quote, fetch_history
 from src.data.financial import fetch_fundamentals
 from src.analysis.fundamental import analyze_buffett, _normalize_fundamentals
@@ -12,7 +13,7 @@ from src.analysis.valuation import calc_dcf
 router = APIRouter()
 
 
-@router.get("/{ticker}")
+@router.get("/{ticker}", response_model=StockData)
 def get_stock(
     ticker: str,
     market: str = Query("US", description="US / CN / HK"),
