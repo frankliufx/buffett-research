@@ -1240,11 +1240,13 @@ def _render_valuation_hero(symbol, name, market, price, fundamentals, normalized
 
     # AI 文字未加载时获取
     if ai_insights is None and provider and provider.api_key:
-        with st.spinner("AI analyzing..."):
+        with st.status("AI 智能洞察生成中...", expanded=False) as _status:
+            _status.write("整理财务/技术/估值上下文")
             ai_insights = get_ai_insights(
                 symbol, name, price, fundamentals, normalized,
                 tech_signal or {}, dcf, provider)
             st.session_state[insights_key] = ai_insights
+            _status.update(label="✓ AI 洞察已生成", state="complete", expanded=False)
 
     insight_html = render_insight_cards(
         price, fundamentals, normalized, tech_signal or {}, dcf, quote,
@@ -1370,10 +1372,12 @@ def _render_ai_verdict(symbol, name, market, price, change, moat, normalized, re
     # 自动生成（session 内只生成一次）
     if verdict_key not in st.session_state:
         if provider:
-            with st.spinner("AI 正在生成投资建议..."):
+            with st.status("AI 综合投资建议生成中...", expanded=False) as _status:
+                _status.write("评估护城河、估值、技术面与风险")
                 st.session_state[verdict_key] = _generate_verdict(
                     symbol, name, market, price, change, moat, normalized, result, provider
                 )
+                _status.update(label="✓ 投资建议已就绪", state="complete", expanded=False)
         else:
             # 无 AI 时用本地规则生成
             st.session_state[verdict_key] = _local_verdict(symbol, name, price, change, moat, normalized, result)

@@ -4,7 +4,7 @@ import json
 import logging
 import math
 import re
-from typing import Optional, List
+from typing import Iterator, Optional, List
 
 from src.ai.prompts import (BUFFETT_ANALYSIS_PROMPT, MARKET_OVERVIEW_PROMPT,
                              CHAT_SYSTEM_PROMPT, DIMENSION_BRIEF_PROMPT,
@@ -76,6 +76,56 @@ def _call_llm(provider: ApiProvider, messages: list, max_tokens: int = 2000) -> 
             messages=messages,
         )
         return response.choices[0].message.content
+
+
+def _stream_llm(provider: ApiProvider, messages: list, max_tokens: int = 2000) -> Iterator[str]:
+    """Streaming counterpart to _call_llm — yields text chunks as they arrive.
+
+    Both Anthropic and OpenAI-compatible clients are normalized to the same
+    yield contract: each yielded value is a non-empty unicode delta to append.
+    On API failure the generator yields an error string and returns, so
+    callers can pipe the result straight into `st.write_stream()` without
+    extra try/except scaffolding.
+    """
+    client_type, client = _create_client(provider)
+
+    if client_type == "anthropic":
+        system = ""
+        chat_messages = []
+        for m in messages:
+            if m["role"] == "system":
+                system = m["content"]
+            else:
+                chat_messages.append(m)
+
+        kwargs = {
+            "model": provider.model,
+            "max_tokens": max_tokens,
+            "messages": chat_messages,
+        }
+        if system:
+            kwargs["system"] = system
+
+        with client.messages.stream(**kwargs) as stream:
+            for text in stream.text_stream:
+                if text:
+                    yield text
+        return
+
+    # OpenAI-compatible streaming
+    stream = client.chat.completions.create(
+        model=provider.model,
+        max_tokens=max_tokens,
+        messages=messages,
+        stream=True,
+    )
+    for chunk in stream:
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+        text = getattr(delta, "content", None)
+        if text:
+            yield text
 
 
 def _fmt(val, pct=False) -> str:
@@ -405,6 +455,25 @@ def chat_with_analyst(messages: list, provider: Optional[ApiProvider] = None,
     except Exception as e:
         logger.error(f"Chat failed: {e}")
         return "AI 对话出错: {}".format(e)
+
+
+def chat_with_analyst_stream(messages: list, provider: Optional[ApiProvider] = None,
+                              context: str = "") -> Iterator[str]:
+    """Streaming counterpart to chat_with_analyst. Always yields at least once."""
+    if not provider or not provider.api_key:
+        yield "请先在「设置」页面配置 API Key 后使用 AI 对话功能。"
+        return
+
+    system = CHAT_SYSTEM_PROMPT
+    if context:
+        system += "\n\n## 当前分析数据\n" + context
+    full_messages = [{"role": "system", "content": system}] + messages
+
+    try:
+        yield from _stream_llm(provider, full_messages, max_tokens=3000)
+    except Exception as e:
+        logger.error(f"Chat stream failed: {e}")
+        yield "AI 对话出错: {}".format(e)
 
 
 def get_ashare_brief(result, moat: dict, policy_data: dict,

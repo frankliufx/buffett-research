@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 import random
 
 from src.config import get_premium_provider, load_config
-from src.ai.summarizer import chat_with_analyst
+from src.ai.summarizer import chat_with_analyst_stream
 from src.ai.knowledge_base import (
     BUFFETT_PHILOSOPHY, BUFFETT_CASES, BUFFETT_QUOTES,
     DUAN_YONGPING_PHILOSOPHY, DUAN_YONGPING_CASES, DUAN_YONGPING_QUOTES,
@@ -174,14 +174,16 @@ if (st.session_state.chat_history
 
     provider = get_premium_provider(config)
     with st.chat_message("assistant", avatar="🧐"):
-        with st.spinner("Analyzing..."):
-            context = build_context()
-            reply = chat_with_analyst(
+        context = build_context()
+        # st.write_stream renders the generator progressively and returns the
+        # full concatenated string for history persistence.
+        reply = st.write_stream(
+            chat_with_analyst_stream(
                 st.session_state.chat_history,
                 provider=provider,
                 context=context,
             )
-        st.markdown(reply)
+        )
         st.session_state.chat_history.append({"role": "assistant", "content": reply})
 
 # Input
@@ -195,12 +197,12 @@ if user_input:
 
     provider = get_premium_provider(config)
     with st.chat_message("assistant", avatar="🧐"):
-        with st.spinner("Analyzing..."):
-            context = build_context()
-            reply = chat_with_analyst(
+        context = build_context()
+        reply = st.write_stream(
+            chat_with_analyst_stream(
                 st.session_state.chat_history,
                 provider=provider,
                 context=context,
             )
-        st.markdown(reply)
+        )
         st.session_state.chat_history.append({"role": "assistant", "content": reply})
