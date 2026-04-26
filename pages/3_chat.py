@@ -48,17 +48,53 @@ with st.sidebar:
 
     st.divider()
 
-    # Stock context
+    # Stock context — enriched with score number + last-analysis date for fuller context
     ctx = st.session_state.get("chat_context_stock")
     if ctx:
         grade = ctx.get("grade", "?")
+        score = ctx.get("score", 0)
         gc = {"S": "#00C853", "A": "#69F0AE", "B": "#C9A962", "C": "#FF9800"}.get(grade, "#5A5A6A")
+
+        # Try to fetch last-analysis date from tracker
+        _last_analysis_str = ""
+        try:
+            from src.tracker import load_user_analysis_history as _ld
+            _hist = _ld(_uid if "_uid" in dir() else "anonymous", limit=50)
+            for _r in _hist:
+                if _r.get("symbol") == ctx.get("symbol"):
+                    import datetime as _dt
+                    _ts = _r.get("timestamp", "")
+                    if _ts:
+                        _dt_obj = _dt.datetime.fromisoformat(str(_ts)[:19])
+                        _days = (_dt.datetime.now() - _dt_obj).days
+                        _last_analysis_str = "今天" if _days == 0 else "{}天前".format(_days)
+                    break
+        except Exception:
+            pass
+
+        # Audit-recommended enriched persistent context card
         st.markdown(
-            '<div style="background:#0D0D14;border:1px solid #1E1E2A;border-left:3px solid {};border-radius:4px;padding:10px 14px;margin-bottom:8px">'
-            '<div style="font-size:0.5rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-bottom:4px">Discussing</div>'
-            '<div style="font-size:1rem;font-weight:600;color:#C9A962">{}</div>'
-            '<div style="font-size:0.7rem;color:#8888A0;margin-top:2px">{} &middot; Grade {}</div>'
-            '</div>'.format(gc, ctx["symbol"], ctx["name"], grade),
+            '<div style="background:linear-gradient(135deg,#0D0D14 0%,#12121C 100%);'
+            'border:1px solid #1E1E2A;border-left:3px solid {gc};border-radius:6px;'
+            'padding:12px 14px;margin-bottom:8px">'
+            '<div style="font-size:0.6rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-bottom:6px;font-weight:500">Discussing</div>'
+            '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:4px">'
+            '<span style="font-family:\'JetBrains Mono\',monospace;font-size:1rem;font-weight:600;color:#F2F2F5;letter-spacing:-0.01em">{sym}</span>'
+            '<span style="font-size:0.65rem;font-weight:700;color:{gc};border:1px solid {gc}66;background:{gc}15;padding:1px 7px;border-radius:3px;letter-spacing:0.5px">{grade}</span>'
+            '</div>'
+            '<div style="font-size:0.72rem;color:#9A9AA8;margin-bottom:8px">{name}</div>'
+            '<div style="display:flex;align-items:baseline;gap:10px;font-size:0.62rem;color:#5A5A66;letter-spacing:0.3px">'
+            '<span>MOAT <span style="font-family:\'JetBrains Mono\',monospace;font-weight:600;color:{gc}">{score}</span>/100</span>'
+            '{date_chip}'
+            '</div>'
+            '</div>'.format(
+                gc=gc,
+                sym=ctx["symbol"],
+                grade=grade,
+                name=ctx["name"][:28],
+                score=score,
+                date_chip='<span>·</span><span>分析于 {}</span>'.format(_last_analysis_str) if _last_analysis_str else "",
+            ),
             unsafe_allow_html=True)
         if st.button("Clear context", use_container_width=True):
             st.session_state.pop("chat_context_stock", None)

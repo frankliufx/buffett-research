@@ -214,6 +214,84 @@ _html("""
 """ + tier_rows + "</div>", height=300)
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Hall of Fame & Wall of Shame — the moat made visible
+# (only thing competitors literally cannot reproduce: your real prediction record)
+# ══════════════════════════════════════════════════════════════════════════════
+_records_with_returns = [r for r in enriched if r.get("return_pct") is not None]
+if _records_with_returns:
+    # Top 3 best AND worst by absolute return
+    _best = sorted(_records_with_returns, key=lambda r: r.get("return_pct") or -999, reverse=True)[:3]
+    _worst = sorted(_records_with_returns, key=lambda r: r.get("return_pct") or 999)[:3]
+
+    def _wall_card(rec, *, color, accent_emoji):
+        sym = rec.get("symbol", "")
+        name = (rec.get("name", "") or "")[:18]
+        ret = rec.get("return_pct") or 0
+        score = rec.get("score_total", 0) or 0
+        days = _days_ago(rec.get("timestamp", ""))
+        ret_str = "{:+.1f}%".format(ret)
+        verdict = rec.get("verdict", "")[:20]
+        return f"""
+<div style="background:#0D0D14;border:1px solid #1E1E2A;border-left:3px solid {color};
+  border-radius:6px;padding:14px 16px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;font-weight:600;color:#F2F2F5;letter-spacing:-0.01em;">
+      {sym}
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:1.05rem;font-weight:700;color:{color};letter-spacing:-0.01em;">
+      {accent_emoji} {ret_str}
+    </div>
+  </div>
+  <div style="font-size:0.72rem;color:#9A9AA8;margin-bottom:8px;line-height:1.3;">
+    {name}
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;font-size:0.6rem;color:#5A5A66;letter-spacing:0.3px;">
+    <span>MOAT <span style="color:#C9A962;font-family:'JetBrains Mono',monospace;font-weight:600;">{score:.0f}</span></span>
+    <span>·</span>
+    <span>{days} days ago</span>
+    <span>·</span>
+    <span style="color:#7A7A88;">{verdict}</span>
+  </div>
+</div>"""
+
+    _hof_html = "".join(_wall_card(r, color="#3ECF8E", accent_emoji="▲") for r in _best)
+    _wos_html = "".join(_wall_card(r, color="#EF4444", accent_emoji="▼") for r in _worst)
+
+    components.html(f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:#0A0A0F;font-family:'Inter',-apple-system,sans-serif;padding:32px 0 0;color:#F2F2F5}}
+.section-title{{font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:600;color:#F2F2F5;line-height:1.2;margin-bottom:4px}}
+.section-title .accent{{font-style:italic;color:#C9A962;font-weight:600}}
+.section-sub{{font-size:0.66rem;color:#5A5A66;letter-spacing:0.5px;margin-bottom:16px}}
+.split{{display:grid;grid-template-columns:1fr 1fr;gap:20px}}
+.col-header{{display:flex;align-items:center;gap:8px;font-size:0.6rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:500;margin-bottom:10px}}
+.col-rows{{display:flex;flex-direction:column;gap:8px}}
+@media (max-width:720px){{.split{{grid-template-columns:1fr}}}}
+</style></head><body>
+<div class="section-title">Your <span class="accent">Track Record</span> — verifiable, time-stamped.</div>
+<div class="section-sub">Every analysis is a public-to-yourself prediction. Time scores the work.</div>
+<div class="split">
+  <div>
+    <div class="col-header" style="color:#3ECF8E;">
+      <span style="font-size:1rem;">🏆</span>
+      <span>Hall of Fame · Top {len(_best)} returns</span>
+    </div>
+    <div class="col-rows">{_hof_html}</div>
+  </div>
+  <div>
+    <div class="col-header" style="color:#EF4444;">
+      <span style="font-size:1rem;">⚠️</span>
+      <span>Wall of Shame · Worst {len(_worst)} returns</span>
+    </div>
+    <div class="col-rows">{_wos_html}</div>
+  </div>
+</div>
+</body></html>""", height=460, scrolling=False)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # 分析明细表
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown("""

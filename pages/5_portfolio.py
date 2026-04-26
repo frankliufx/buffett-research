@@ -185,49 +185,106 @@ def _fmt_money(val):
         return "{:,.0f}".format(val)
     return "{:,.2f}".format(val)
 
+# ── Portfolio MOAT weighted score (audit signature feature — no competitor has it) ──
+# Pulls each holding's most recent MOAT grade from analysis history, weighted by
+# market value. The result tells the user: is your *capital* concentrated in
+# high-quality businesses, or low-quality ones? Independent of P&L.
+try:
+    from src.tracker import load_user_analysis_history as _hist_for_moat
+    _all_hist = _hist_for_moat(_uid, limit=400)
+except Exception:
+    _all_hist = []
+
+# Build symbol → most-recent score lookup (latest record wins per symbol)
+_score_by_sym = {}
+for _r in reversed(_all_hist):  # oldest first → latest overrides
+    _sym = _r.get("symbol", "")
+    if _sym:
+        _score_by_sym[_sym.upper()] = float(_r.get("score_total", 0) or 0)
+
+# Weighted score across positions; un-analyzed positions count as 0 (penalty for not doing the work)
+_pf_moat_numerator = 0.0
+_pf_moat_denominator = 0.0
+_analyzed_value = 0.0
+for _e in enriched:
+    _w = float(_e.get("market_value", 0) or 0)
+    if _w <= 0:
+        continue
+    _s = _score_by_sym.get(_e.get("symbol", "").upper())
+    if _s is not None:
+        _pf_moat_numerator += _s * _w
+        _analyzed_value += _w
+    _pf_moat_denominator += _w
+
+_pf_moat = (_pf_moat_numerator / _pf_moat_denominator) if _pf_moat_denominator > 0 else 0
+_analyzed_pct = (_analyzed_value / _pf_moat_denominator * 100) if _pf_moat_denominator > 0 else 0
+
+if _pf_moat >= 65:
+    _moat_color = "#3ECF8E"   # high quality
+    _moat_label = "high quality"
+elif _pf_moat >= 50:
+    _moat_color = "#C9A962"
+    _moat_label = "balanced"
+elif _pf_moat >= 35:
+    _moat_color = "#F5A623"
+    _moat_label = "speculative"
+else:
+    _moat_color = "#9A9AA8" if _analyzed_value == 0 else "#EF4444"
+    _moat_label = "needs analysis" if _analyzed_value == 0 else "low quality"
+
 components.html('''<!DOCTYPE html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{background:#0A0A0F;font-family:'Inter',-apple-system,sans-serif;padding:16px 0}}
-.summary-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}}
-.s-card{{background:#0D0D14;border:1px solid #1E1E2A;border-radius:4px;padding:18px 20px}}
-.s-label{{font-size:0.5rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-bottom:8px}}
+.summary-grid{{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:12px}}
+.s-card{{background:#0D0D14;border:1px solid #1E1E2A;border-radius:6px;padding:18px 20px}}
+.s-card.moat{{background:linear-gradient(135deg,#0D0D14 0%,#12121C 100%);border:1px solid {moat_color}33;border-left:3px solid {moat_color}}}
+.s-label{{font-size:0.6rem;letter-spacing:1px;color:#5A5A66;text-transform:uppercase;margin-bottom:8px;font-weight:500}}
 .s-value{{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.6rem;font-weight:700;color:#E8E8F0;line-height:1}}
+.s-value.mono{{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}}
 .s-value.pnl{{color:{pnl_color}}}
-.s-sub{{font-size:0.6rem;color:#5A5A66;margin-top:4px;letter-spacing:0.5px}}
+.s-value.moat{{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;color:{moat_color};font-size:1.9rem}}
+.s-value.moat .max{{font-size:0.75rem;color:#5A5A66;font-weight:300;letter-spacing:0}}
+.s-sub{{font-size:0.66rem;color:#5A5A66;margin-top:6px;letter-spacing:0.3px}}
+.moat-tag{{display:inline-block;font-size:0.55rem;letter-spacing:1px;color:{moat_color};text-transform:uppercase;border:1px solid {moat_color}55;background:{moat_color}15;padding:2px 7px;border-radius:3px;margin-top:6px}}
 </style></head><body>
 <div class="summary-grid">
+    <div class="s-card moat">
+        <div class="s-label">Portfolio MOAT</div>
+        <div class="s-value moat">{moat_score:.0f}<span class="max"> /100</span></div>
+        <div class="moat-tag">{moat_label}</div>
+        <div class="s-sub">{analyzed_pct:.0f}% of capital analyzed · weighted by position size</div>
+    </div>
     <div class="s-card">
         <div class="s-label">Total Value</div>
-        <div class="s-value">${value}</div>
+        <div class="s-value mono">${value}</div>
         <div class="s-sub">{count} positions</div>
     </div>
     <div class="s-card">
-        <div class="s-label">Total Cost</div>
-        <div class="s-value">${cost}</div>
-    </div>
-    <div class="s-card">
         <div class="s-label">Total P&amp;L</div>
-        <div class="s-value pnl">{arrow} ${pnl}</div>
+        <div class="s-value mono pnl">{arrow} ${pnl}</div>
         <div class="s-sub" style="color:{pnl_color}">{pnl_pct:+.2f}%</div>
     </div>
     <div class="s-card">
         <div class="s-label">Today</div>
-        <div class="s-value pnl">{today_arrow} ${today_pnl}</div>
+        <div class="s-value mono pnl">{today_arrow} ${today_pnl}</div>
     </div>
 </div>
 </body></html>'''.format(
     pnl_color=pnl_color,
+    moat_color=_moat_color,
+    moat_score=_pf_moat,
+    moat_label=_moat_label,
+    analyzed_pct=_analyzed_pct,
     value=_fmt_money(total_value),
-    cost=_fmt_money(total_cost),
     count=len(positions),
     arrow=pnl_arrow,
     pnl=_fmt_money(abs(total_pnl)),
     pnl_pct=total_pnl_pct,
     today_arrow="&#x25B2;" if sum(e["change_pct"] for e in enriched) >= 0 else "&#x25BC;",
     today_pnl=_fmt_money(abs(sum(e["market_value"] * e["change_pct"] / 100 for e in enriched if e["market_value"]))),
-), height=120, scrolling=False)
+), height=140, scrolling=False)
 
 
 # ── Allocation Pie + Positions Table ──────────────────────────────────────────

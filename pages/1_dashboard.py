@@ -395,11 +395,41 @@ tr:hover{{background:#0F0F18}}
         wl_tabs.append("A-Share ({})".format(len(a_stocks)))
         wl_tab_data.append(("¥", a_stocks))
 
+    # ── Add a "Stale" tab if any watchlist stocks haven't been analyzed ──
+    # (audit recommendation: stale-stocks notification → first-class sortable tab)
+    _scores_map_for_tabs = st.session_state.get("analysis_scores", {})
+    _stale_stocks = []
+    for _s in stocks_list:
+        _k = "{}:{}".format(_s["market"], _s["symbol"])
+        if _k not in _scores_map_for_tabs:
+            _cur_for_stale = {"us": "$", "hk": "HK$", "a_share": "¥"}.get(_s["market"], "$")
+            _stale_stocks.append({**_s, "_cur": _cur_for_stale})
+    if _stale_stocks:
+        wl_tabs.append("⚠ Stale ({})".format(len(_stale_stocks)))
+        wl_tab_data.append(("⚠", _stale_stocks))
+
     if wl_tabs:
         tabs = st.tabs(wl_tabs)
         for tab, (cur, data) in zip(tabs, wl_tab_data):
             with tab:
-                _render_stock_table(data, cur)
+                if cur == "⚠":
+                    # Stale tab: render compact list with "Analyze now" hint
+                    st.caption("These stocks haven't been analyzed yet. Run an analysis to see scores + verdicts here.")
+                    for s in data:
+                        st.markdown(
+                            '<div style="display:flex;align-items:center;justify-content:space-between;'
+                            'padding:8px 12px;background:#0D0D14;border:1px solid #2A2A33;'
+                            'border-left:3px solid #C9A962;border-radius:4px;margin-bottom:6px;">'
+                            '<div style="display:flex;align-items:baseline;gap:10px;">'
+                            '<span style="font-family:\'JetBrains Mono\',monospace;font-size:0.82rem;font-weight:600;color:#F2F2F5;">{sym}</span>'
+                            '<span style="font-size:0.74rem;color:#9A9AA8;">{name}</span>'
+                            '</div>'
+                            '<span style="font-size:0.6rem;letter-spacing:1px;color:#C9A962;text-transform:uppercase;">→ analyze</span>'
+                            '</div>'.format(sym=s["symbol"], name=s.get("name", "")[:30]),
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    _render_stock_table(data, cur)
 else:
     st.caption("No stocks in watchlist. Add tickers above.")
 
