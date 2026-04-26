@@ -1053,6 +1053,80 @@ if _search_query and len(_search_query.strip()) >= 1:
     else:
         st.caption("未找到匹配股票。你可以直接在下方市场标签中输入代码运行分析。")
 
+# ── Empty-state quick entry: Recent + Stale (only show when no quick-search active) ──
+if not st.session_state.get("_quick_search_symbol"):
+    try:
+        from src.tracker import load_user_analysis_history as _ld_recent
+        _user_for_recent = get_current_user() or {}
+        _uid_recent = _user_for_recent.get("username", "anonymous")
+        _recent = _ld_recent(_uid_recent, limit=12)
+    except Exception:
+        _recent = []
+
+    if _recent:
+        # Build cards: most-recent unique tickers (up to 4)
+        _seen_recent = set()
+        _recent_unique = []
+        for _r in _recent:
+            _key = (_r.get("market", ""), _r.get("symbol", ""))
+            if _key in _seen_recent:
+                continue
+            _seen_recent.add(_key)
+            _recent_unique.append(_r)
+            if len(_recent_unique) >= 4:
+                break
+
+        # Render as a horizontal strip — quick re-entry
+        import datetime as _dt_strip
+        _now_strip = _dt_strip.datetime.now()
+
+        def _days_since(ts: str) -> str:
+            try:
+                _d = _dt_strip.datetime.fromisoformat(str(ts)[:19])
+                _delta = (_now_strip - _d).days
+                if _delta == 0: return "today"
+                if _delta == 1: return "1d"
+                if _delta < 30: return f"{_delta}d"
+                if _delta < 365: return f"{_delta // 30}mo"
+                return f"{_delta // 365}y"
+            except Exception:
+                return ""
+
+        _strip_html_parts = []
+        for _r in _recent_unique:
+            _sym = _r.get("symbol", "")
+            _name = (_r.get("name", "") or _sym)[:18]
+            _score = _r.get("score_total", 0)
+            _grade = _r.get("grade", "")
+            _gc = {"S": "#C9A962", "A": "#3ECF8E", "B": "#5BA4CF", "C": "#F5A623"}.get(_grade, "#5A5A66")
+            _ds = _days_since(_r.get("timestamp", ""))
+            _strip_html_parts.append(
+                f'<div style="background:#0D0D14;border:1px solid #2A2A33;border-radius:6px;'
+                f'padding:12px 14px;flex:1;min-width:0;cursor:default;transition:border-color 120ms;">'
+                f'  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-bottom:4px;">'
+                f'    <span style="font-family:\'JetBrains Mono\',monospace;font-size:0.82rem;font-weight:600;color:#F2F2F5;letter-spacing:-0.01em;">{_sym}</span>'
+                f'    <span style="font-size:0.55rem;font-weight:700;color:{_gc};border:1px solid {_gc}66;background:{_gc}15;padding:1px 6px;border-radius:3px;">{_grade or "—"}</span>'
+                f'  </div>'
+                f'  <div style="font-size:0.7rem;color:#9A9AA8;line-height:1.3;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{_name}</div>'
+                f'  <div style="display:flex;align-items:center;gap:8px;font-size:0.6rem;color:#5A5A66;">'
+                f'    <span>MOAT <span style="font-family:\'JetBrains Mono\',monospace;color:{_gc};font-weight:600;">{_score}</span></span>'
+                f'    <span>·</span>'
+                f'    <span>{_ds}</span>'
+                f'  </div>'
+                f'</div>'
+            )
+
+        _strip_inner = "".join(_strip_html_parts)
+        st.markdown(
+            f'<div style="margin-top:18px;">'
+            f'  <div style="font-size:0.62rem;letter-spacing:1.5px;color:#9A9AA8;text-transform:uppercase;font-weight:500;margin-bottom:10px;">'
+            f'    Recently analyzed · pick up where you left off'
+            f'  </div>'
+            f'  <div style="display:flex;gap:10px;flex-wrap:wrap;">{_strip_inner}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
 # 快速搜索直接触发分析
 if st.session_state.get("_quick_search_symbol"):
     _qs_sym = st.session_state.pop("_quick_search_symbol")

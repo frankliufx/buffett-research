@@ -125,6 +125,41 @@ def get_global_css():
         background: var(--surface-raised) !important;
         border-right: 1px solid var(--ink-disabled) !important;
     }
+    /* Sidebar nav (st.navigation grouped) — group labels + active item */
+    [data-testid="stSidebarNav"] {
+        padding: 8px 0 !important;
+    }
+    [data-testid="stSidebarNav"] > div > span {
+        /* Group label ('Workspace' / 'AI Tools' / etc.) */
+        font-family: var(--font-sans) !important;
+        font-size: 0.6rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 1.5px !important;
+        text-transform: uppercase !important;
+        color: var(--ink-muted) !important;
+        padding: 12px 16px 6px !important;
+        display: block;
+    }
+    [data-testid="stSidebarNav"] a {
+        font-family: var(--font-sans) !important;
+        font-size: 0.85rem !important;
+        font-weight: 500 !important;
+        color: var(--ink-secondary) !important;
+        padding: 8px 14px !important;
+        border-radius: var(--r-sm) !important;
+        margin: 1px 6px !important;
+        transition: all 100ms ease !important;
+    }
+    [data-testid="stSidebarNav"] a:hover {
+        background: var(--surface-hover) !important;
+        color: var(--ink-primary) !important;
+    }
+    [data-testid="stSidebarNav"] a[aria-current="page"] {
+        background: rgba(201,169,98,0.08) !important;
+        color: var(--gold) !important;
+        border-left: 2px solid var(--gold) !important;
+        padding-left: 12px !important;
+    }
     /* Tabs: more visible v2 styling */
     [data-baseweb="tab-list"] {
         border-bottom: 1px solid var(--ink-disabled) !important;
