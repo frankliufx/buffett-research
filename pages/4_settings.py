@@ -4,11 +4,18 @@ import streamlit as st
 from src.config import ApiProvider, save_config, get_active_provider
 from src.output.notify import send_notification, format_daily_push
 from src.ui_theme import get_global_css, COLORS
+from src.keyring import (
+    hydrate_keys_from_browser, save_keys_to_browser, clear_keys,
+    is_persisted_in_browser, mask,
+)
 
 from src.config import load_config
 if "config" not in st.session_state:
     st.session_state.config = load_config()
 config = st.session_state.config
+
+# Browser-only API key flow: pull from localStorage on every script run
+hydrate_keys_from_browser(config)
 
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
@@ -36,6 +43,25 @@ with tab_api:
     st.markdown('<div style="color:{}; font-size:0.75rem; letter-spacing:1px; margin-bottom:0.8rem;">AI MODEL CONFIGURATION</div>'.format(
         COLORS["text_muted"]), unsafe_allow_html=True)
     st.caption("Supports Anthropic, DeepSeek, OpenRouter, and any OpenAI-compatible API.")
+
+    # ── Browser-only key isolation banner ────────────────────────────────────
+    # Per project policy: keys flow user → browser → outbound only.
+    # Server's config.yaml is stripped of api_key on save (src/config.save_config).
+    st.markdown(
+        '<div style="background:#0D0D14;border:1px solid #2A2A33;border-left:3px solid #C9A962;'
+        'border-radius:6px;padding:12px 16px;margin-bottom:14px;">'
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+        '<span style="font-size:1rem;">🔐</span>'
+        '<span style="font-family:\'Inter\',sans-serif;font-size:0.78rem;font-weight:600;color:#F2F2F5;letter-spacing:-0.005em;">'
+        'Browser-only API keys'
+        '</span></div>'
+        '<div style="font-size:0.72rem;color:#9A9AA8;line-height:1.55;">'
+        'Your API keys live in <b style="color:#C9A962;">your browser only</b>. '
+        'They never touch the server\'s disk or logs. Use <i>Save in browser</i> '
+        'below to persist between tabs; <i>Clear</i> wipes both browser and session.'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
 
     providers = config.api.providers
 
@@ -65,11 +91,50 @@ with tab_api:
                                                key="api_url_{}".format(i),
                                                help="e.g. https://openrouter.ai/api/v1")
 
+            # API key input — masked, browser-only persistence
+            _persisted = is_persisted_in_browser(p)
+            _key_help = (
+                "✓ saved in your browser (localStorage)" if _persisted
+                else "Paste your key. It will only be stored in this browser session "
+                     "unless you click 'Save in browser' below."
+            )
             p.api_key = st.text_input(
                 "API Key", value=p.api_key, type="password",
                 key="api_key_{}".format(i),
-                help="Key is session-only unless saved to config",
+                help=_key_help,
+                placeholder="sk-… (kept local to your browser)",
             )
+
+            # Persist / clear controls — explicit browser write/wipe
+            _save_col, _clear_col, _status_col = st.columns([1, 1, 2])
+            with _save_col:
+                if st.button("💾 Save in browser",
+                             key="save_browser_{}".format(i),
+                             use_container_width=True,
+                             help="Persist this key to your browser's localStorage (never leaves your browser)"):
+                    if p.api_key:
+                        save_keys_to_browser(config)
+                        st.success("Saved to browser.", icon="🔐")
+                    else:
+                        st.warning("Enter a key first.")
+            with _clear_col:
+                if st.button("🧹 Clear",
+                             key="clear_browser_{}".format(i),
+                             use_container_width=True,
+                             help="Wipe the key from both this session and your browser"):
+                    clear_keys(config)
+                    st.success("Cleared.")
+                    st.rerun()
+            with _status_col:
+                if p.api_key:
+                    _status_color = "#3ECF8E" if _persisted else "#C9A962"
+                    _status_text = "in browser · " + mask(p.api_key) if _persisted else "session-only · " + mask(p.api_key)
+                    st.markdown(
+                        '<div style="font-family:\'JetBrains Mono\',monospace;font-size:0.7rem;color:{c};'
+                        'padding:6px 0;letter-spacing:-0.01em;">'
+                        '● {t}</div>'.format(c=_status_color, t=_status_text),
+                        unsafe_allow_html=True,
+                    )
 
             col_act, col_test, col_del = st.columns(3)
             with col_act:

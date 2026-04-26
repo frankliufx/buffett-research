@@ -15,10 +15,19 @@ __pycache__/
 .Python
 
 # 本地环境与密钥（绝不提交）
+# 项目策略：API key 应留在浏览器 localStorage，不写盘 — 见 src/keyring.py
 .env
+.env.*
+!.env.example
 config.yaml
 .streamlit/secrets.toml
 users.yaml
+# 任何 *_key, *_secret 文件兜底
+**/*api_key*
+**/*api_secret*
+**/secret*.json
+**/secret*.yaml
+**/secret*.yml
 
 # 日志
 logs/

@@ -27,6 +27,18 @@ if "config" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+# Pull API keys from browser localStorage (browser-only key isolation).
+# This must run BEFORE any page renders, so every page (chat / analysis /
+# hedge fund) sees a populated config.api.providers[*].api_key without
+# the user re-entering it on every fresh tab.
+try:
+    from src.keyring import hydrate_keys_from_browser
+    hydrate_keys_from_browser(st.session_state.config)
+except Exception:
+    # Non-fatal: if streamlit-local-storage iframe hasn't mounted yet,
+    # the user can still paste a key in Settings; we just won't auto-restore.
+    pass
+
 # Auto-start background scheduler if notifications are enabled
 if st.session_state.config.notify.enabled:
     try:
