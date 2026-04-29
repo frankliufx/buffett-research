@@ -169,6 +169,9 @@ def cached_fetch_quote(symbol, market):
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_fetch_fundamentals(symbol, market):
     try:
+        if os.getenv("DB_FIRST_ENABLED", "").lower() in ("1", "true", "yes"):
+            from src.db.repository import get_or_fetch_fundamentals
+            return get_or_fetch_fundamentals(symbol, market)
         return fetch_fundamentals(symbol, market)
     except Exception as e:
         logging.warning("fetch_fundamentals failed %s: %s", symbol, e)
