@@ -24,7 +24,8 @@ from src.analysis.fundamental import analyze_buffett, _normalize_fundamentals
 from src.analysis.moat import score_moat
 from src.analysis.signals import AnalysisResult
 from src.ai.summarizer import (analyze_stock, generate_market_overview, get_ai_brief,
-                                get_ai_insights, get_ashare_brief, analyze_ashare_stock)
+                                get_ai_insights, get_ashare_brief, analyze_ashare_stock,
+                                _call_llm)
 from src.ai.knowledge_base import BUFFETT_PHILOSOPHY, DUAN_YONGPING_PHILOSOPHY
 from src.analysis.valuation import calc_dcf, calc_multi_model_valuation
 from src.analysis.risk import calculate_volatility, calculate_position_limit, generate_risk_report

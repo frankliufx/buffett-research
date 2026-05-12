@@ -230,3 +230,106 @@ def run_hedge_fund(
         "neutral_count": neut_n,
         "data_context": data_context,
     }
+
+
+# ----------------------------------------------------------------------------
+# Full workflow v2: 4 阶段管道
+#   1) 13 大师并行（已有 run_hedge_fund）
+#   2) 新闻情绪（news_analyst）
+#   3) 风险评估（analysis.risk）
+#   4) Portfolio Manager 综合 → 最终决策
+# ----------------------------------------------------------------------------
+
+def run_full_workflow(
+    symbol: str,
+    name: str,
+    market: str,
+    price: float,
+    fundamentals: dict,
+    normalized: dict,
+    moat: dict,
+    dcf: dict,
+    tech: dict,
+    df_history,
+    analyst_ids: list[str],
+    provider: ApiProvider,
+    fetch_news_fn=None,
+    max_workers: int = 6,
+) -> Optional[dict]:
+    """完整工作流：13 大师 → 新闻 → 风险 → Portfolio Manager。
+
+    Args:
+        df_history: 历史行情 DataFrame（用于波动率）
+        fetch_news_fn: 注入式（默认懒加载 fetch_stock_news），便于测试与解耦
+
+    Returns:
+        在原 run_hedge_fund 输出基础上追加：
+        - news_sentiment: dict
+        - risk: dict
+        - final_decision: dict (来自 portfolio_manager)
+    """
+    # ---- Stage 1: 13 大师投票 ----
+    hedge = run_hedge_fund(symbol, name, price, fundamentals, normalized, moat, dcf, tech,
+                           analyst_ids, provider, max_workers=max_workers)
+    if not hedge:
+        return None
+    votes = hedge["analysts"]
+
+    # ---- Stage 2: 新闻情绪 ----
+    from src.ai.news_analyst import analyze_news_sentiment
+    if fetch_news_fn is None:
+        from src.data.news import fetch_stock_news
+        fetch_news_fn = fetch_stock_news
+    try:
+        articles = fetch_news_fn(symbol, market, limit=10) or []
+    except Exception as e:
+        logger.warning("Fetch news failed for %s: %s", symbol, e)
+        articles = []
+    news_sentiment = analyze_news_sentiment(symbol, name, articles, provider).to_dict()
+
+    # ---- Stage 3: 风险评估 ----
+    from src.analysis.risk import calculate_volatility, calculate_position_limit
+    vol = calculate_volatility(df_history) if df_history is not None else None
+    pos = calculate_position_limit(vol or {})
+    risk = {
+        "annual_vol_pct": round((vol or {}).get("annual_vol", 0) * 100, 1) if vol else None,
+        "regime": (vol or {}).get("regime"),
+        "risk_level": pos.get("risk_level"),
+        "max_position_pct": pos.get("max_position_pct"),
+        "rationale": pos.get("rationale"),
+    }
+
+    # ---- Stage 4: Portfolio Manager ----
+    from src.ai.portfolio_manager import make_final_decision
+    valuation = {
+        "price": price,
+        "intrinsic_value": (dcf or {}).get("intrinsic_value"),
+        "safety_margin_pct": (dcf or {}).get("safety_margin_pct"),
+    }
+    final = make_final_decision(
+        symbol=symbol, name=name, price=price,
+        votes=votes, news=news_sentiment, risk=risk,
+        valuation=valuation, provider=provider,
+    )
+
+    result = {
+        **hedge,
+        "price": price,
+        "market": market,
+        "name": name,
+        "news_sentiment": news_sentiment,
+        "risk": risk,
+        "final_decision": final,
+    }
+
+    # ---- Stage 5: 决策落库（容错，不影响 UI 主流程）----
+    try:
+        from src.db.decisions import persist_decision
+        provider_name = getattr(provider, "model", None) or getattr(provider, "name", None) or str(type(provider).__name__)
+        decision_id = persist_decision(symbol, market, name, result, provider_name=provider_name)
+        if decision_id:
+            result["decision_id"] = decision_id
+    except Exception as e:
+        logger.warning("Decision persistence skipped for %s: %s", symbol, e)
+
+    return result

@@ -18,7 +18,7 @@ from src.analysis.moat import score_moat
 from src.analysis.valuation import calc_dcf
 from src.analysis.technical import compute_indicators, generate_technical_signal
 from src.ai.hedge_fund_agents import HEDGE_FUND_ANALYSTS, ANALYST_GROUPS, ANALYST_BY_ID
-from src.ai.hedge_fund_runner import run_hedge_fund
+from src.ai.hedge_fund_runner import run_hedge_fund, run_full_workflow
 from src.ui_theme import get_global_css
 
 logging.basicConfig(level=logging.WARNING)
@@ -377,14 +377,15 @@ with result_col:
                 normalized = _normalize_fundamentals(fundamentals)
                 price = float(quote.get("price") or quote.get("regularMarketPrice") or 0)
 
-                # 计算 moat / dcf / tech
+                # 计算 buffett / dcf / tech (moat needs tech_signal first → see below)
                 buffett_res = analyze_buffett(fundamentals, normalized)
-                moat = score_moat(fundamentals, normalized)
                 dcf = calc_dcf(price, fundamentals, normalized) if price > 0 else {}
                 tech = {}
+                tech_signal = {}
                 if df is not None and not df.empty:
                     df_ind = compute_indicators(df)
                     sig = generate_technical_signal(df_ind)
+                    tech_signal = sig
                     tech = {
                         "trend": sig.get("trend"),
                         "momentum": sig.get("momentum"),
@@ -392,15 +393,20 @@ with result_col:
                         "macd": sig.get("macd"),
                     }
 
-                hf_result = run_hedge_fund(
+                # moat depends on tech signal — must be computed after tech_signal
+                moat = score_moat(fundamentals, normalized, tech_signal)
+
+                hf_result = run_full_workflow(
                     symbol=ticker_input,
                     name=quote.get("shortName") or quote.get("longName") or ticker_input,
+                    market=market_code,
                     price=price,
                     fundamentals=fundamentals,
                     normalized=normalized,
                     moat=moat,
                     dcf=dcf,
                     tech=tech,
+                    df_history=df_ind if df is not None and not df.empty else None,
                     analyst_ids=selected_ids,
                     provider=provider,
                 )
@@ -479,6 +485,158 @@ with result_col:
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+        # ── 决策面板（Phase 1.4）────────────────────
+        fd = r.get("final_decision")
+        ns = r.get("news_sentiment") or {}
+        rk = r.get("risk") or {}
+        if fd:
+            action_colors = {
+                "买入": "#00C853", "加仓": "#26A69A", "持有": "#C9A962",
+                "减仓": "#FF8A65", "卖出": "#F44336",
+            }
+            ac = action_colors.get(fd["action"], "#C9A962")
+            ez = fd.get("entry_zone", {})
+            sl = fd.get("stop_loss", {})
+            tp = fd.get("take_profit", {})
+
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#0a0d14 0%,#141822 100%);
+                 border:1px solid rgba(201,169,98,0.18);border-radius:6px;padding:24px 28px;margin:14px 0">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;
+                     border-bottom:1px solid rgba(201,169,98,0.12);padding-bottom:14px;margin-bottom:18px">
+                    <div>
+                        <div style="font-size:0.42rem;letter-spacing:5px;color:rgba(201,169,98,0.5);
+                             text-transform:uppercase">portfolio manager · 综合决策</div>
+                        <div style="font-size:1.85rem;font-weight:700;color:{ac};margin:6px 0 0;line-height:1.1">
+                            {fd['action']}</div>
+                        <div style="font-size:0.85rem;color:#a8a39a;margin-top:4px">
+                            {fd['conviction']}信心 · {fd['horizon']} ·
+                            综合分 {fd['combined_score']:+d}</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div style="font-size:0.42rem;letter-spacing:4px;color:rgba(201,169,98,0.5)">建议仓位</div>
+                        <div style="font-size:2.0rem;font-weight:700;color:#C9A962">{fd['position_pct']}%</div>
+                        <div style="font-size:0.78rem;color:#888;margin-top:2px">
+                            上限 {rk.get('max_position_pct', '—')}% · {rk.get('risk_level', '—')}风险</div>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:14px">
+                    <div>
+                        <div style="font-size:0.40rem;letter-spacing:3px;color:rgba(201,169,98,0.5);
+                             text-transform:uppercase;margin-bottom:6px">入场区间</div>
+                        <div style="font-size:1.1rem;font-weight:600;color:#fff">
+                            {ez.get('ideal','—')} ~ {ez.get('acceptable','—')}</div>
+                        <div style="font-size:0.72rem;color:#888;margin-top:2px">{ez.get('anchor','—')}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.40rem;letter-spacing:3px;color:rgba(244,67,54,0.65);
+                             text-transform:uppercase;margin-bottom:6px">止损</div>
+                        <div style="font-size:1.1rem;font-weight:600;color:#F44336">
+                            {sl.get('price','—')}</div>
+                        <div style="font-size:0.72rem;color:#888;margin-top:2px">
+                            {sl.get('rationale','—')}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.40rem;letter-spacing:3px;color:rgba(0,200,83,0.65);
+                             text-transform:uppercase;margin-bottom:6px">止盈目标</div>
+                        <div style="font-size:1.1rem;font-weight:600;color:#00C853">
+                            {tp.get('price','—')}</div>
+                        <div style="font-size:0.72rem;color:#888;margin-top:2px">
+                            {tp.get('rationale','—')}</div>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:14px;font-size:0.82rem;color:#a8a39a;
+                     padding:10px 14px;background:rgba(201,169,98,0.04);border-radius:4px;margin-bottom:14px">
+                    <div><b style="color:#C9A962">📰 新闻</b> {ns.get('label','—')}
+                        ({ns.get('score',0):+d}, n={ns.get('article_count',0)})</div>
+                    <div><b style="color:#C9A962">⚠️ 风险</b> {rk.get('regime','—')} · 年化{rk.get('annual_vol_pct','—')}%</div>
+                    <div><b style="color:#C9A962">🗳️ 投票</b>
+                        多 {fd['vote_aggregate']['bullish_weight']} ·
+                        空 {fd['vote_aggregate']['bearish_weight']} · {fd['vote_aggregate']['unanimity']}</div>
+                </div>
+
+                <div style="font-size:0.40rem;letter-spacing:3px;color:rgba(201,169,98,0.5);
+                     text-transform:uppercase;margin-bottom:8px">推理链</div>
+                <div style="font-size:0.93rem;color:#d4ccbb;line-height:1.7;white-space:pre-wrap">
+{fd.get('reasoning','')}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ── 历史决策（最近 10 次）────────────────────
+        try:
+            from src.db.decisions import get_recent_decisions
+            from src.db.repository import get_or_create_stock as _gocs
+            from src.db.session import db_available as _db_avail
+            _MARKET_CANON_UI = {"US": "us", "CN": "a_share", "HK": "hk"}
+            if _db_avail():
+                _mk = _MARKET_CANON_UI.get(market_code, market_code.lower())
+                _sid = _gocs(ticker_input, _mk, sym)
+                _history = get_recent_decisions(_sid, limit=10)
+                # 排除当次新写入（按 decided_at 是否 < 1 分钟前粗判）
+                from datetime import datetime, timedelta, timezone
+                _now = datetime.now(timezone.utc)
+                _past = [h for h in _history if (_now - h["decided_at"]) > timedelta(seconds=30)]
+                if _past:
+                    with st.expander("📜 历史决策（最近 {} 次）".format(len(_past)), expanded=False):
+                        action_colors_h = {
+                            "买入": "#00C853", "加仓": "#26A69A", "持有": "#C9A962",
+                            "减仓": "#FF8A65", "卖出": "#F44336",
+                        }
+                        rows_html = []
+                        for h in _past:
+                            ac = action_colors_h.get(h["action"], "#C9A962")
+                            ts = h["decided_at"].astimezone().strftime("%Y-%m-%d %H:%M")
+                            pos = "{:.1f}%".format(h["position_pct"]) if h["position_pct"] else "—"
+                            rows_html.append(f"""
+                            <tr style="border-bottom:1px solid rgba(201,169,98,0.08)">
+                                <td style="padding:8px 10px;color:#888;font-size:0.78rem">{ts}</td>
+                                <td style="padding:8px 10px;color:#fff;font-weight:600">{h['price']:.2f}</td>
+                                <td style="padding:8px 10px;color:{ac};font-weight:700">{h['action']}</td>
+                                <td style="padding:8px 10px;color:#a8a39a;font-size:0.8rem">{h['conviction']}</td>
+                                <td style="padding:8px 10px;color:#fff;font-weight:600">{h['combined_score']:+d}</td>
+                                <td style="padding:8px 10px;color:#C9A962">{pos}</td>
+                                <td style="padding:8px 10px;color:#a8a39a;font-size:0.78rem">{h.get('consensus_verdict') or '—'}</td>
+                                <td style="padding:8px 10px;color:#a8a39a;font-size:0.78rem">{h.get('news_label') or '—'}</td>
+                                <td style="padding:8px 10px;color:#a8a39a;font-size:0.78rem">{h.get('risk_level') or '—'}</td>
+                            </tr>""")
+                        st.markdown(f"""
+                        <div style="background:rgba(10,13,20,0.6);border:1px solid rgba(201,169,98,0.12);
+                             border-radius:6px;overflow:hidden">
+                            <table style="width:100%;border-collapse:collapse">
+                                <thead>
+                                    <tr style="background:rgba(201,169,98,0.06);
+                                         border-bottom:1px solid rgba(201,169,98,0.18)">
+                                        <th style="padding:10px;text-align:left;font-size:0.65rem;
+                                             letter-spacing:2px;color:rgba(201,169,98,0.7)">时间</th>
+                                        <th style="padding:10px;text-align:left;font-size:0.65rem;
+                                             letter-spacing:2px;color:rgba(201,169,98,0.7)">价格</th>
+                                        <th style="padding:10px;text-align:left;font-size:0.65rem;
+                                             letter-spacing:2px;color:rgba(201,169,98,0.7)">决策</th>
+                                        <th style="padding:10px;text-align:left;font-size:0.65rem;
+                                             letter-spacing:2px;color:rgba(201,169,98,0.7)">信心</th>
+                                        <th style="padding:10px;text-align:left;font-size:0.65rem;
+                                             letter-spacing:2px;color:rgba(201,169,98,0.7)">综合分</th>
+                                        <th style="padding:10px;text-align:left;font-size:0.65rem;
+                                             letter-spacing:2px;color:rgba(201,169,98,0.7)">仓位</th>
+                                        <th style="padding:10px;text-align:left;font-size:0.65rem;
+                                             letter-spacing:2px;color:rgba(201,169,98,0.7)">大师共识</th>
+                                        <th style="padding:10px;text-align:left;font-size:0.65rem;
+                                             letter-spacing:2px;color:rgba(201,169,98,0.7)">新闻</th>
+                                        <th style="padding:10px;text-align:left;font-size:0.65rem;
+                                             letter-spacing:2px;color:rgba(201,169,98,0.7)">风险</th>
+                                    </tr>
+                                </thead>
+                                <tbody>{''.join(rows_html)}</tbody>
+                            </table>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.caption("数据源：本地 PostgreSQL（DB_FIRST_ENABLED 开启时自动落库）")
+        except Exception as _e:
+            # DB 不可用或未启用 → 静默跳过
+            pass
 
         # ── Tab 切换：卡片 vs 表格 ────────────────────
         tab_cards, tab_table, tab_data = st.tabs(["📊 分析师详情", "📋 汇总表格", "🔧 原始数据"])

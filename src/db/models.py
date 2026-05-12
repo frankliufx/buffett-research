@@ -13,7 +13,7 @@ from sqlalchemy import (
     BigInteger, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index,
     Integer, Numeric, String, Text, UniqueConstraint, func,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -137,3 +137,53 @@ class FetchAudit(Base):
     error_message: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now())
+
+
+class HedgeFundDecision(Base):
+    __tablename__ = "hedge_fund_decisions"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    stock_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("stocks.id"), nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now())
+
+    price: Mapped[Decimal] = mapped_column(Numeric(20, 4), nullable=False)
+
+    # 13 大师投票
+    analyst_ids: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    bullish_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    bearish_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    neutral_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    weighted_score: Mapped[Optional[Decimal]] = mapped_column(Numeric(6, 2))
+    consensus_signal: Mapped[Optional[str]] = mapped_column(String(20))
+    consensus_verdict: Mapped[Optional[str]] = mapped_column(String(40))
+    unanimity: Mapped[Optional[str]] = mapped_column(String(20))
+    votes_payload: Mapped[list] = mapped_column(JSONB, nullable=False)
+
+    # 新闻情绪
+    news_score: Mapped[Optional[int]] = mapped_column(Integer)
+    news_label: Mapped[Optional[str]] = mapped_column(String(20))
+    news_article_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    news_payload: Mapped[Optional[dict]] = mapped_column(JSONB)
+
+    # 风险
+    annual_vol_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(6, 2))
+    risk_regime: Mapped[Optional[str]] = mapped_column(String(40))
+    risk_level: Mapped[Optional[str]] = mapped_column(String(20))
+    max_position_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2))
+    risk_payload: Mapped[Optional[dict]] = mapped_column(JSONB)
+
+    # Portfolio Manager 决策
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    conviction: Mapped[str] = mapped_column(String(10), nullable=False)
+    combined_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    position_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(5, 2))
+    horizon: Mapped[Optional[str]] = mapped_column(String(40))
+    entry_payload: Mapped[Optional[dict]] = mapped_column(JSONB)
+    stop_loss_payload: Mapped[Optional[dict]] = mapped_column(JSONB)
+    take_profit_payload: Mapped[Optional[dict]] = mapped_column(JSONB)
+    reasoning: Mapped[Optional[str]] = mapped_column(Text)
+
+    algorithm_version: Mapped[str] = mapped_column(String(20), nullable=False, default="v1.0")
+    provider_name: Mapped[Optional[str]] = mapped_column(String(40))
+    extra: Mapped[Optional[dict]] = mapped_column(JSONB)
