@@ -409,6 +409,7 @@ with result_col:
                     df_history=df_ind if df is not None and not df.empty else None,
                     analyst_ids=selected_ids,
                     provider=provider,
+                    max_workers=config.parallel.hedgefund_workers,
                 )
 
                 if hf_result:

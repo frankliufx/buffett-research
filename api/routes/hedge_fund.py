@@ -78,6 +78,7 @@ def run_analysis(req: RunRequest):
             "macd": sig.get("macd"),
         }
 
+    from src.config import load_config
     result = run_hedge_fund(
         symbol=ticker,
         name=name,
@@ -89,6 +90,7 @@ def run_analysis(req: RunRequest):
         tech=tech,
         analyst_ids=analyst_ids,
         provider=provider,
+        max_workers=load_config().parallel.hedgefund_workers,
     )
 
     if not result:

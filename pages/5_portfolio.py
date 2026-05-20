@@ -68,6 +68,7 @@ def _fetch_live_prices(symbols_json: str) -> dict:
     from src.data.price import fetch_quote
     items = json.loads(symbols_json)
     results = {}
+    cfg = st.session_state.get("config") or load_config()
 
     def _fetch_one(item):
         try:
@@ -76,7 +77,7 @@ def _fetch_live_prices(symbols_json: str) -> dict:
         except Exception:
             return item["symbol"], {}
 
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=cfg.parallel.portfolio_workers) as executor:
         futures = [executor.submit(_fetch_one, it) for it in items]
         for f in as_completed(futures):
             sym, q = f.result()

@@ -191,7 +191,9 @@ def _fetch_roe_history(stock_id: str, years: list = None) -> list:
         return year, None
 
     results = {}
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    from src.config import load_config
+    workers = load_config().parallel.financial_workers
+    with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {executor.submit(_fetch_one, y): y for y in years}
         for future in as_completed(futures):
             year, val = future.result()

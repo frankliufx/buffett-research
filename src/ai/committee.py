@@ -18,7 +18,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
-from src.config import ApiProvider
+from src.config import ApiProvider, load_config
 
 logger = logging.getLogger(__name__)
 
@@ -242,7 +242,8 @@ def convene_committee(result, fundamentals: dict, normalized: dict,
 
     # 并行调用5位大师
     members = []
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    workers = load_config().parallel.committee_workers
+    with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {
             executor.submit(_call_master, m, data_context, provider): m
             for m in MASTERS

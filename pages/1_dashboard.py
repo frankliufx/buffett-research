@@ -259,7 +259,7 @@ def _fetch_watchlist_data(stocks_json: str):
             return {"symbol": item["symbol"], "name": item["name"], "market": item["market"],
                     "price": 0, "change_pct": 0}
 
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=config.parallel.dashboard_workers) as executor:
         futures = {executor.submit(_fetch_one, s): s for s in stocks}
         for f in as_completed(futures):
             results.append(f.result())

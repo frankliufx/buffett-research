@@ -179,11 +179,27 @@ class TechnicalConfig(BaseModel):
     lookback_days: int = 250
 
 
+class ParallelConfig(BaseModel):
+    """Centralized ThreadPoolExecutor max_workers settings.
+
+    Tune these to balance throughput vs upstream rate-limits (yfinance / akshare /
+    LLM providers). Higher = faster but more likely to be throttled.
+    """
+    dashboard_workers: int = 8     # pages/1_dashboard.py — watchlist quote fan-out
+    portfolio_workers: int = 8     # pages/5_portfolio.py — live price fan-out
+    scan_workers: int = 4          # pages/2_analysis.py — single-market scanner
+    scan_all_workers: int = 6      # pages/2_analysis.py — cross-market scanner
+    financial_workers: int = 5     # src/data/financial.py — multi-year fundamentals
+    committee_workers: int = 5     # src/ai/committee.py — 5-master LLM votes
+    hedgefund_workers: int = 6     # src/ai/hedge_fund_runner.py — 13-master LLM votes
+
+
 class AppConfig(BaseModel):
     api: ApiConfig = ApiConfig()
     watchlist: Watchlist = Watchlist()
     buffett_strategy: BuffettStrategy = BuffettStrategy()
     technical: TechnicalConfig = TechnicalConfig()
+    parallel: ParallelConfig = ParallelConfig()
     notify: NotifyConfig = NotifyConfig()
 
 

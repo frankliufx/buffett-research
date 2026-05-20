@@ -1901,7 +1901,7 @@ for tab, market_key, market_name in [
                             "Price": "-", "Grade": "-", "Score": 0,
                             "ROE": "-", "Trend": "-", "Verdict": str(e)[:30]}
 
-            with ThreadPoolExecutor(max_workers=4) as exe:
+            with ThreadPoolExecutor(max_workers=config.parallel.scan_workers) as exe:
                 futures = {exe.submit(_scan_one, s): s for s in stocks}
                 done = 0
                 for future in _as_completed(futures):
@@ -1940,7 +1940,7 @@ with tab_overview:
                     return {"ok": False, "symbol": s.symbol, "name": s.name,
                             "market": mkey, "error": str(e)[:40]}
 
-            with ThreadPoolExecutor(max_workers=6) as exe:
+            with ThreadPoolExecutor(max_workers=config.parallel.scan_all_workers) as exe:
                 futs = {exe.submit(_scan_stock, sm): sm for sm in all_stocks}
                 done_c = 0
                 for fut in _as_completed2(futs):
