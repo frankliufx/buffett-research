@@ -43,6 +43,7 @@ from src.ui_theme import (get_global_css, render_hero_header, render_buffett_quo
                           render_kpi_card, render_sidebar_status,
                           render_empty_state, render_news_item,
                           render_calendar_card, COLORS)
+from src.cache_config import CACHE_TTL
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -139,7 +140,7 @@ def _show_ai_loading(text="AI 正在深入分析这支股票"):
     )
 
 # ===== 缓存（含错误边界：单项失败不影响整页）=====
-@st.cache_data(ttl=86400, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["policy"], show_spinner=False)
 def cached_get_policy_data(symbol):
     """A股专用：获取政策概念数据（24h缓存）"""
     try:
@@ -151,7 +152,7 @@ def cached_get_policy_data(symbol):
         return {"level": "暂无明显政策主题", "score": 0, "color": "#5A5A6A",
                 "tier1": [], "tier2": [], "all_tags": []}, []
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["history"], show_spinner=False)
 def cached_fetch_history(symbol, market, days):
     try:
         return fetch_history(symbol, market, days)
@@ -159,7 +160,7 @@ def cached_fetch_history(symbol, market, days):
         logging.warning("fetch_history failed %s: %s", symbol, e)
         return pd.DataFrame()
 
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["quote"], show_spinner=False)
 def cached_fetch_quote(symbol, market):
     try:
         return fetch_quote(symbol, market)
@@ -167,7 +168,7 @@ def cached_fetch_quote(symbol, market):
         logging.warning("fetch_quote failed %s: %s", symbol, e)
         return {}
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["fundamentals"], show_spinner=False)
 def cached_fetch_fundamentals(symbol, market):
     try:
         if os.getenv("DB_FIRST_ENABLED", "").lower() in ("1", "true", "yes"):
@@ -178,7 +179,7 @@ def cached_fetch_fundamentals(symbol, market):
         logging.warning("fetch_fundamentals failed %s: %s", symbol, e)
         return {}
 
-@st.cache_data(ttl=900, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["market_news"], show_spinner=False)
 def cached_fetch_news(symbol, market, limit=8):
     try:
         return fetch_stock_news(symbol, market, limit)
@@ -186,7 +187,7 @@ def cached_fetch_news(symbol, market, limit=8):
         logging.warning("fetch_news failed %s: %s", symbol, e)
         return []
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["calendar"], show_spinner=False)
 def cached_fetch_calendar(symbol, market):
     try:
         return fetch_earnings_calendar(symbol, market)
@@ -194,7 +195,7 @@ def cached_fetch_calendar(symbol, market):
         logging.warning("fetch_calendar failed %s: %s", symbol, e)
         return []
 
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["market_news"], show_spinner=False)
 def cached_fetch_market_news(market, limit=6):
     try:
         return fetch_market_news(market, limit)

@@ -6,6 +6,7 @@ from src.data.sentiment import get_market_sentiment
 from src.data.news import fetch_market_news
 from src.config import load_config, get_active_provider
 from src.ai.summarizer import _call_llm
+from src.cache_config import CACHE_TTL
 
 if "config" not in st.session_state:
     st.session_state.config = load_config()
@@ -100,7 +101,7 @@ def _show_sentiment_loading():
 
 
 # ── 缓存 ──
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["sentiment"], show_spinner=False)
 def cached_sentiment():
     try:
         return get_market_sentiment()
@@ -108,7 +109,7 @@ def cached_sentiment():
         return {"fear_greed_score": 50, "mood": "Unknown", "mood_color": "#5A5A6A",
                 "_error": str(e)}
 
-@st.cache_data(ttl=600, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["market_news"], show_spinner=False)
 def cached_news(market, limit=10):
     try:
         return fetch_market_news(market, limit)

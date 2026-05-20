@@ -13,6 +13,7 @@ import streamlit as st
 from src.ui_theme import get_global_css, COLORS
 from src.auth import get_current_user
 from src.user_data import load_watchlist
+from src.cache_config import CACHE_TTL
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ if not all_stocks:
 
 
 # ── 批量读取最新决策 ─────────────────────────────────────────────────────────
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["db_read"], show_spinner=False)
 def _load_summary(stocks_tuple: tuple) -> dict:
     """tuple → dict: 用 tuple 让 cache 可哈希。"""
     stocks = [{"symbol": s, "market": m, "name": n} for s, m, n in stocks_tuple]

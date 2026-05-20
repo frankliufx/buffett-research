@@ -6,11 +6,12 @@ import streamlit.components.v1 as components
 from src.ui_theme import get_global_css
 from src.ai.knowledge_base import BUFFETT_QUOTES, DUAN_YONGPING_QUOTES
 from src.data.macro import get_buffett_indicator
+from src.cache_config import CACHE_TTL
 
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
 # ── data ──────────────────────────────────────────────────────────────────────
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["static_html"], show_spinner=False)
 def _load_bi():
     try:
         return get_buffett_indicator()

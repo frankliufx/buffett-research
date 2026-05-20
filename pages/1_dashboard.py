@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from src.ui_theme import get_global_css, COLORS
 from src.auth import get_current_user
+from src.cache_config import CACHE_TTL
 from src.user_data import (
     load_watchlist, add_to_watchlist, remove_from_watchlist,
     load_journal, save_journal_entry, save_all_journal,
@@ -110,7 +111,7 @@ body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:28
 # SECTION 1 — MARKET PULSE (real-time indices via yfinance)
 # ══════════════════════════════════════════════════════════════════════════════
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["sentiment"], show_spinner=False)
 def _fetch_market_pulse():
     """获取全球市场关键指标"""
     try:
@@ -232,7 +233,7 @@ with wl_c3:
 
 
 # Fetch live data for watchlist
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["quote"], show_spinner=False)
 def _fetch_watchlist_data(stocks_json: str):
     """批量获取关注列表实时行情 + 评级"""
     from src.data.price import fetch_quote

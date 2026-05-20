@@ -10,6 +10,7 @@ from src.ui_theme import get_global_css, COLORS
 from src.auth import get_current_user
 from src.config import load_config
 from src.user_data import load_portfolio, add_position, delete_position
+from src.cache_config import CACHE_TTL
 
 if "config" not in st.session_state:
     st.session_state.config = load_config()
@@ -61,7 +62,7 @@ if "portfolio_loaded" not in st.session_state or st.session_state.get("_port_uid
 positions = st.session_state.portfolio
 
 
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=CACHE_TTL["quote"], show_spinner=False)
 def _fetch_live_prices(symbols_json: str) -> dict:
     """批量获取实时价格"""
     from src.data.price import fetch_quote
