@@ -87,13 +87,22 @@ with tab_api:
                     if not p.api_key:
                         st.error("Please enter API key first")
                     else:
-                        with st.spinner("Testing..."):
+                        with st.spinner("Testing (≤20s)..."):
                             try:
                                 from src.ai.summarizer import _call_llm
-                                reply = _call_llm(p, [{"role": "user", "content": "Reply in one sentence: who are you?"}], max_tokens=100)
+                                reply = _call_llm(
+                                    p,
+                                    [{"role": "user", "content": "Reply in one sentence: who are you?"}],
+                                    max_tokens=100,
+                                    timeout=20.0,
+                                )
                                 st.success("Connected: {}".format(reply[:100]))
                             except Exception as e:
-                                st.error("Failed: {}".format(e))
+                                msg = str(e)
+                                if "timeout" in msg.lower() or "timed out" in msg.lower():
+                                    st.error("Timeout after 20s. Check network / base_url / model.")
+                                else:
+                                    st.error("Failed: {}".format(msg[:200]))
             with col_del:
                 if len(providers) > 1 and not p.is_active:
                     if st.button("Delete", key="del_{}".format(i)):

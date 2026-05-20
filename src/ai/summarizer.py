@@ -43,8 +43,17 @@ def _create_client(provider: ApiProvider):
     return result
 
 
-def _call_llm(provider: ApiProvider, messages: list, max_tokens: int = 2000) -> str:
-    """统一 LLM 调用接口"""
+def _call_llm(
+    provider: ApiProvider,
+    messages: list,
+    max_tokens: int = 2000,
+    timeout: float = 60.0,
+) -> str:
+    """统一 LLM 调用接口
+
+    Args:
+        timeout: 单次请求超时（秒）。Settings 页 ping 用 15s；批量委员会用默认 60s。
+    """
     client_type, client = _create_client(provider)
 
     if client_type == "anthropic":
@@ -65,12 +74,12 @@ def _call_llm(provider: ApiProvider, messages: list, max_tokens: int = 2000) -> 
         if system:
             kwargs["system"] = system
 
-        response = client.messages.create(**kwargs)
+        response = client.with_options(timeout=timeout).messages.create(**kwargs)
         return response.content[0].text
 
     else:
         # OpenAI 兼容格式
-        response = client.chat.completions.create(
+        response = client.with_options(timeout=timeout).chat.completions.create(
             model=provider.model,
             max_tokens=max_tokens,
             messages=messages,
