@@ -43,6 +43,26 @@ def _create_client(provider: ApiProvider):
     return result
 
 
+def _acquire_rate_token(provider: ApiProvider) -> None:
+    """Throttle via per-provider token bucket (no-op if disabled or unconfigured)."""
+    try:
+        from src.config import load_config
+        cfg = load_config().rate_limit
+        if not cfg.enabled:
+            return
+        from src.ai.rate_limiter import get_rate_limiter
+        key = "{}:{}".format(provider.provider, (provider.api_key or "")[:8])
+        bucket = get_rate_limiter(
+            key=key,
+            rate_per_min=cfg.requests_per_min,
+            burst=cfg.burst,
+        )
+        bucket.acquire(max_wait=cfg.max_wait_seconds)
+    except Exception as e:
+        # Rate limiter must never block a call — log and proceed.
+        logger.debug("rate-limit acquire skipped: %s", e)
+
+
 def _call_llm(
     provider: ApiProvider,
     messages: list,
@@ -54,6 +74,7 @@ def _call_llm(
     Args:
         timeout: 单次请求超时（秒）。Settings 页 ping 用 15s；批量委员会用默认 60s。
     """
+    _acquire_rate_token(provider)
     client_type, client = _create_client(provider)
 
     if client_type == "anthropic":

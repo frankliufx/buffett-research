@@ -179,6 +179,18 @@ class TechnicalConfig(BaseModel):
     lookback_days: int = 250
 
 
+class RateLimitConfig(BaseModel):
+    """LLM RPM caps to prevent 429s on hedge-fund / committee bursts.
+
+    Conservative defaults match OpenRouter / DeepSeek free tiers. Increase if
+    you have a paid plan with higher limits.
+    """
+    enabled: bool = True
+    requests_per_min: int = 60   # per (provider_type, api_key) bucket
+    burst: int = 13              # immediate parallel burst (covers 13 masters)
+    max_wait_seconds: float = 30.0
+
+
 class ParallelConfig(BaseModel):
     """Centralized ThreadPoolExecutor max_workers settings.
 
@@ -200,6 +212,7 @@ class AppConfig(BaseModel):
     buffett_strategy: BuffettStrategy = BuffettStrategy()
     technical: TechnicalConfig = TechnicalConfig()
     parallel: ParallelConfig = ParallelConfig()
+    rate_limit: RateLimitConfig = RateLimitConfig()
     notify: NotifyConfig = NotifyConfig()
 
 
