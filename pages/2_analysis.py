@@ -16,13 +16,17 @@ from src.tracker import (
     save_analysis_record, get_latest_analysis, load_stock_thesis,
     save_stock_thesis, build_history_context,
 )
-from src.data.price import fetch_history, fetch_quote
-from src.data.financial import fetch_fundamentals
-from src.data.news import fetch_stock_news, fetch_earnings_calendar, fetch_market_news
-from src.analysis.technical import compute_indicators, generate_technical_signal
-from src.analysis.fundamental import analyze_buffett, _normalize_fundamentals
-from src.analysis.moat import score_moat
-from src.analysis.signals import AnalysisResult
+from src.analysis.fundamental import _normalize_fundamentals
+from src.analysis.page_orchestrator import (
+    cached_fetch_calendar,
+    cached_fetch_fundamentals,
+    cached_fetch_history,
+    cached_fetch_market_news,
+    cached_fetch_news,
+    cached_fetch_quote,
+    cached_get_policy_data,
+    run_analysis,
+)
 from src.ai.summarizer import (analyze_stock, generate_market_overview, get_ai_brief,
                                 get_ai_insights, get_ashare_brief, analyze_ashare_stock,
                                 _call_llm)
@@ -35,7 +39,6 @@ from src.ui_committee import render_committee_page
 from src.ui_valuation import (render_valuation_verdict, render_price_spectrum,
                                render_scenario_cards, render_assumptions_panel,
                                render_insight_cards, render_share_card)
-from src.data.policy import get_stock_policy_tags, get_fifteen_five_alignment, get_policy_news
 from src.ui_ashare import render_policy_hero, render_ashare_score_banner
 from src.ui_theme import (get_global_css, render_hero_header, render_buffett_quote,
                           render_grade_badge, render_moat_bar, render_detail_item,
@@ -43,8 +46,6 @@ from src.ui_theme import (get_global_css, render_hero_header, render_buffett_quo
                           render_kpi_card, render_sidebar_status,
                           render_empty_state, render_news_item,
                           render_calendar_card, COLORS)
-from src.cache_config import CACHE_TTL
-
 logging.basicConfig(level=logging.WARNING)
 
 # ===== 全局样式 =====
@@ -138,97 +139,6 @@ def _show_ai_loading(text="AI 正在深入分析这支股票"):
         '</div>',
         unsafe_allow_html=True,
     )
-
-# ===== 缓存（含错误边界：单项失败不影响整页）=====
-@st.cache_data(ttl=CACHE_TTL["policy"], show_spinner=False)
-def cached_get_policy_data(symbol):
-    """A股专用：获取政策概念数据（24h缓存）"""
-    try:
-        alignment = get_fifteen_five_alignment(symbol)
-        news = get_policy_news(limit=5)
-        return alignment, news
-    except Exception as e:
-        logging.warning("policy data failed %s: %s", symbol, e)
-        return {"level": "暂无明显政策主题", "score": 0, "color": "#5A5A6A",
-                "tier1": [], "tier2": [], "all_tags": []}, []
-
-@st.cache_data(ttl=CACHE_TTL["history"], show_spinner=False)
-def cached_fetch_history(symbol, market, days):
-    try:
-        return fetch_history(symbol, market, days)
-    except Exception as e:
-        logging.warning("fetch_history failed %s: %s", symbol, e)
-        return pd.DataFrame()
-
-@st.cache_data(ttl=CACHE_TTL["quote"], show_spinner=False)
-def cached_fetch_quote(symbol, market):
-    try:
-        return fetch_quote(symbol, market)
-    except Exception as e:
-        logging.warning("fetch_quote failed %s: %s", symbol, e)
-        return {}
-
-@st.cache_data(ttl=CACHE_TTL["fundamentals"], show_spinner=False)
-def cached_fetch_fundamentals(symbol, market):
-    try:
-        if os.getenv("DB_FIRST_ENABLED", "").lower() in ("1", "true", "yes"):
-            from src.db.repository import get_or_fetch_fundamentals
-            return get_or_fetch_fundamentals(symbol, market)
-        return fetch_fundamentals(symbol, market)
-    except Exception as e:
-        logging.warning("fetch_fundamentals failed %s: %s", symbol, e)
-        return {}
-
-@st.cache_data(ttl=CACHE_TTL["market_news"], show_spinner=False)
-def cached_fetch_news(symbol, market, limit=8):
-    try:
-        return fetch_stock_news(symbol, market, limit)
-    except Exception as e:
-        logging.warning("fetch_news failed %s: %s", symbol, e)
-        return []
-
-@st.cache_data(ttl=CACHE_TTL["calendar"], show_spinner=False)
-def cached_fetch_calendar(symbol, market):
-    try:
-        return fetch_earnings_calendar(symbol, market)
-    except Exception as e:
-        logging.warning("fetch_calendar failed %s: %s", symbol, e)
-        return []
-
-@st.cache_data(ttl=CACHE_TTL["market_news"], show_spinner=False)
-def cached_fetch_market_news(market, limit=6):
-    try:
-        return fetch_market_news(market, limit)
-    except Exception as e:
-        logging.warning("fetch_market_news failed %s: %s", market, e)
-        return []
-
-
-def run_analysis(symbol, name, market, config):
-    df = cached_fetch_history(symbol, market, config.technical.lookback_days)
-    quote = cached_fetch_quote(symbol, market)
-    fundamentals = cached_fetch_fundamentals(symbol, market)
-    normalized = _normalize_fundamentals(fundamentals)
-
-    if not df.empty:
-        df = compute_indicators(df.copy(), config.technical)
-        tech_signal = generate_technical_signal(df)
-    else:
-        tech_signal = {"trend": "unknown", "momentum": "unknown", "signals": [], "trend_score": 0}
-
-    buffett_result = analyze_buffett(fundamentals, config.buffett_strategy)
-    moat_result = score_moat(fundamentals, normalized, tech_signal)
-
-    result = AnalysisResult(
-        symbol=symbol, name=name, market=market,
-        price=quote.get("price", 0) or tech_signal.get("price", 0),
-        change_pct=quote.get("change_pct", 0),
-        tech_signal=tech_signal, buffett_result=buffett_result,
-        fundamentals=fundamentals,
-    )
-    result.compute_overall()
-    return result, df, fundamentals, normalized, moat_result, quote
-
 
 # ===== K线图 (暗色主题) =====
 PLOT_LAYOUT = dict(
@@ -711,7 +621,7 @@ def render_stock_analysis(symbol, name, market, config):
             peer_lines = ["## 同行竞品对比（供参考，数据可能有延迟）"]
             for p in peers:
                 try:
-                    p_fund = fetch_fundamentals(p["symbol"], p["market"])
+                    p_fund = cached_fetch_fundamentals(p["symbol"], p["market"])
                     p_roe = p_fund.get("roe")
                     p_pe  = p_fund.get("pe_trailing")
                     p_gm  = p_fund.get("gross_margin")
@@ -884,7 +794,7 @@ def render_stock_analysis(symbol, name, market, config):
                 for _pi, (_pc, _pp) in enumerate(zip(_peer_cols, peers)):
                     with _pc:
                         try:
-                            _pf = fetch_fundamentals(_pp["symbol"], _pp["market"])
+                            _pf = cached_fetch_fundamentals(_pp["symbol"], _pp["market"])
                             _p_roe = _pf.get("roe")
                             _p_pe  = _pf.get("pe_trailing")
                             _p_gm  = _pf.get("gross_margin")
