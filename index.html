@@ -82,7 +82,7 @@
     /* ─── Nav ───────────────────────────────────────────────────── */
     .nav {
       position: fixed;
-      top: 0;
+      top: 28px;
       left: 0;
       right: 0;
       z-index: 100;
@@ -135,7 +135,7 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 100px 48px 80px;
+      padding: 128px 48px 80px;
       overflow: hidden;
     }
 
@@ -2487,11 +2487,14 @@
     .rule-card:hover::before { transform: scaleY(1); }
     .rule-number {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 72px;
-      color: #C9A962;
-      opacity: 0.2;
+      font-size: 88px;
+      opacity: 0.15;
+      min-width: 100px;
+      background: linear-gradient(180deg, #C9A962 0%, transparent 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
       line-height: 1;
-      min-width: 80px;
       text-align: center;
     }
     .rule-text {
@@ -2655,9 +2658,74 @@
       border-color: #C9A962;
     }
 
+    /* ─── Ticker Tape ───────────────────────────────────────────── */
+    .ticker-wrap {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 28px;
+      background: #08080C;
+      border-bottom: 1px solid #1E1E26;
+      overflow: hidden;
+      z-index: 200;
+    }
+    .ticker-track {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      animation: ticker 45s linear infinite;
+      white-space: nowrap;
+    }
+    .tick {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      padding: 0 20px;
+      letter-spacing: 0.5px;
+    }
+    .tick.up { color: #3ECF8E; }
+    .tick.down { color: #EF4444; }
+    .sep { color: #2A2A33; padding: 0 10px; }
+    @keyframes ticker {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
 </style>
 </head>
 <body>
+
+<div class="ticker-wrap">
+  <div class="ticker-track">
+    <span class="tick up">AAPL $213.32 ▲0.9%</span>
+    <span class="tick up">NVDA $895.10 ▲4.2%</span>
+    <span class="tick down">MSFT $420.15 ▼0.4%</span>
+    <span class="tick up">BRK-B $465.00 ▲0.3%</span>
+    <span class="tick up">600519 贵州茅台 ¥1,589 ▲2.3%</span>
+    <span class="tick down">300750 宁德时代 ¥186 ▼0.8%</span>
+    <span class="tick up">600036 招商银行 ¥45.2 ▲1.1%</span>
+    <span class="tick up">0700 腾讯 HK$398 ▲1.8%</span>
+    <span class="tick down">9988 阿里巴巴 HK$89 ▼1.2%</span>
+    <span class="tick up">1810 小米 HK$48 ▲2.1%</span>
+    <span class="tick up">SPX 5,248 ▲0.6%</span>
+    <span class="tick down">HSI 18,230 ▼0.3%</span>
+    <span class="tick up">CSI300 3,892 ▲0.8%</span>
+    <span class="sep">·</span>
+    <!-- Duplicate for seamless loop -->
+    <span class="tick up">AAPL $213.32 ▲0.9%</span>
+    <span class="tick up">NVDA $895.10 ▲4.2%</span>
+    <span class="tick down">MSFT $420.15 ▼0.4%</span>
+    <span class="tick up">BRK-B $465.00 ▲0.3%</span>
+    <span class="tick up">600519 贵州茅台 ¥1,589 ▲2.3%</span>
+    <span class="tick down">300750 宁德时代 ¥186 ▼0.8%</span>
+    <span class="tick up">600036 招商银行 ¥45.2 ▲1.1%</span>
+    <span class="tick up">0700 腾讯 HK$398 ▲1.8%</span>
+    <span class="tick down">9988 阿里巴巴 HK$89 ▼1.2%</span>
+    <span class="tick up">1810 小米 HK$48 ▲2.1%</span>
+    <span class="tick up">SPX 5,248 ▲0.6%</span>
+    <span class="tick down">HSI 18,230 ▼0.3%</span>
+    <span class="tick up">CSI300 3,892 ▲0.8%</span>
+    <span class="sep">·</span>
+  </div>
+</div>
 
 <nav class="side-nav" id="sideNav">
   <a href="#hero" class="side-dot active" data-label="首页" title="首页"></a>
@@ -2670,6 +2738,7 @@
   <a href="#portfolio" class="side-dot" data-label="组合管理" title="组合管理"></a>
   <a href="#philosophy" class="side-dot" data-label="投资哲学" title="投资哲学"></a>
   <a href="#screener" class="side-dot" data-label="AI选股" title="AI选股"></a>
+  <a href="#cta" class="side-dot" data-label="申请内测" title="申请内测"></a>
 </nav>
 
   <!-- ══════════════════════════════════════════════════════════════
@@ -4117,6 +4186,10 @@
 <section class="section" id="philosophy" style="background: var(--bg); position: relative; overflow: hidden;">
   <!-- Radial gold glow -->
   <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:900px;height:500px;background:radial-gradient(ellipse, rgba(201,169,98,0.05) 0%, transparent 70%);pointer-events:none;"></div>
+  <!-- Additional glowing background accent -->
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(201,169,98,0.04) 0%,transparent 70%);pointer-events:none;border-radius:50%;"></div>
+  <!-- Vertical decorative text -->
+  <div style="position:absolute;left:-20px;top:50%;transform:translateY(-50%) rotate(-90deg);font-family:'Inter',sans-serif;font-size:10px;letter-spacing:8px;color:#2A2A33;text-transform:uppercase;white-space:nowrap;">INVESTMENT PRINCIPLES</div>
 
   <div style="max-width: 960px; margin: 0 auto; padding: 100px 48px; position: relative; z-index: 1;">
 
@@ -4466,6 +4539,66 @@
 
 
 <!-- ══════════════════════════════════════════
+     SECTION 11 — CTA
+════════════════════════════════════════════ -->
+<section id="cta" style="padding: 120px 0; text-align: center; position: relative; overflow: hidden; border-top: 1px solid #1E1E26;">
+  <!-- Background glow -->
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:800px;height:400px;background:radial-gradient(ellipse,rgba(201,169,98,0.06) 0%,transparent 70%);pointer-events:none;"></div>
+
+  <div style="position:relative;z-index:1;max-width:700px;margin:0 auto;padding:0 32px;">
+    <div style="font-size:11px;letter-spacing:6px;color:#6B6B75;text-transform:uppercase;margin-bottom:24px;">VALUE INTELLIGENCE · PRIVATE BETA</div>
+
+    <h2 style="font-family:'Cormorant Garamond',serif;font-size:64px;font-weight:300;color:#F0F0F2;line-height:1.1;margin-bottom:16px;">
+      用纪律战胜市场，<br><em style="color:#C9A962;font-style:italic;">用AI放大判断</em>
+    </h2>
+
+    <p style="color:#A8A8B0;font-size:16px;line-height:1.8;margin-bottom:48px;">
+      AI Buffett 目前处于内测阶段，面向专业投资人和机构客户开放申请。<br>
+      将你的投资哲学转化为系统化的 AI 决策引擎。
+    </p>
+
+    <!-- Stats row -->
+    <div style="display:flex;justify-content:center;gap:48px;margin-bottom:48px;">
+      <div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:40px;color:#C9A962;">15,847</div>
+        <div style="font-size:11px;letter-spacing:3px;color:#6B6B75;text-transform:uppercase;">覆盖股票</div>
+      </div>
+      <div style="width:1px;background:#2A2A33;"></div>
+      <div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:40px;color:#C9A962;">13</div>
+        <div style="font-size:11px;letter-spacing:3px;color:#6B6B75;text-transform:uppercase;">传奇投资人</div>
+      </div>
+      <div style="width:1px;background:#2A2A33;"></div>
+      <div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:40px;color:#C9A962;">73.4%</div>
+        <div style="font-size:11px;letter-spacing:3px;color:#6B6B75;text-transform:uppercase;">预测准确率</div>
+      </div>
+    </div>
+
+    <!-- CTA buttons -->
+    <div style="display:flex;gap:16px;justify-content:center;align-items:center;">
+      <a href="mailto:frankliufx@gmail.com?subject=AI Buffett 内测申请"
+         style="display:inline-block;padding:16px 40px;background:linear-gradient(135deg,#C9A962,#A88B3D);color:#08080C;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border-radius:4px;transition:all 0.3s ease;"
+         onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 32px rgba(201,169,98,0.3)'"
+         onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none'">
+        申请内测 / Request Access
+      </a>
+      <a href="#hero"
+         style="display:inline-block;padding:16px 32px;background:transparent;color:#A8A8B0;font-family:'Inter',sans-serif;font-size:14px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border:1px solid #2A2A33;border-radius:4px;"
+         onmouseover="this.style.borderColor='#C9A962';this.style.color='#C9A962'"
+         onmouseout="this.style.borderColor='#2A2A33';this.style.color='#A8A8B0'">
+        回到顶部 ↑
+      </a>
+    </div>
+
+    <p style="margin-top:32px;font-size:11px;color:#6B6B75;letter-spacing:1px;">
+      以上展示内容由 AI 生成，仅供参考，不构成投资建议。投资有风险，入市需谨慎。
+    </p>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
      FOOTER
 ════════════════════════════════════════════ -->
 <footer>
@@ -4565,7 +4698,7 @@ heroStats.forEach(el => {
 })();
 
 const dots = document.querySelectorAll('.side-dot');
-const sections = ['hero','market','moat','hedgefund','sentiment','chat','trackrecord','portfolio','philosophy','screener'];
+const sections = ['hero','market','moat','hedgefund','sentiment','chat','trackrecord','portfolio','philosophy','screener','cta'];
 window.addEventListener('scroll', () => {
   const scrollY = window.scrollY + 300;
   let active = 0;
