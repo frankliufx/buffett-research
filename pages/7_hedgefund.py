@@ -305,7 +305,7 @@ with ctrl_col:
     ).strip().upper()
 
     market = st.selectbox("市场", ["美股", "A股", "港股"])
-    market_map = {"美股": "US", "A股": "CN", "港股": "HK"}
+    market_map = {"美股": "us", "A股": "a_share", "港股": "hk"}
     market_code = market_map[market]
 
     st.markdown("---")
@@ -382,6 +382,7 @@ with result_col:
                 dcf = calc_dcf(price, fundamentals, normalized) if price > 0 else {}
                 tech = {}
                 tech_signal = {}
+                df_ind = None
                 if df is not None and not df.empty:
                     df_ind = compute_indicators(df)
                     sig = generate_technical_signal(df_ind)
@@ -692,7 +693,7 @@ with result_col:
                 colors = {"BULLISH": "color: #00C853", "BEARISH": "color: #F44336", "NEUTRAL": "color: #C9A962"}
                 return colors.get(val, "")
 
-            styled = df_table.style.applymap(style_signal, subset=["信号"])
+            styled = df_table.style.map(style_signal, subset=["信号"])
             st.dataframe(styled, use_container_width=True, hide_index=True)
 
         with tab_data:

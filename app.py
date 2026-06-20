@@ -74,6 +74,7 @@ pg = st.navigation([
     st.Page("pages/3_chat.py",        title="AI Advisor",   icon="💬"),
     st.Page("pages/1_sentiment.py",   title="Sentiment",    icon="📡"),
     st.Page("pages/6_trackrecord.py", title="Track Record", icon="🏆"),
+    st.Page("pages/8_decisions.py",   title="Decisions",    icon="📋"),
     st.Page("pages/4_settings.py",    title="Settings",     icon="⚙️"),
 ])
 
