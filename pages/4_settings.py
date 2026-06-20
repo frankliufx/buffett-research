@@ -37,6 +37,44 @@ with tab_api:
         COLORS["text_muted"]), unsafe_allow_html=True)
     st.caption("Supports Anthropic, DeepSeek, OpenRouter, and any OpenAI-compatible API.")
 
+    # ── 快速切换模型 ──────────────────────────────────────────────
+    from pages._model_presets import MODEL_PRESETS
+    st.markdown(
+        '<div style="color:{c}; font-size:0.7rem; letter-spacing:2px; margin:1rem 0 0.5rem;">快速切换模型 · QUICK SWITCH</div>'.format(
+            c=COLORS["gold"]
+        ),
+        unsafe_allow_html=True,
+    )
+    _active_provider = None
+    for _p in config.api.providers:
+        if _p.is_active:
+            _active_provider = _p
+            break
+
+    _cols = st.columns(len(MODEL_PRESETS))
+    for _ci, _preset in enumerate(MODEL_PRESETS):
+        with _cols[_ci]:
+            _is_current = _active_provider and _active_provider.model == _preset["model"]
+            if st.button(
+                "{} {}".format(_preset["icon"], _preset["label"]),
+                key="preset_{}".format(_ci),
+                type="primary" if _is_current else "secondary",
+                use_container_width=True,
+                help="切换到 {}".format(_preset["model"]),
+            ):
+                if _active_provider:
+                    _active_provider.model = _preset["model"]
+                    _active_provider.base_url = _preset["base_url"]
+                    _active_provider.provider = "openai_compatible"
+                    from src.config import save_config
+                    save_config(config)
+                    st.success("已切换到 {}".format(_preset["label"]))
+                    st.rerun()
+                else:
+                    st.warning("请先激活一个 OpenRouter provider")
+    st.divider()
+    # ─────────────────────────────────────────────────────────────
+
     providers = config.api.providers
 
     for i, p in enumerate(providers):
