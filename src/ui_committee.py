@@ -193,6 +193,20 @@ def render_committee_page(ensemble: dict = None, multi_val: dict = None,
         for m in committee["members"]:
             mc = _sc(m["signal"])
             ml = _sl(m["signal"])
+
+            evidence_html = ""
+            if m.get("key_evidence"):
+                evidence_html = '<div class="m-evidence" data-ev="">{}</div>'.format(m["key_evidence"])
+
+            concern_html = ""
+            if m.get("main_concern"):
+                concern_html = (
+                    '<div class="m-concern" data-warn="">'
+                    '<span class="m-concern-icon" data-warn-icon="">&#9888;</span>'
+                    '<span>{}</span>'
+                    '</div>'
+                ).format(m["main_concern"])
+
             members_html += (
                 '<div class="m-card" style="border-left-color:{mc}">'
                 '<div class="m-row1">'
@@ -200,12 +214,15 @@ def render_committee_page(ensemble: dict = None, multi_val: dict = None,
                 '<div><div class="m-name">{name}</div><div class="m-style">{style}</div></div></div>'
                 '<div class="m-sig" style="color:{mc};border-color:{mc}">{label}</div></div>'
                 '<div class="m-reason">{reason}</div>'
+                '{evidence_html}'
+                '{concern_html}'
                 '<div class="m-bar-row"><div class="m-bar-track">'
                 '<div class="m-bar-fill" style="width:{conf}%;background:{mc}"></div></div>'
                 '<span class="m-conf">{conf}%</span></div></div>'
             ).format(
                 mc=mc, icon=m["icon"], name=m["name_cn"], style=m["style"],
                 label=ml, reason=m["reasoning"], conf=m["confidence"],
+                evidence_html=evidence_html, concern_html=concern_html,
             )
 
         # 仪表位置
@@ -361,6 +378,9 @@ body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;color:#E8E
 .m-sig{{font-size:0.48rem;font-weight:700;letter-spacing:3px;padding:3px 8px;
     border:1px solid;border-radius:2px;white-space:nowrap}}
 .m-reason{{font-size:0.68rem;color:#8A8A98;line-height:1.6;border-left:2px solid #1E1E2A;padding-left:10px}}
+[data-ev]{{font-size:0.75rem;color:#A8A8B0;margin-top:6px;padding:5px 8px;border-left:2px solid #2A2A33;line-height:1.5}}
+[data-warn]{{font-size:0.75rem;color:#F5A623;margin-top:5px;padding:4px 8px;display:flex;align-items:flex-start;gap:4px;line-height:1.5}}
+[data-warn-icon]{{flex-shrink:0;margin-top:1px}}
 .m-bar-row{{display:flex;align-items:center;gap:6px}}
 .m-bar-track{{flex:1;height:3px;background:#1A1A24;border-radius:2px;overflow:hidden}}
 .m-bar-fill{{height:100%;border-radius:2px;transition:width 0.5s}}
