@@ -95,17 +95,22 @@ def fetch_basic_fundamentals(symbol: str) -> Dict[str, Any]:
 
 
 def _fetch_us_fundamentals(symbol: str) -> Dict[str, Any]:
+    """Fetch key fundamentals for a US stock via yfinance.
+
+    Field mapping: returnOnEquity is a ratio (0.18 = 18%), NOT a percentage.
+    grossMargins is also a ratio. revenueGrowth is a ratio.
+    """
     import yfinance as yf
     info = yf.Ticker(symbol).info
     return {
-        "pe": info.get("trailingPE"),
-        "pb": info.get("priceToBook"),
-        "roe": info.get("returnOnEquity"),
-        "gross_margin": info.get("grossMargins"),
-        "debt_to_equity": info.get("debtToEquity"),
-        "revenue_growth": info.get("revenueGrowth"),
-        "fcf": info.get("freeCashflow"),
-        "market_cap": info.get("marketCap"),
+        "pe": _safe_float(info.get("trailingPE")),
+        "pb": _safe_float(info.get("priceToBook")),
+        "roe": _safe_float(info.get("returnOnEquity")),
+        "gross_margin": _safe_float(info.get("grossMargins")),
+        "debt_to_equity": _safe_float(info.get("debtToEquity")),
+        "revenue_growth": _safe_float(info.get("revenueGrowth")),
+        "fcf": _safe_float(info.get("freeCashflow")),
+        "market_cap": _safe_float(info.get("marketCap")),
     }
 
 
