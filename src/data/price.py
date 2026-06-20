@@ -10,6 +10,13 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+# 新增：Tushare 行情适配器（可选依赖，失败时静默降级）
+try:
+    from src.data.adapters import TushareAdapter as _TushareAdapterCls
+    _tushare_price = _TushareAdapterCls()
+except ImportError:
+    _tushare_price = None
+
 # ── 本地 K 线缓存 ─────────────────────────────────────────────────
 _CACHE_DIR = Path(__file__).parent.parent.parent / "data" / "cache"
 _KLINE_CACHE_TTL = 4 * 3600  # K 线 4 小时缓存
@@ -442,6 +449,25 @@ def fetch_history(symbol: str, market: str, days: int = 250) -> pd.DataFrame:
                     return df
     except Exception:
         pass
+
+    # ── Tushare 优先（A 股 K 线，更稳定）────────────────────────────
+    if market == "a_share" and _tushare_price:
+        try:
+            ts_df = _tushare_price.get_a_share_history(symbol, days=days)
+            if ts_df is not None and not ts_df.empty and "date" in ts_df.columns and "close" in ts_df.columns:
+                logger.debug("fetch_history: using Tushare for %s", symbol)
+                try:
+                    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                    cache_records = ts_df.reset_index().to_dict("records")
+                    for r in cache_records:
+                        r["Date"] = str(r.get("Date", r.get("date", "")))
+                    cache_path.write_text(json.dumps({"_ts": time.time(), "records": cache_records}))
+                except Exception:
+                    pass
+                return ts_df
+        except Exception as e:
+            logger.debug("Tushare history failed for %s, falling back: %s", symbol, e)
+    # ── /Tushare 优先 ─────────────────────────────────────────────────
 
     try:
         kline_sym = _get_kline_symbol(symbol, market)
