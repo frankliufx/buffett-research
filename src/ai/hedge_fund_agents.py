@@ -23,8 +23,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，以巴菲特视角分析：
 {data}
 
-严格按JSON输出，不附加任何其他内容：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现巴菲特风格"}}""",
+请按四步分析：
+1. 关键证据：护城河最强的 1 个数字支撑（ROE/Owner Earnings/毛利率等）
+2. 最大顾虑：用巴菲特框架看，这只股票最大的问题
+3. 量化估值：当前PE/PB/FCF Yield是否有安全边际
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用数字）"}}""",
     },
     {
         "id": "munger",
@@ -42,8 +51,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，以芒格视角分析：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现芒格逆向清单风格"}}""",
+请按四步分析：
+1. 关键证据：ROIC或资本配置效率最强的 1 个数字支撑
+2. 最大顾虑：用芒格逆向清单看，最可能亏钱的理由
+3. 量化估值：PE/PB/FCF Yield是否合理，引用具体数字
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用数字）"}}""",
     },
     {
         "id": "graham",
@@ -64,8 +82,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，以格雷厄姆视角分析：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现格雷厄姆量化价值风格"}}""",
+请按四步分析：
+1. 关键证据：流动比率/负债权益比/格雷厄姆数值中最强的 1 个数字支撑
+2. 最大顾虑：量化标准中最严重的不达标项
+3. 量化估值：格雷厄姆数值 vs 当前股价，安全边际百分比
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用数字）"}}""",
     },
     {
         "id": "damodaran",
@@ -85,8 +112,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，以达摩达兰视角分析：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现达摩达兰估值精算风格"}}""",
+请按四步分析：
+1. 关键证据：ROIC vs WACC利差或FCF Yield中最关键的 1 个数字
+2. 最大顾虑：DCF假设中最脆弱的变量（增长率/WACC/再投资率）
+3. 量化估值：当前隐含增长率是否合理，PE/EV-EBITDA具体数字
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过150字，必须引用WACC/DCF数字）"}}""",
     },
     {
         "id": "lynch",
@@ -105,8 +141,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，以林奇视角分析：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现林奇实用主义风格"}}""",
+请按四步分析：
+1. 关键证据：PEG比率（PE/增长率）的具体数值，是否<1
+2. 最大顾虑：增长可持续性的最大威胁，引用增长率数字
+3. 量化估值：PE vs 历史均值，增长是否支撑当前估值
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用PEG/增长率数字）"}}""",
     },
     {
         "id": "fisher",
@@ -124,8 +169,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，以费雪视角分析：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现费雪成长质量投资风格"}}""",
+请按四步分析：
+1. 关键证据：毛利率/净利率扩张趋势或研发投入强度最关键的 1 个数字
+2. 最大顾虑：竞争优势持续性的最大威胁
+3. 量化估值：利润率扩张空间 vs 当前PE，长期增长能否支撑
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用数字）"}}""",
     },
     {
         "id": "ackman",
@@ -144,8 +198,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，以阿克曼视角分析：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现阿克曼激进变革风格"}}""",
+请按四步分析：
+1. 关键证据：FCF Yield或资本配置效率最强的 1 个数字支撑
+2. 最大顾虑：管理层质量或资本配置最严重的问题
+3. 量化估值：PE/FCF Yield vs 行业，价值释放催化剂是否存在
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用数字）"}}""",
     },
     {
         "id": "burry",
@@ -164,8 +227,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，重点找出风险：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现伯里怀疑论风格"}}""",
+请按四步分析：
+1. 关键证据：FCF Yield或EV/EBITDA最关键的 1 个数字（做多或做空依据）
+2. 最大顾虑：最可能爆雷的财务隐患，引用具体数字
+3. 量化估值：EV/EBITDA vs 历史，FCF Yield是否支撑当前估值
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用FCF/EV数字）"}}""",
     },
     {
         "id": "druckenmiller",
@@ -184,8 +256,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，以德鲁肯米勒视角分析：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现德鲁肯米勒宏观动量风格"}}""",
+请按四步分析：
+1. 关键证据：盈利加速/减速或流动性趋势最关键的 1 个数字信号
+2. 最大顾虑：宏观风险或动量反转的最大威胁
+3. 量化估值：当前PE/增长率 vs 宏观环境，不对称性如何
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用数字）"}}""",
     },
     {
         "id": "cathie_wood",
@@ -204,8 +285,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，以凯西·伍德视角分析：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现ARK创新颠覆风格"}}""",
+请按四步分析：
+1. 关键证据：收入增长率或TAM扩张最关键的 1 个数字信号
+2. 最大顾虑：颠覆潜力不足或竞争格局的最大威胁
+3. 量化估值：PS/增长率 vs 5年TAM预期，增长曲线是否指数级
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用增长率/TAM数字）"}}""",
     },
     {
         "id": "taleb",
@@ -224,8 +314,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，以塔勒布视角评估脆弱性与反脆弱性：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现塔勒布反脆弱视角"}}""",
+请按四步分析：
+1. 脆弱性检验：债务水平/杠杆率最关键的 1 个风险数字
+2. 反脆弱性：公司是否能从波动中获益，引用现金储备或收入多元化数字
+3. 杠铃策略：极端下行情景 vs 上行期权性，具体引用PE/PB数字
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用债务/杠杆数字）"}}""",
     },
     {
         "id": "pabrai",
@@ -243,8 +342,17 @@ Owner Earnings（净利润+折旧-维护性资本开支）、管理层诚信和�
 基于以下数据，以帕伯莱视角分析：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现帕伯莱低风险高确定性风格"}}""",
+请按四步分析：
+1. 关键证据：低估程度最强的 1 个数字（PB/FCF Yield/安全边际）
+2. 最大顾虑：确定性最低的风险因素，引用具体数字
+3. 量化估值：Heads/Tails不对称性——上行空间 vs 下行保护
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用数字）"}}""",
     },
     {
         "id": "duan",
@@ -263,8 +371,17 @@ Stop Doing List：不碰看不懂的、不碰短期投机、不碰管理层不�
 基于以下数据，以段永平视角分析：
 {data}
 
-严格按JSON输出：
-{{"signal": "bullish或bearish或neutral", "confidence": 0-100整数, "reasoning": "不超过100字，体现段永平本分哲学"}}""",
+请按四步分析：
+1. 关键证据：定价权或复购率最强的 1 个数字（毛利率/ROE/收入增长）
+2. 最大顾虑：商业模式可持续性或管理层诚信的最大疑点
+3. 量化估值：未来现金流折现 vs 当前PE/PB，是否在能力圈内
+4. 结论：signal 和 confidence
+
+严格按此 JSON 格式输出，不输出任何其他内容：
+{{"signal": "bullish或bearish或neutral", "confidence": 0到100的整数,
+  "key_evidence": "最关键数字证据（20字以内）",
+  "main_concern": "最大顾虑（20字以内）",
+  "reasoning": "综合判断（不超过120字，必须引用数字）"}}""",
     },
 ]
 
@@ -283,3 +400,6 @@ ANALYST_GROUPS = {
 }
 
 ANALYST_BY_ID = {a["id"]: a for a in HEDGE_FUND_ANALYSTS}
+
+# Alias for convenience (e.g. tests)
+ANALYSTS = HEDGE_FUND_ANALYSTS

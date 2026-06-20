@@ -227,3 +227,16 @@ def test_critic_refine_skipped_when_disabled():
         )
 
     assert call_count[0] == 1, f"期望 1 次 LLM 调用，实际 {call_count[0]} 次"
+
+
+def test_hedge_fund_analyst_prompts_contain_cot():
+    """所有对冲基金分析师 prompt 必须包含 CoT 结构"""
+    from src.ai.hedge_fund_agents import ANALYSTS
+    for analyst in ANALYSTS:
+        prompt = analyst["prompt"]
+        assert "key_evidence" in prompt, \
+            f"{analyst['name']} prompt 缺少 key_evidence 字段"
+        assert "main_concern" in prompt, \
+            f"{analyst['name']} prompt 缺少 main_concern 字段"
+        assert "120字" in prompt or "150字" in prompt, \
+            f"{analyst['name']} prompt 未指定 reasoning 长度限制"
