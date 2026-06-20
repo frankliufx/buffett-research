@@ -10,6 +10,18 @@ from pathlib import Path
 
 import requests
 
+# 新增：数据适配器 + 交叉校验（可选依赖，失败时静默降级）
+try:
+    from src.data.adapters import TushareAdapter, SecEdgarAdapter
+    from src.data.cross_validator import CrossValidator
+    _tushare = TushareAdapter()
+    _sec_edgar = SecEdgarAdapter()
+    _cross_validator = CrossValidator()
+except ImportError:
+    _tushare = None
+    _sec_edgar = None
+    _cross_validator = None
+
 # ── 本地文件缓存（加速启动，减少重复请求）──────────────────────────────
 _CACHE_DIR = Path(__file__).parent.parent.parent / "data" / "cache"
 _FUNDAMENTALS_CACHE_TTL = 6 * 3600  # 基本面 6 小时
@@ -536,10 +548,34 @@ def fetch_fundamentals(symbol: str, market: str) -> dict:
         if market == "us":
             result = _fetch_yfinance_fundamentals(symbol)
             if result:
+                # ── SEC EDGAR 交叉校验（美股）────────────────────────────────
+                if _sec_edgar and _cross_validator:
+                    try:
+                        edgar_data = _sec_edgar.get_us_financials(symbol)
+                        if edgar_data:
+                            result = _cross_validator.validate_fundamentals(result, edgar_data)
+                            if result.get("_warnings"):
+                                logger.info(
+                                    "CrossValidator warnings for %s: %s",
+                                    symbol, result["_warnings"]
+                                )
+                    except Exception as e:
+                        logger.debug("SEC EDGAR cross-validation failed for %s: %s", symbol, e)
+                # ── /SEC EDGAR 交叉校验 ───────────────────────────────────────
                 _write_cache(cache_path, result)
                 return result
             # yfinance 失败时降级到 Tencent+EastMoney
             logger.warning("yfinance failed for %s, falling back to eastmoney", symbol)
+            # yfinance 彻底失败时尝试 SEC EDGAR 作为独立 fallback
+            if _sec_edgar:
+                try:
+                    edgar_data = _sec_edgar.get_us_financials(symbol)
+                    if edgar_data:
+                        logger.info("Using SEC EDGAR as fallback for %s", symbol)
+                        _write_cache(cache_path, edgar_data)
+                        return edgar_data
+                except Exception as edgar_err:
+                    logger.debug("SEC EDGAR fallback failed for %s: %s", symbol, edgar_err)
 
         # Get basic quote data from Tencent (works for HK/A-share)
         quote_data = _fetch_tencent_quote_data(symbol, market)
@@ -704,6 +740,21 @@ def fetch_fundamentals(symbol: str, market: str) -> dict:
             # Get multi-year ROE history (percentage numbers)
             roe_history = _fetch_roe_history(stock_id)
             result["roe_history"] = roe_history
+
+        # ── Tushare 交叉校验（A 股）─────────────────────────────────────
+        if market == "a_share" and _tushare and _cross_validator:
+            try:
+                ts_data = _tushare.get_a_share_financials(symbol)
+                if ts_data:
+                    result = _cross_validator.validate_fundamentals(result, ts_data)
+                    if result.get("_warnings"):
+                        logger.info(
+                            "CrossValidator warnings for %s: %s",
+                            symbol, result["_warnings"]
+                        )
+            except Exception as e:
+                logger.debug("Tushare cross-validation failed for %s: %s", symbol, e)
+        # ── /Tushare 交叉校验 ─────────────────────────────────────────────
 
         # 写入本地缓存
         _write_cache(cache_path, result)
