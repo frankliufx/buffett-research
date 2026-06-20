@@ -61,22 +61,30 @@ if user:
             ),
             unsafe_allow_html=True,
         )
-        if st.button("Sign Out", key="logout_btn", use_container_width=True):
+        if st.button("退出登录", key="logout_btn", use_container_width=True):
             logout()
 
 # ── 页面导航 ──────────────────────────────────────────────────────
-pg = st.navigation([
-    st.Page("pages/0_home.py",        title="Home",         icon="🏠", default=True),
-    st.Page("pages/1_dashboard.py",   title="Dashboard",    icon="📊"),
-    st.Page("pages/5_portfolio.py",   title="Portfolio",    icon="💼"),
-    st.Page("pages/2_analysis.py",    title="Analysis",     icon="🔍"),
-    st.Page("pages/7_hedgefund.py",   title="AI Hedge Fund", icon="🏦"),
-    st.Page("pages/3_chat.py",        title="AI Advisor",   icon="💬"),
-    st.Page("pages/1_sentiment.py",   title="Sentiment",    icon="📡"),
-    st.Page("pages/6_trackrecord.py", title="Track Record", icon="🏆"),
-    st.Page("pages/8_decisions.py",   title="Decisions",    icon="📋"),
-    st.Page("pages/9_screener.py",    title="智能选股",      icon="🔎"),
-    st.Page("pages/4_settings.py",    title="Settings",     icon="⚙️"),
-])
+pg = st.navigation({
+    "概览": [
+        st.Page("pages/0_home.py",        title="首页",       icon="🏠", default=True),
+        st.Page("pages/1_dashboard.py",   title="市场行情",   icon="📊"),
+        st.Page("pages/5_portfolio.py",   title="我的持仓",   icon="💼"),
+    ],
+    "分析工具": [
+        st.Page("pages/2_analysis.py",    title="深度分析",   icon="🔍"),
+        st.Page("pages/7_hedgefund.py",   title="AI对冲基金", icon="🏦"),
+        st.Page("pages/3_chat.py",        title="AI投资顾问", icon="💬"),
+        st.Page("pages/9_screener.py",    title="智能选股",   icon="🔎"),
+    ],
+    "洞察": [
+        st.Page("pages/1_sentiment.py",   title="市场情绪",   icon="📡"),
+        st.Page("pages/6_trackrecord.py", title="历史战绩",   icon="🏆"),
+        st.Page("pages/8_decisions.py",   title="投资决策",   icon="📋"),
+    ],
+    "设置": [
+        st.Page("pages/4_settings.py",    title="系统设置",   icon="⚙️"),
+    ],
+})
 
 pg.run()

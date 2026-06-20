@@ -748,6 +748,63 @@ def get_global_css():
         .hero-header h1 { font-size: 1.1rem !important; }
     }
 
+    /* ===== 侧边栏导航增强 ===== */
+
+    /* 侧边栏整体背景 */
+    [data-testid="stSidebar"] {
+        background-color: #0A0A0F !important;
+        border-right: 1px solid %(border)s !important;
+    }
+    [data-testid="stSidebar"] > div:first-child {
+        background-color: #0A0A0F !important;
+        padding-top: 0.5rem;
+    }
+
+    /* 导航分组标题 */
+    [data-testid="stSidebarNav"] span[data-testid="stSidebarNavSectionHeader"],
+    [data-testid="stSidebarNav"] p {
+        font-size: 0.6rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 2.5px !important;
+        text-transform: uppercase !important;
+        color: %(text_muted)s !important;
+        padding: 1rem 1rem 0.3rem !important;
+        margin: 0 !important;
+        border-top: 1px solid %(border_light)s;
+    }
+    /* 第一个分组标题不显示顶部分隔线 */
+    [data-testid="stSidebarNav"] > ul > li:first-child p {
+        border-top: none !important;
+    }
+
+    /* 导航链接 */
+    [data-testid="stSidebarNav"] a {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        padding: 7px 14px !important;
+        border-radius: 4px !important;
+        margin: 1px 8px !important;
+        font-size: 0.875rem !important;
+        font-weight: 400 !important;
+        color: %(text_secondary)s !important;
+        text-decoration: none !important;
+        transition: background 0.15s ease, color 0.15s ease !important;
+    }
+    [data-testid="stSidebarNav"] a:hover {
+        background: %(bg_elevated)s !important;
+        color: %(text)s !important;
+    }
+
+    /* 当前激活的导航项 */
+    [data-testid="stSidebarNav"] a[aria-current="page"] {
+        background: rgba(201, 169, 98, 0.1) !important;
+        color: %(primary)s !important;
+        font-weight: 600 !important;
+        border-left: 2px solid %(primary)s !important;
+        padding-left: 12px !important;
+    }
+
     /* ===== AI Report Container ===== */
     .ai-report-container {
         background: %(bg_card)s;
