@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch
 import pandas as pd
 
@@ -46,3 +45,10 @@ def test_get_universe_combines_both():
     symbols = [r[0] for r in result]
     assert "sh600519" in symbols
     assert "AAPL" in symbols
+
+
+def test_get_csi300_tickers_returns_empty_on_error():
+    with patch("akshare.index_stock_cons_csindex", side_effect=RuntimeError("network error")):
+        from src.screener.universe import get_csi300_tickers
+        result = get_csi300_tickers()
+    assert result == []

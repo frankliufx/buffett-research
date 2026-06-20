@@ -1,7 +1,10 @@
 """Stock universe: CSI300 (AKShare) + S&P500 top-100 (static list)."""
 
 from __future__ import annotations
+import logging
 from typing import List, Tuple
+
+_logger = logging.getLogger(__name__)
 
 StockEntry = Tuple[str, str]  # (ticker, name)
 
@@ -58,9 +61,10 @@ def get_csi300_tickers() -> List[StockEntry]:
             code = str(row["成分券代码"]).zfill(6)
             name = str(row["成分券名称"])
             prefix = "sh" if code.startswith(("6", "9")) else "sz"
-            result.append(("{prefix}{code}".format(prefix=prefix, code=code), name))
+            result.append((f"{prefix}{code}", name))
         return result
-    except Exception:
+    except Exception as exc:
+        _logger.warning("Failed to fetch CSI300 from AKShare: %s", exc)
         return []
 
 
