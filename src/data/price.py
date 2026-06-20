@@ -51,15 +51,29 @@ def _safe_float(val, default=0.0):
         return default
 
 
+def _a_share_prefix(symbol: str) -> str:
+    """为 A 股代码添加交易所前缀（如未携带）
+
+    规则：6 开头 -> sh（上交所），0/3 开头 -> sz（深交所）
+    已携带前缀（sh/sz/SH/SZ）时原样返回。
+    """
+    s = symbol.lower()
+    if s.startswith(("sh", "sz")):
+        return s
+    if s.startswith("6"):
+        return f"sh{s}"
+    return f"sz{s}"
+
+
 def _to_tencent_symbol(symbol: str, market: str) -> str:
     """将内部符号格式转换为腾讯行情 API 符号格式
 
-    - A-share: sh600519 / sz000858 (直接使用)
+    - A-share: 600519 -> sh600519, 000858 -> sz000858
     - US: AAPL -> usAAPL, BRK-B -> usBRK.B
     - HK: 0700.HK -> hk00700
     """
     if market == "a_share":
-        return symbol.lower()
+        return _a_share_prefix(symbol)
     elif market == "hk":
         # 0700.HK -> hk00700
         code = symbol.replace(".HK", "").replace(".hk", "")
@@ -73,13 +87,13 @@ def _to_tencent_symbol(symbol: str, market: str) -> str:
 def _get_kline_symbol(symbol: str, market: str) -> str:
     """将内部符号格式转换为腾讯 K 线 API 符号格式
 
-    - A-share: sh600519 (直接使用)
+    - A-share: 600519 -> sh600519, 000858 -> sz000858
     - HK: 0700.HK -> hk00700
     - US: AAPL -> usAAPL.OQ (需要交易所后缀)
           BRK-B -> usBRK.B.N
     """
     if market == "a_share":
-        return symbol.lower()
+        return _a_share_prefix(symbol)
     elif market == "hk":
         code = symbol.replace(".HK", "").replace(".hk", "")
         return f"hk{code.zfill(5)}"
