@@ -232,16 +232,69 @@ def fetch_earnings_calendar(symbol: str, market: str) -> Optional[Dict]:
     return None
 
 
-def fetch_market_news(market: str = "general", limit: int = 6) -> List[Dict]:
-    """获取市场整体新闻（新浪财经滚动新闻）"""
+def _fetch_yfinance_market_news(ticker: str, limit: int = 6) -> List[Dict]:
+    """从 yfinance 获取市场/指数新闻（用于美股/港股市场整体新闻）"""
     try:
-        lid_map = {
-            "a_share": "2516",
-            "hk": "1686",
-            "us": "174",
-        }
-        lid = lid_map.get(market, "2516")
-        return _fetch_sina_roll_news(lid, limit)
+        import yfinance as yf
+        news_raw = yf.Ticker(ticker).news or []
+        results = []
+        for item in news_raw[:limit * 2]:
+            # New yfinance format: item has 'content' key
+            if "content" in item:
+                content = item["content"]
+                title = content.get("title", "")
+                source = content.get("provider", {}).get("displayName", "Yahoo Finance")
+                url = content.get("canonicalUrl", {}).get("url", "")
+                summary = content.get("summary", "")
+                pub_date = content.get("pubDate", "")
+                # pubDate format: "2024-01-15T12:30:00Z"
+                time_str = pub_date[:10] if pub_date else ""
+            else:
+                # Old yfinance format
+                title = item.get("title", "")
+                source = item.get("publisher", "Yahoo Finance")
+                url = item.get("link", "")
+                summary = ""
+                ts = item.get("providerPublishTime", 0)
+                time_str = datetime.fromtimestamp(ts).strftime("%m-%d %H:%M") if ts else ""
+
+            if not title:
+                continue
+            results.append({
+                "title": title,
+                "source": source,
+                "time": time_str,
+                "url": url,
+                "summary": summary[:200],
+            })
+            if len(results) >= limit:
+                break
+        return results
+    except Exception as e:
+        logger.warning("yfinance market news failed for %s: %s", ticker, e)
+        return []
+
+
+def fetch_market_news(market: str = "general", limit: int = 6) -> List[Dict]:
+    """获取市场整体新闻"""
+    try:
+        if market == "a_share":
+            return _fetch_sina_roll_news("2516", limit)
+        elif market == "us":
+            # SPY covers broad US market news
+            results = _fetch_yfinance_market_news("SPY", limit)
+            if not results:
+                results = _fetch_yfinance_market_news("QQQ", limit)
+            if not results:
+                results = _fetch_yfinance_market_news("^GSPC", limit)
+            return results
+        elif market == "hk":
+            results = _fetch_yfinance_market_news("^HSI", limit)
+            if not results:
+                results = _fetch_yfinance_market_news("2800.HK", limit)
+            return results
+        else:
+            return _fetch_sina_roll_news("2516", limit)
     except Exception as e:
         logger.warning("fetch_market_news failed for %s: %s", market, e)
         return []
