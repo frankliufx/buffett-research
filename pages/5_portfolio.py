@@ -191,6 +191,10 @@ total_pnl_pct = (total_pnl / total_cost * 100) if total_cost > 0 else 0
 pnl_color = "#00C853" if total_pnl >= 0 else "#F44336"
 pnl_arrow = "&#x25B2;" if total_pnl >= 0 else "&#x25BC;"
 
+# Determine currency prefix: use single market symbol when all positions share one market
+_markets = {e.get("market", "us") for e in enriched}
+_summary_currency = _currency(_markets.pop()) if len(_markets) == 1 else ""
+
 def _fmt_money(val):
     if abs(val) >= 1e6:
         return "{:,.0f}".format(val)
@@ -211,25 +215,26 @@ body{{background:#08080C;font-family:'Inter',-apple-system,sans-serif;padding:16
 <div class="summary-grid">
     <div class="s-card">
         <div class="s-label">Total Value</div>
-        <div class="s-value">${value}</div>
+        <div class="s-value">{cur}{value}</div>
         <div class="s-sub">{count} positions</div>
     </div>
     <div class="s-card">
         <div class="s-label">Total Cost</div>
-        <div class="s-value">${cost}</div>
+        <div class="s-value">{cur}{cost}</div>
     </div>
     <div class="s-card">
         <div class="s-label">Total P&amp;L</div>
-        <div class="s-value pnl">{arrow} ${pnl}</div>
+        <div class="s-value pnl">{arrow} {cur}{pnl}</div>
         <div class="s-sub" style="color:{pnl_color}">{pnl_pct:+.2f}%</div>
     </div>
     <div class="s-card">
         <div class="s-label">Today</div>
-        <div class="s-value pnl">{today_arrow} ${today_pnl}</div>
+        <div class="s-value pnl">{today_arrow} {cur}{today_pnl}</div>
     </div>
 </div>
 </body></html>'''.format(
     pnl_color=pnl_color,
+    cur=_summary_currency,
     value=_fmt_money(total_value),
     cost=_fmt_money(total_cost),
     count=len(positions),

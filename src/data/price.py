@@ -430,7 +430,7 @@ def fetch_history(symbol: str, market: str, days: int = 250) -> pd.DataFrame:
                     records = cached.get("records", [])
                     if records:
                         df = pd.DataFrame(records)
-                        df["Date"] = pd.to_datetime(df["Date"])
+                        df["Date"] = pd.to_datetime(df["Date"], utc=True).dt.tz_convert(None)
                         df = df.set_index("Date").sort_index()
                         return df
         except Exception:
