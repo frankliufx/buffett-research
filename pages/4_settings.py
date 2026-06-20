@@ -4,6 +4,7 @@ import streamlit as st
 from src.config import ApiProvider, save_config, get_active_provider
 from src.output.notify import send_notification, format_daily_push
 from src.ui_theme import get_global_css, COLORS
+from pages._model_presets import MODEL_PRESETS
 
 from src.config import load_config
 if "config" not in st.session_state:
@@ -38,7 +39,6 @@ with tab_api:
     st.caption("Supports Anthropic, DeepSeek, OpenRouter, and any OpenAI-compatible API.")
 
     # ── 快速切换模型 ──────────────────────────────────────────────
-    from pages._model_presets import MODEL_PRESETS
     st.markdown(
         '<div style="color:{c}; font-size:0.7rem; letter-spacing:2px; margin:1rem 0 0.5rem;">快速切换模型 · QUICK SWITCH</div>'.format(
             c=COLORS["gold"]
@@ -66,7 +66,6 @@ with tab_api:
                     _active_provider.model = _preset["model"]
                     _active_provider.base_url = _preset["base_url"]
                     _active_provider.provider = "openai_compatible"
-                    from src.config import save_config
                     save_config(config)
                     st.success("已切换到 {}".format(_preset["label"]))
                     st.rerun()
