@@ -245,6 +245,46 @@ def format_revenue(n):
     return "${:.0f}".format(a)
 
 
+# ── Financial metric threshold constants ────────────────────────────────────
+_ROE_GOLD_THRESHOLD    = 0.15   # 15%
+_ROE_WARN_THRESHOLD    = 0.08   # 8%
+_MARGIN_GOLD_THRESHOLD = 0.20   # 20%
+_MARGIN_WARN_THRESHOLD = 0.10   # 10%
+
+
+def _roe_color_class(roe: float | None) -> str:
+    """Return KPI color class for ROE (decimal fraction, e.g. 0.285 = 28.5%)."""
+    if roe is None:
+        return ""
+    if roe >= _ROE_GOLD_THRESHOLD:
+        return "positive"
+    if roe >= _ROE_WARN_THRESHOLD:
+        return "warning"
+    return "negative"
+
+
+def _margin_color_class(margin: float | None) -> str:
+    """Return KPI color class for net/gross margin (decimal fraction)."""
+    if margin is None:
+        return ""
+    if margin >= _MARGIN_GOLD_THRESHOLD:
+        return "positive"
+    if margin >= _MARGIN_WARN_THRESHOLD:
+        return "warning"
+    return "negative"
+
+
+def _growth_color_class(growth: float | None) -> str:
+    """Return KPI color class for revenue/EPS growth (decimal fraction)."""
+    if growth is None:
+        return ""
+    if growth > 0:
+        return "positive"
+    if growth < 0:
+        return "negative"
+    return ""
+
+
 # ============================================================================
 # Moat scorecard
 # ============================================================================
@@ -944,7 +984,14 @@ def render_stock_analysis(symbol, name, market, config):
                 ai_loading.empty()
 
         if ai_key in st.session_state:
-            st.markdown(st.session_state[ai_key])
+            import markdown as _md
+            raw_text: str = st.session_state[ai_key]
+            body_html: str = _md.markdown(
+                raw_text,
+                extensions=["tables", "fenced_code"],
+            )
+            styled_html = '<div class="ai-report-container">{}</div>'.format(body_html)
+            st.markdown(styled_html, unsafe_allow_html=True)
             st.write("")
             if st.button("Discuss this stock", key="chat_jump_{}".format(symbol)):
                 st.session_state["chat_context_stock"] = {

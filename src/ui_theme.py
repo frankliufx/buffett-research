@@ -748,6 +748,82 @@ def get_global_css():
         .hero-header h1 { font-size: 1.1rem !important; }
     }
 
+    /* ===== AI Report Container ===== */
+    .ai-report-container {
+        background: %(bg_card)s;
+        border-left: 3px solid %(primary)s;
+        border-radius: 0 8px 8px 0;
+        padding: 1.5rem 2rem;
+        margin-top: 1rem;
+    }
+    .ai-report-container h1,
+    .ai-report-container h2,
+    .ai-report-container h3 {
+        color: %(primary)s;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        border-bottom: 1px solid %(border)s;
+        padding-bottom: 0.4rem;
+        margin-top: 1.4rem;
+        margin-bottom: 0.6rem;
+    }
+    .ai-report-container h1 { font-size: 1.1rem; }
+    .ai-report-container h2 { font-size: 1rem; }
+    .ai-report-container h3 { font-size: 0.9rem; }
+    .ai-report-container p {
+        color: %(text_secondary)s;
+        line-height: 1.8;
+        margin-bottom: 0.6rem;
+    }
+    .ai-report-container strong {
+        color: %(text)s;
+        font-weight: 600;
+    }
+    .ai-report-container code {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.85rem;
+        color: %(primary_light)s;
+        background: %(bg)s;
+        padding: 1px 4px;
+        border-radius: 3px;
+    }
+    .ai-report-container table {
+        width: 100%%;
+        border-collapse: collapse;
+        margin: 0.8rem 0;
+        font-size: 0.85rem;
+    }
+    .ai-report-container table th {
+        background: %(primary_dark)s;
+        color: %(bg)s;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        padding: 6px 10px;
+        border: 1px solid %(border)s;
+    }
+    .ai-report-container table td {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.82rem;
+        color: %(text)s;
+        padding: 5px 10px;
+        border: 1px solid %(border)s;
+    }
+    .ai-report-container table tr:nth-child(even) td {
+        background: %(bg_elevated)s;
+    }
+    .ai-report-container ul,
+    .ai-report-container ol {
+        color: %(text_secondary)s;
+        line-height: 1.8;
+        padding-left: 1.4rem;
+    }
+    .ai-report-container li {
+        margin-bottom: 0.3rem;
+    }
+
 </style>
 """ % COLORS
 

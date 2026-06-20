@@ -49,3 +49,24 @@ class TestGetGlobalCss:
         assert "delta-up" in css
         assert "delta-down" in css
         assert "delta-flat" in css
+
+    def test_ai_report_container_css_present(self):
+        css = get_global_css()
+        assert ".ai-report-container" in css
+
+    def test_ai_report_container_has_gold_border(self):
+        css = get_global_css()
+        assert "ai-report-container" in css
+        assert "border-left" in css
+
+    def test_ai_report_h2_rule_present(self):
+        css = get_global_css()
+        assert ".ai-report-container h2" in css
+
+    def test_ai_report_table_th_rule_present(self):
+        css = get_global_css()
+        assert ".ai-report-container table th" in css
+
+    def test_ai_report_table_td_rule_present(self):
+        css = get_global_css()
+        assert ".ai-report-container table td" in css
