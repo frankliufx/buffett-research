@@ -1,7 +1,18 @@
 """智能选股 — AI-powered full-market screener."""
 
+import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import pandas as pd
 import streamlit as st
+
 from src.config import load_config, get_active_provider
+from src.screener.ai_screener import INVESTMENT_PRINCIPLES, batch_evaluate
+from src.screener.universe import (
+    get_csi300_tickers,
+    get_sp500_tickers,
+    fetch_basic_fundamentals,
+)
 from src.ui_theme import get_global_css, COLORS
 
 if "config" not in st.session_state:
@@ -19,14 +30,15 @@ st.markdown(
     </p>
 </div>
 """.format(
-        text=COLORS["text"], muted=COLORS["text_muted"], border=COLORS["border"]
+        text=COLORS.get("text", "#EAEAEA"),
+        muted=COLORS.get("text_muted", "#888888"),
+        border=COLORS.get("border", "#1E1E26"),
     ),
     unsafe_allow_html=True,
 )
 
 # ── 投资原则展示 ──────────────────────────────────────────────────
 with st.expander("📋 投资原则（10条，已内置）", expanded=False):
-    from src.screener.ai_screener import INVESTMENT_PRINCIPLES
     for i, p in enumerate(INVESTMENT_PRINCIPLES, 1):
         st.markdown("**{}**. {}".format(i, p))
 
@@ -76,11 +88,6 @@ if start_btn:
     st.session_state.screener_results = None
 
     with st.spinner("正在获取股票池…"):
-        from src.screener.universe import (
-            get_csi300_tickers,
-            get_sp500_tickers,
-            fetch_basic_fundamentals,
-        )
         universe = []
         if "沪深300 (A股)" in markets:
             universe += get_csi300_tickers()
@@ -91,7 +98,6 @@ if start_btn:
         st.error("无法获取股票列表，请检查网络或 AKShare 配置。")
         st.stop()
 
-    import random
     if len(universe) > max_stocks:
         universe = random.sample(universe, int(max_stocks))
     universe.sort(key=lambda x: x[0])
@@ -100,7 +106,6 @@ if start_btn:
 
     # ── 获取基本面数据 ──────────────────────────────────────────
     progress_bar = st.progress(0, text="获取基本面数据…")
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     fundamentals_map = {}
     total = len(universe)
@@ -117,7 +122,6 @@ if start_btn:
     def _on_progress(done: int, total: int) -> None:
         progress_bar.progress(0.5 + done / (total * 2), text="AI分析: {}/{}".format(done, total))
 
-    from src.screener.ai_screener import batch_evaluate
     all_results = batch_evaluate(
         universe,
         fundamentals_map,
@@ -172,7 +176,6 @@ if st.session_state.screener_results:
                 )
             st.divider()
 
-    import pandas as pd
     df_out = pd.DataFrame(results)[["symbol", "name", "score", "category", "rationale"]]
     df_out.columns = ["代码", "名称", "评分", "分类", "AI理由"]
     st.download_button(
