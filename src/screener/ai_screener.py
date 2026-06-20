@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from src.config import ApiProvider
 
@@ -92,11 +92,14 @@ def _format_data(fundamentals: Dict[str, Any]) -> str:
         val = fundamentals.get(key)
         if val is None:
             continue
-        if key in _PERCENTAGE_FIELDS:
-            fval = float(val)
-            formatted = f"{fval * 100:.1f}%" if abs(fval) < 1 else f"{fval:.1f}%"
-        else:
-            formatted = str(round(float(val), 2))
+        try:
+            if key in _PERCENTAGE_FIELDS:
+                fval = float(val)
+                formatted = f"{fval * 100:.1f}%" if abs(fval) < 1 else f"{fval:.1f}%"
+            else:
+                formatted = str(round(float(val), 2))
+        except (ValueError, TypeError):
+            continue
         lines.append(f"- {label}: {formatted}")
     return "\n".join(lines) if lines else "- 数据不足"
 
@@ -118,8 +121,8 @@ def evaluate_stock(
         data_str=_format_data(fundamentals),
     )
 
-    client = openai.OpenAI(api_key=provider.api_key, base_url=provider.base_url or None)
     try:
+        client = openai.OpenAI(api_key=provider.api_key, base_url=provider.base_url or None)
         resp = client.chat.completions.create(
             model=provider.model,
             messages=[
@@ -145,7 +148,7 @@ def evaluate_stock(
 
 
 def batch_evaluate(
-    stocks: List[tuple],
+    stocks: List[Tuple[str, str]],
     fundamentals_map: Dict[str, Dict[str, Any]],
     provider: ApiProvider,
     max_workers: int = 5,
