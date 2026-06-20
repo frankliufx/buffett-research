@@ -84,7 +84,10 @@ def _redis_key_fund(symbol: str, market: str) -> str:
 def _read_redis_fundamentals(symbol: str, market: str) -> Optional[dict]:
     """Read from Redis with a single round-trip (no ping pre-check)."""
     try:
-        raw = get_redis().get(_redis_key_fund(symbol, market))
+        client = get_redis()
+        if client is None:
+            return None
+        raw = client.get(_redis_key_fund(symbol, market))
         if raw:
             return json.loads(raw)
     except Exception as e:
@@ -94,8 +97,11 @@ def _read_redis_fundamentals(symbol: str, market: str) -> Optional[dict]:
 
 def _write_redis_fundamentals(symbol: str, market: str, payload: dict) -> None:
     try:
-        get_redis().setex(_redis_key_fund(symbol, market), REDIS_TTL_SECONDS,
-                          json.dumps(payload, default=str))
+        client = get_redis()
+        if client is None:
+            return
+        client.setex(_redis_key_fund(symbol, market), REDIS_TTL_SECONDS,
+                     json.dumps(payload, default=str))
     except Exception as e:
         logger.debug("Redis write failed: %s", e)
 

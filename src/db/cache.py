@@ -12,29 +12,38 @@ logger = logging.getLogger(__name__)
 _client: Optional[redis.Redis] = None
 
 
-def get_redis() -> redis.Redis:
+def get_redis() -> Optional[redis.Redis]:
     global _client
-    if _client is None:
-        _client = redis.Redis(
-            host=os.environ["REDIS_HOST"],
-            port=int(os.environ["REDIS_PORT"]),
-            password=os.environ["REDIS_PASSWORD"],
-            decode_responses=True,
-            socket_connect_timeout=2,
-            socket_timeout=2,
-        )
-        try:
-            _client.ping()
-            logger.info("Redis connected: %s:%s",
-                        os.environ.get("REDIS_HOST"), os.environ.get("REDIS_PORT"))
-        except Exception as e:
-            logger.warning("Redis unreachable: %s", e)
+    if _client is not None:
+        return _client
+
+    host = os.environ.get("REDIS_HOST", "")
+    if not host:
+        return None
+
+    _client = redis.Redis(
+        host=host,
+        port=int(os.environ.get("REDIS_PORT", "6379")),
+        password=os.environ.get("REDIS_PASSWORD", ""),
+        decode_responses=True,
+        socket_connect_timeout=2,
+        socket_timeout=2,
+    )
+    try:
+        _client.ping()
+        logger.info("Redis connected: %s:%s", host, os.environ.get("REDIS_PORT", "6379"))
+    except Exception as e:
+        logger.warning("Redis unreachable: %s", e)
+        _client = None
     return _client
 
 
 def cache_available() -> bool:
     try:
-        get_redis().ping()
+        client = get_redis()
+        if client is None:
+            return False
+        client.ping()
         return True
     except Exception:
         return False
