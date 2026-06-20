@@ -30,26 +30,6 @@ except Exception as e:
     DB_OK = False
     get_latest_for_watchlist = None
 
-if not DB_OK:
-    st.markdown("""
-    <div style="background:linear-gradient(135deg,#0a0d14 0%,#141822 100%);
-         border:1px solid rgba(245,166,35,0.3);border-radius:6px;padding:32px;
-         margin:40px auto;max-width:680px;text-align:center">
-        <div style="font-size:0.42rem;letter-spacing:5px;color:rgba(201,169,98,0.5);
-             text-transform:uppercase;margin-bottom:12px">portfolio decision summary</div>
-        <div style="font-size:1.5rem;font-weight:700;color:#F5A623;margin-bottom:14px">
-            数据库未连接</div>
-        <div style="font-size:0.95rem;color:#a8a39a;line-height:1.7">
-            组合决策摘要依赖本地 PostgreSQL 的决策日志。<br>
-            请先在 .env 中设置 <code style="color:#C9A962">DB_FIRST_ENABLED=true</code>
-            并确保 SSH tunnel 已启动。<br><br>
-            云端 Streamlit 默认未配置数据库，无法使用此功能。
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    st.stop()
-
-
 # ── 加载 watchlist ───────────────────────────────────────────────────────────
 user = get_current_user()
 uid = (user or {}).get("username", "anonymous")
@@ -87,15 +67,17 @@ if not all_stocks:
 
 
 # ── 批量读取最新决策 ─────────────────────────────────────────────────────────
-@st.cache_data(ttl=CACHE_TTL["db_read"], show_spinner=False)
-def _load_summary(stocks_tuple: tuple) -> dict:
-    """tuple → dict: 用 tuple 让 cache 可哈希。"""
-    stocks = [{"symbol": s, "market": m, "name": n} for s, m, n in stocks_tuple]
-    return get_latest_for_watchlist(stocks) or {}
+if DB_OK:
+    @st.cache_data(ttl=CACHE_TTL["db_read"], show_spinner=False)
+    def _load_summary(stocks_tuple: tuple) -> dict:
+        """tuple → dict: 用 tuple 让 cache 可哈希。"""
+        stocks = [{"symbol": s, "market": m, "name": n} for s, m, n in stocks_tuple]
+        return get_latest_for_watchlist(stocks) or {}
 
-
-stocks_key = tuple((s["symbol"], s["market"], s["name"]) for s in all_stocks)
-latest = _load_summary(stocks_key)
+    stocks_key = tuple((s["symbol"], s["market"], s["name"]) for s in all_stocks)
+    latest = _load_summary(stocks_key)
+else:
+    latest = {}
 
 # 构造完整列表（含未分析的）
 rows = []
@@ -106,6 +88,9 @@ for st_item in all_stocks:
 
 
 # ── 顶部摘要 ────────────────────────────────────────────────────────────────
+if not DB_OK:
+    st.info("💡 决策同步需要本地数据库。当前显示关注列表，AI 对冲基金运行后数据将自动同步。")
+
 st.markdown("""
 <div style="margin:20px 0 30px">
     <div style="font-size:0.42rem;letter-spacing:6px;color:rgba(201,169,98,0.6);
@@ -185,7 +170,7 @@ with ctrl_cols[1]:
 with ctrl_cols[2]:
     filter_market = st.selectbox("筛选市场", ["全部", "美股", "港股", "A股"], index=0)
 with ctrl_cols[3]:
-    if st.button("🔄 刷新缓存", help="重新读取最新决策（清除 60s 本地缓存）"):
+    if DB_OK and st.button("🔄 刷新缓存", help="重新读取最新决策（清除 60s 本地缓存）"):
         _load_summary.clear()
         st.rerun()
 
