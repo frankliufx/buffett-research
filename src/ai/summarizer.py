@@ -293,9 +293,25 @@ def get_ai_insights(symbol: str, name: str, price: float,
         return None
 
 
-def analyze_stock(result, provider: Optional[ApiProvider] = None,
-                  moat: Optional[dict] = None) -> str:
-    """对单只股票进行 AI 深度分析"""
+def analyze_stock(result, moat: Optional[dict] = None,
+                  valuation: Optional[dict] = None,
+                  provider: Optional[ApiProvider] = None,
+                  use_critic: bool = True) -> str:
+    """对单只股票进行 AI 深度分析
+
+    Args:
+        result: 股票分析结果对象，或包含财务字段的 flat dict（测试用）
+        moat: 护城河评分 dict
+        valuation: 估值 dict（含 intrinsic_value / safety_margin_pct）
+        provider: API provider
+        use_critic: 是否启用 Critic-Refine 机制（默认开启）
+    """
+    # ── Flat-dict path (used in unit tests) ────────────────────────────────
+    if isinstance(result, dict):
+        return _analyze_stock_from_dict(
+            result, moat or {}, valuation or {}, provider, use_critic
+        )
+
     if not provider or not provider.api_key:
         return _fallback_analysis(result)
 
@@ -356,10 +372,92 @@ def analyze_stock(result, provider: Optional[ApiProvider] = None,
     )
 
     try:
-        return _call_llm(provider, [{"role": "user", "content": prompt}])
+        report = _call_llm(provider, [{"role": "user", "content": prompt}])
+        report = _apply_critic_refine(report, prompt, provider, use_critic)
+        return report
     except Exception as e:
         logger.error(f"AI analysis failed for {result.symbol}: {e}")
         return _fallback_analysis(result) + "\n\n(AI 分析不可用: {})".format(e)
+
+
+def _apply_critic_refine(report: str, prompt: str, provider: ApiProvider,
+                         use_critic: bool) -> str:
+    """Apply Critic-Refine mechanism to improve an initial draft report.
+
+    Returns the refined report if successful, otherwise the original report.
+    """
+    if not use_critic or not report or len(report) <= 10:
+        return report
+
+    try:
+        from src.ai.prompts import CRITIC_PROMPT
+
+        data_summary = prompt[:800]
+        critic_messages = [{"role": "user", "content": CRITIC_PROMPT.format(
+            report=report,
+            data=data_summary,
+        )}]
+        critic_feedback = _call_llm(
+            provider, critic_messages, max_tokens=600, timeout=45.0
+        )
+
+        if not critic_feedback or len(critic_feedback) <= 10:
+            return report
+
+        refine_messages = [{"role": "user", "content": (
+            f"以下是一份投资研报的初稿：\n\n{report}\n\n"
+            f"做空分析师提出了以下批评：\n\n{critic_feedback}\n\n"
+            "请基于上述批评，修订这份研报：\n"
+            "1. 针对批评中指出的薄弱论点，补充数据或修正措辞\n"
+            "2. 将遗漏的重要风险加入'主要风险'部分\n"
+            "3. 保持原有结构不变（执行摘要、核心论点、主要风险、估值区间、投资建议）\n"
+            "4. 在'主要风险'末尾追加一行：**空头视角**：[做空方最强论据，30字以内]\n"
+            "直接输出修订后的完整研报，不要输出任何解释。"
+        )}]
+        refined_report = _call_llm(
+            provider, refine_messages, max_tokens=2500, timeout=90.0
+        )
+        if refined_report and len(refined_report) > 10:
+            return refined_report
+        return report
+    except Exception as e:
+        logger.debug("Critic-Refine failed, using original report: %s", e)
+        return report
+
+
+def _analyze_stock_from_dict(
+    result: dict,
+    moat: dict,
+    valuation: dict,
+    provider: Optional[ApiProvider],
+    use_critic: bool,
+) -> str:
+    """Handle analyze_stock() when result is a flat dict (unit-test path)."""
+    if not provider or not getattr(provider, "api_key", None):
+        return "# 分析不可用\n请配置 API Key。"
+
+    symbol = result.get("symbol", "UNKNOWN")
+    name = result.get("name", symbol)
+    prompt = (
+        "请对以下股票进行巴菲特风格深度分析：\n"
+        f"股票：{symbol} ({name})\n"
+        f"价格：{result.get('price', 'N/A')}\n"
+        f"PE：{result.get('pe_trailing', 'N/A')}\n"
+        f"ROE：{result.get('roe', 'N/A')}\n"
+        f"净利率：{result.get('profit_margin', 'N/A')}\n"
+        f"护城河评分：{moat.get('total_score', 'N/A')} ({moat.get('grade', 'N/A')})\n"
+        f"内在价值：{valuation.get('intrinsic_value', 'N/A')}\n"
+        f"安全边际：{valuation.get('safety_margin_pct', 'N/A')}%\n"
+        "请输出包含执行摘要、核心论点、主要风险、估值区间、投资建议的完整研报。"
+    )
+
+    try:
+        report = _call_llm(provider, [{"role": "user", "content": prompt}])
+        report = _apply_critic_refine(report, prompt, provider, use_critic)
+        return report
+    except Exception as e:
+        logger.error("AI analysis failed for %s: %s", symbol, e)
+        return "# 分析失败\n\n(AI 分析不可用: {})".format(e)
 
 
 def generate_market_overview(results: list, provider: Optional[ApiProvider] = None) -> str:

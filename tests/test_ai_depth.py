@@ -150,3 +150,80 @@ def test_committee_json_parser_handles_new_fields():
     assert result["confidence"] == 85
     assert result["key_evidence"] == "ROE=28%，持续 10 年高于 20%"
     assert result["main_concern"] == "估值偏高 PE=35x"
+
+
+def test_critic_refine_calls_llm_three_times():
+    """Critic-Refine 流程应调用 LLM 3 次：初稿 + critic + refine"""
+    from src.ai.summarizer import analyze_stock
+
+    call_count = [0]
+    call_args = []
+
+    def mock_call_llm(provider, messages, max_tokens=2000, timeout=60.0):
+        call_count[0] += 1
+        call_args.append(messages)
+        if call_count[0] == 1:
+            return "# 初稿研报\n## 执行摘要\n看多，置信度高。"
+        elif call_count[0] == 2:
+            return "## 薄弱论点\n- 估值数据缺失\n\n## 遗漏风险\n利率风险\n\n## 做空论据\nPE 偏高"
+        else:
+            return "# 修订版研报\n## 执行摘要\n看多，但需注意估值风险。"
+
+    mock_provider = MagicMock()
+    mock_provider.provider = "anthropic"
+
+    mock_result = {
+        "symbol": "AAPL", "name": "Apple", "price": 150.0, "change_pct": 1.5,
+        "pe_trailing": 28.0, "pb": 42.0, "roe": 0.97, "profit_margin": 0.25,
+        "gross_margin": 0.46, "operating_margin": 0.31, "revenue_growth": 0.04,
+        "earnings_growth": 0.08, "debt_to_equity": 121.0, "current_ratio": 1.05,
+        "free_cashflow": 110e9, "market_cap": 3200e9,
+    }
+    mock_moat = {"total_score": 92, "grade": "A", "profitability_score": 28,
+                  "profitability_max": 30, "moat_score": 22, "moat_max": 25,
+                  "fortress_score": 18, "fortress_max": 20, "growth_score": 13,
+                  "growth_max": 15, "opportunity_score": 8, "opportunity_max": 10}
+    mock_valuation = {"intrinsic_value": 160.0, "safety_margin_pct": 6.7}
+
+    with patch("src.ai.summarizer._call_llm", side_effect=mock_call_llm):
+        report = analyze_stock(
+            mock_result, mock_moat, mock_valuation,
+            provider=mock_provider,
+            use_critic=True,
+        )
+
+    assert call_count[0] == 3, f"期望 3 次 LLM 调用，实际 {call_count[0]} 次"
+    assert "修订版研报" in report or "执行摘要" in report
+
+
+def test_critic_refine_skipped_when_disabled():
+    """use_critic=False 时只调用 LLM 1 次"""
+    from src.ai.summarizer import analyze_stock
+
+    call_count = [0]
+
+    def mock_call_llm(provider, messages, max_tokens=2000, timeout=60.0):
+        call_count[0] += 1
+        return "# 研报内容"
+
+    mock_provider = MagicMock()
+    mock_result = {
+        "symbol": "AAPL", "name": "Apple", "price": 150.0, "change_pct": 1.5,
+        "pe_trailing": 28.0, "pb": None, "roe": 0.97, "profit_margin": 0.25,
+        "gross_margin": 0.46, "operating_margin": None, "revenue_growth": None,
+        "earnings_growth": None, "debt_to_equity": None, "current_ratio": None,
+        "free_cashflow": None, "market_cap": None,
+    }
+    mock_moat = {"total_score": 70, "grade": "B", "profitability_score": 20,
+                  "profitability_max": 30, "moat_score": 18, "moat_max": 25,
+                  "fortress_score": 14, "fortress_max": 20, "growth_score": 10,
+                  "growth_max": 15, "opportunity_score": 8, "opportunity_max": 10}
+
+    with patch("src.ai.summarizer._call_llm", side_effect=mock_call_llm):
+        report = analyze_stock(
+            mock_result, mock_moat, {},
+            provider=mock_provider,
+            use_critic=False,
+        )
+
+    assert call_count[0] == 1, f"期望 1 次 LLM 调用，实际 {call_count[0]} 次"
