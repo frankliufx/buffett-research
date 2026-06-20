@@ -72,6 +72,13 @@ if not provider:
     st.warning("⚠️ 请先在 Settings → API 激活一个有效的 API Provider（需要 OpenRouter key）")
     st.stop()
 
+if provider.provider != "openai_compatible":
+    st.warning(
+        "⚠️ 智能选股目前仅支持 OpenAI 兼容的 provider（如 OpenRouter / DeepSeek）。"
+        "请在 Settings → API 切换到 OpenRouter provider，或使用顶部快速切换按钮。"
+    )
+    st.stop()
+
 if "screener_results" not in st.session_state:
     st.session_state.screener_results = None
 

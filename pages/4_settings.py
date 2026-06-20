@@ -63,12 +63,17 @@ with tab_api:
                 help="切换到 {}".format(_preset["model"]),
             ):
                 if _active_provider:
-                    _active_provider.model = _preset["model"]
-                    _active_provider.base_url = _preset["base_url"]
-                    _active_provider.provider = "openai_compatible"
-                    save_config(config)
-                    st.success("已切换到 {}".format(_preset["label"]))
-                    st.rerun()
+                    if _active_provider.provider != "openai_compatible":
+                        st.warning("快速切换仅适用于 OpenRouter 兼容 provider。请先激活 OpenRouter (默认) provider。")
+                    else:
+                        _active_provider.model = _preset["model"]
+                        _active_provider.base_url = _preset["base_url"]
+                        try:
+                            save_config(config)
+                            st.success("已切换到 {}".format(_preset["label"]))
+                            st.rerun()
+                        except Exception as exc:
+                            st.error("保存失败: {}".format(exc))
                 else:
                     st.warning("请先激活一个 OpenRouter provider")
     st.divider()
