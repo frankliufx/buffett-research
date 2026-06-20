@@ -97,3 +97,78 @@ def test_tushare_get_us_financials_returns_none():
     adapter = TushareAdapter(token="fake_token")
     result = adapter.get_us_financials("AAPL")
     assert result is None
+
+
+from unittest.mock import patch, MagicMock
+import json
+from src.data.adapters.sec_edgar_adapter import SecEdgarAdapter
+
+
+MOCK_TICKERS = {
+    "0": {"cik_str": 320193, "ticker": "AAPL", "title": "Apple Inc."}
+}
+
+MOCK_COMPANY_FACTS = {
+    "entityName": "Apple Inc.",
+    "facts": {
+        "us-gaap": {
+            "NetIncomeLoss": {
+                "units": {"USD": [
+                    {"end": "2024-09-30", "val": 93736000000, "form": "10-K", "filed": "2024-11-01", "accn": "a"},
+                ]}
+            },
+            "Revenues": {
+                "units": {"USD": [
+                    {"end": "2024-09-30", "val": 391035000000, "form": "10-K", "filed": "2024-11-01", "accn": "a"},
+                ]}
+            },
+            "StockholdersEquity": {
+                "units": {"USD": [
+                    {"end": "2024-09-30", "val": 56950000000, "form": "10-K", "filed": "2024-11-01", "accn": "a"},
+                ]}
+            },
+            "GrossProfit": {
+                "units": {"USD": [
+                    {"end": "2024-09-30", "val": 180683000000, "form": "10-K", "filed": "2024-11-01", "accn": "a"},
+                ]}
+            },
+        }
+    }
+}
+
+
+def test_sec_edgar_get_us_financials_roe():
+    """验证从 SEC EDGAR 计算 ROE = NetIncome / StockholdersEquity"""
+    with patch("requests.get") as mock_get:
+        def side_effect(url, **kwargs):
+            m = MagicMock()
+            if "company_tickers" in url:
+                m.json.return_value = MOCK_TICKERS
+                m.raise_for_status = lambda: None
+            elif "companyfacts" in url:
+                m.json.return_value = MOCK_COMPANY_FACTS
+                m.raise_for_status = lambda: None
+            else:
+                m.raise_for_status.side_effect = Exception("unexpected url")
+            return m
+
+        mock_get.side_effect = side_effect
+        adapter = SecEdgarAdapter()
+        result = adapter.get_us_financials("AAPL")
+
+    assert result is not None
+    assert result["roe"] is not None
+    assert abs(result["roe"] - (93736000000 / 56950000000)) < 0.01
+    assert result["_source"] == "sec_edgar"
+
+
+def test_sec_edgar_get_a_share_financials_returns_none():
+    adapter = SecEdgarAdapter()
+    result = adapter.get_a_share_financials("600519")
+    assert result is None
+
+
+def test_sec_edgar_get_a_share_history_returns_none():
+    adapter = SecEdgarAdapter()
+    result = adapter.get_a_share_history("600519")
+    assert result is None
