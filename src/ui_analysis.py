@@ -872,12 +872,16 @@ def render_stock_analysis(symbol, name, market, config):
             arrow = "↑" if diff >= 0 else "↓"
             roe_delta = "{} {:+.1f}pp".format(arrow, diff)
 
+        roe_val    = normalized.get("roe")
+        margin_val = normalized.get("profit_margin")
+        gross_val  = normalized.get("gross_margin")
+
         metrics = [
-            ("PE",           "{:.1f}".format(normalized['pe_trailing']) if normalized.get('pe_trailing') else "--", "", ""),
-            ("PB",           "{:.2f}".format(normalized['pb'])          if normalized.get('pb')           else "--", "", ""),
-            ("ROE",          fmt_pct(normalized.get("roe")),                                                         "",  roe_delta),
-            ("NET MARGIN",   fmt_pct(normalized.get("profit_margin")),                                               "",  ""),
-            ("GROSS MARGIN", fmt_pct(normalized.get("gross_margin")),                                                "",  ""),
+            ("PE",           "{:.1f}".format(normalized['pe_trailing']) if normalized.get('pe_trailing') else "--", "",                              ""),
+            ("PB",           "{:.2f}".format(normalized['pb'])          if normalized.get('pb')           else "--", "",                              ""),
+            ("ROE",          fmt_pct(roe_val),                                                                       _roe_color_class(roe_val),       roe_delta),
+            ("NET MARGIN",   fmt_pct(margin_val),                                                                    _margin_color_class(margin_val), ""),
+            ("GROSS MARGIN", fmt_pct(gross_val),                                                                     _margin_color_class(gross_val),  ""),
         ]
         cols = st.columns(5)
         for i, (k, v, cc, dt) in enumerate(metrics):
@@ -886,12 +890,15 @@ def render_stock_analysis(symbol, name, market, config):
 
         st.write("")
 
+        rev_growth_val = normalized.get("revenue_growth")
+        eps_growth_val = normalized.get("earnings_growth")
+
         metrics2 = [
             ("D/E RATIO",     "{:.2f}".format(normalized['debt_to_equity']) if normalized.get('debt_to_equity') is not None else "--", "", ""),
             ("CURRENT RATIO", "{:.2f}".format(normalized['current_ratio'])  if normalized.get('current_ratio')              else "--", "", ""),
-            ("REV GROWTH",    fmt_pct(normalized.get("revenue_growth")),  "", ""),
-            ("EPS GROWTH",    fmt_pct(normalized.get("earnings_growth")), "", ""),
-            ("FCF",           format_number(normalized.get("free_cashflow")), "", ""),
+            ("REV GROWTH",    fmt_pct(rev_growth_val),  _growth_color_class(rev_growth_val), ""),
+            ("EPS GROWTH",    fmt_pct(eps_growth_val),  _growth_color_class(eps_growth_val), ""),
+            ("FCF",           format_number(normalized.get("free_cashflow")), "",             ""),
         ]
         cols2 = st.columns(5)
         for i, (k, v, cc, dt) in enumerate(metrics2):
