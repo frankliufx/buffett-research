@@ -335,8 +335,12 @@ for tab, market_key, market_name in [
                 st.caption("Free plan: {}/{} analyses remaining this month".format(
                     remaining, FREE_MONTHLY_LIMIT))
 
-            # Track usage
-            increment_usage(_a_uid)
+            # Track usage — only increment once per unique (uid, symbol) selection,
+            # not on every Streamlit rerun, to avoid burning quota on re-renders.
+            _usage_key = "_usage_counted_{}_{}".format(_a_uid, selected.symbol)
+            if not st.session_state.get(_usage_key):
+                increment_usage(_a_uid)
+                st.session_state[_usage_key] = True
 
             out = render_stock_analysis(selected.symbol, selected.name, market_key, config)
             if out:

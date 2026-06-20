@@ -17,7 +17,6 @@ from src.cache_config import CACHE_TTL
 
 logger = logging.getLogger(__name__)
 
-st.set_page_config(page_title="组合决策摘要", layout="wide")
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
 # ── DB 可用性检查 ─────────────────────────────────────────────────────────────

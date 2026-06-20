@@ -23,12 +23,6 @@ from src.ui_theme import get_global_css
 
 logging.basicConfig(level=logging.WARNING)
 
-st.set_page_config(
-    page_title="AI 对冲基金 | Buffett Research",
-    page_icon="🏦",
-    layout="wide",
-)
-
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
 # ── 私有样式 ─────────────────────────────────────────────────────────────────
