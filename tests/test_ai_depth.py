@@ -84,3 +84,69 @@ def test_buffett_prompt_renders_without_error():
         data_completeness="TEST",
     )
     assert len(rendered) > 100
+
+
+from unittest.mock import patch, MagicMock
+import json
+
+
+def test_committee_master_prompts_contain_cot_steps():
+    """每位大师的 prompt 必须包含四步推理结构"""
+    from src.ai.committee import _masters
+    for master in _masters:
+        prompt = master["prompt"]
+        assert "核心优势" in prompt or "核心论点" in prompt or "关键证据" in prompt, \
+            f"{master['name']} prompt 缺少 CoT 结构"
+        assert "key_evidence" in prompt, \
+            f"{master['name']} prompt 缺少 key_evidence 字段"
+        assert "main_concern" in prompt, \
+            f"{master['name']} prompt 缺少 main_concern 字段"
+
+
+def test_committee_data_context_includes_quality_warning():
+    """当数据有 _warnings 时，_build_data_context 应在输出中包含质量提示"""
+    from src.ai.committee import _build_data_context
+
+    result_with_warnings = {
+        "symbol": "AAPL",
+        "name": "Apple",
+        "price": 150.0,
+        "change_pct": 1.5,
+        "pe_trailing": 28.0,
+        "pb": 42.0,
+        "roe": 0.97,
+        "profit_margin": 0.25,
+        "gross_margin": 0.46,
+        "operating_margin": 0.31,
+        "revenue_growth": 0.04,
+        "earnings_growth": 0.08,
+        "debt_to_equity": 121.0,
+        "current_ratio": 1.05,
+        "free_cashflow": 110e9,
+        "market_cap": 3200e9,
+        "_warnings": ["roe: ⚠️ 数据源差异 15.3%（yfinance=0.97, sec_edgar=0.82）"],
+        "_data_quality": {"roe": "uncertain"},
+    }
+    moat = {"total_score": 92, "grade": "A"}
+
+    context = _build_data_context(result_with_warnings, moat)
+    assert "⚠️" in context or "数据质量" in context or "uncertain" in context.lower(), \
+        "数据质量警告未注入 data context"
+
+
+def test_committee_json_parser_handles_new_fields():
+    """committee 结果解析器应正确处理新增的 key_evidence / main_concern 字段"""
+    from src.ai.committee import _parse_master_result
+
+    raw_json = json.dumps({
+        "signal": "bullish",
+        "confidence": 85,
+        "key_evidence": "ROE=28%，持续 10 年高于 20%",
+        "main_concern": "估值偏高 PE=35x",
+        "reasoning": "护城河坚实，现价有一定安全边际，但需警惕估值压缩",
+    })
+    result = _parse_master_result(raw_json)
+    assert result["signal"] == "bullish"
+    assert result["confidence"] == 85
+    assert result["key_evidence"] == "ROE=28%，持续 10 年高于 20%"
+    assert result["main_concern"] == "估值偏高 PE=35x"
