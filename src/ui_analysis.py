@@ -825,31 +825,38 @@ def render_stock_analysis(symbol, name, market, config):
             st.markdown(render_empty_state("--", "No historical data"), unsafe_allow_html=True)
 
     with tab_finance:
+        roe_history = normalized.get("roe_history", [])
+        roe_delta = ""
+        if len(roe_history) >= 2:
+            diff = roe_history[0] - roe_history[1]
+            arrow = "↑" if diff >= 0 else "↓"
+            roe_delta = "{} {:+.1f}pp".format(arrow, diff)
+
         metrics = [
-            ("PE", "{:.1f}".format(normalized['pe_trailing']) if normalized.get('pe_trailing') else "--"),
-            ("PB", "{:.2f}".format(normalized['pb']) if normalized.get('pb') else "--"),
-            ("ROE", fmt_pct(normalized.get("roe"))),
-            ("NET MARGIN", fmt_pct(normalized.get("profit_margin"))),
-            ("GROSS MARGIN", fmt_pct(normalized.get("gross_margin"))),
+            ("PE",           "{:.1f}".format(normalized['pe_trailing']) if normalized.get('pe_trailing') else "--", "", ""),
+            ("PB",           "{:.2f}".format(normalized['pb'])          if normalized.get('pb')           else "--", "", ""),
+            ("ROE",          fmt_pct(normalized.get("roe")),                                                         "",  roe_delta),
+            ("NET MARGIN",   fmt_pct(normalized.get("profit_margin")),                                               "",  ""),
+            ("GROSS MARGIN", fmt_pct(normalized.get("gross_margin")),                                                "",  ""),
         ]
         cols = st.columns(5)
-        for i, (k, v) in enumerate(metrics):
+        for i, (k, v, cc, dt) in enumerate(metrics):
             with cols[i]:
-                st.markdown(render_kpi_card(k, v), unsafe_allow_html=True)
+                st.markdown(render_kpi_card(k, v, cc, dt), unsafe_allow_html=True)
 
         st.write("")
 
         metrics2 = [
-            ("D/E RATIO", "{:.2f}".format(normalized['debt_to_equity']) if normalized.get('debt_to_equity') is not None else "--"),
-            ("CURRENT RATIO", "{:.2f}".format(normalized['current_ratio']) if normalized.get('current_ratio') else "--"),
-            ("REV GROWTH", fmt_pct(normalized.get("revenue_growth"))),
-            ("EPS GROWTH", fmt_pct(normalized.get("earnings_growth"))),
-            ("FCF", format_number(normalized.get("free_cashflow"))),
+            ("D/E RATIO",     "{:.2f}".format(normalized['debt_to_equity']) if normalized.get('debt_to_equity') is not None else "--", "", ""),
+            ("CURRENT RATIO", "{:.2f}".format(normalized['current_ratio'])  if normalized.get('current_ratio')              else "--", "", ""),
+            ("REV GROWTH",    fmt_pct(normalized.get("revenue_growth")),  "", ""),
+            ("EPS GROWTH",    fmt_pct(normalized.get("earnings_growth")), "", ""),
+            ("FCF",           format_number(normalized.get("free_cashflow")), "", ""),
         ]
         cols2 = st.columns(5)
-        for i, (k, v) in enumerate(metrics2):
+        for i, (k, v, cc, dt) in enumerate(metrics2):
             with cols2[i]:
-                st.markdown(render_kpi_card(k, v), unsafe_allow_html=True)
+                st.markdown(render_kpi_card(k, v, cc, dt), unsafe_allow_html=True)
 
         roe_hist = normalized.get("roe_history", [])
         if len(roe_hist) >= 3:

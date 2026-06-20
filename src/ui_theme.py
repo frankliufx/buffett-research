@@ -214,6 +214,16 @@ def get_global_css():
     .kpi-card .kpi-value.positive { color: %(success)s; }
     .kpi-card .kpi-value.negative { color: %(danger)s; }
     .kpi-card .kpi-value.warning { color: %(warning)s; }
+    .kpi-card .kpi-delta {
+        font-size: 0.7rem;
+        font-weight: 500;
+        margin-top: 4px;
+        letter-spacing: 0.3px;
+        font-variant-numeric: tabular-nums;
+    }
+    .kpi-card .kpi-delta.delta-up   { color: %(success)s; }
+    .kpi-card .kpi-delta.delta-down { color: %(danger)s; }
+    .kpi-card .kpi-delta.delta-flat { color: %(text_muted)s; }
 
     /* ===== 评级徽章 ===== */
     .grade-badge {
@@ -816,13 +826,31 @@ def render_detail_item(icon, text, level="medium"):
 """.format(emoji, level, text)
 
 
-def render_kpi_card(label, value, color_class=""):
-    return """
-<div class="kpi-card">
-    <div class="kpi-label">{}</div>
-    <div class="kpi-value {}">{}</div>
-</div>
-""".format(label, color_class, value)
+def render_kpi_card(label: str, value: str, color_class: str = "", delta: str = "") -> str:
+    """Render a KPI card with optional YoY delta row.
+
+    Args:
+        label:       Uppercase metric label, e.g. "ROE"
+        value:       Formatted metric value, e.g. "28.5%"
+        color_class: One of "positive", "negative", "warning", or ""
+        delta:       Optional delta string, e.g. "↑ +2.1pp". Arrow prefix determines class.
+    """
+    delta_html = ""
+    if delta:
+        if delta.startswith("↑"):
+            delta_class = "delta-up"
+        elif delta.startswith("↓"):
+            delta_class = "delta-down"
+        else:
+            delta_class = "delta-flat"
+        delta_html = '<div class="kpi-delta {}">{}</div>'.format(delta_class, delta)
+    return (
+        '<div class="kpi-card">'
+        '<div class="kpi-label">{label}</div>'
+        '<div class="kpi-value {color_class}">{value}</div>'
+        '{delta_html}'
+        '</div>'
+    ).format(label=label, color_class=color_class, value=value, delta_html=delta_html)
 
 
 def render_moat_dimension(icon, name, score, max_score, color):
