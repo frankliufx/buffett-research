@@ -1,0 +1,17 @@
+# 本地用户配置（仅本地开发使用，已在 .gitignore 中，不会提交）
+# Streamlit Cloud 部署时在 Secrets 中配置（见 users.yaml.example）
+#
+# 生成密码哈希: python3 -c "import hashlib; print(hashlib.sha256('你的密码'.encode()).hexdigest())"
+
+users:
+  # 管理员账号
+  frank:
+    password: "6d21bbd56e8be6af882a90a49a17f30c3da2398f8216f7cf7c906d16a557960b"  # buffett2025
+    name: "Frank Liu"
+    role: "admin"
+
+  # 普通用户账号
+  ningli:
+    password: "ef797c8118f02dfb649607dd5d3f8c7623048c9c063d532cc95c5ed7a898a64f"  # 12345678
+    name: "Ning Li"
+    role: "viewer"
