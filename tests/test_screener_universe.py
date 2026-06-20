@@ -1,5 +1,6 @@
 from unittest.mock import patch
 import pandas as pd
+import pytest
 
 
 def test_get_csi300_tickers_returns_list():
@@ -52,3 +53,29 @@ def test_get_csi300_tickers_returns_empty_on_error():
         from src.screener.universe import get_csi300_tickers
         result = get_csi300_tickers()
     assert result == []
+
+
+def test_fetch_basic_fundamentals_us():
+    mock_info = {
+        "trailingPE": 28.5,
+        "priceToBook": 3.2,
+        "returnOnEquity": 0.18,
+        "grossMargins": 0.44,
+        "debtToEquity": 0.32,
+        "revenueGrowth": 0.07,
+        "freeCashflow": 9e10,
+        "marketCap": 3e12,
+    }
+    with patch("yfinance.Ticker") as MockTicker:
+        MockTicker.return_value.info = mock_info
+        from src.screener.universe import fetch_basic_fundamentals
+        result = fetch_basic_fundamentals("AAPL")
+    assert result["pe"] == pytest.approx(28.5)
+    assert result["roe"] == pytest.approx(0.18)
+
+
+def test_fetch_basic_fundamentals_returns_empty_on_error():
+    with patch("yfinance.Ticker", side_effect=Exception("network error")):
+        from src.screener.universe import fetch_basic_fundamentals
+        result = fetch_basic_fundamentals("INVALID")
+    assert result == {}

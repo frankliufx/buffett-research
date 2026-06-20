@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import logging
-from typing import List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 _logger = logging.getLogger(__name__)
 
@@ -76,3 +76,62 @@ def get_sp500_tickers() -> List[StockEntry]:
 def get_full_universe() -> List[StockEntry]:
     """Combine CSI300 + S&P500 top-100."""
     return get_csi300_tickers() + get_sp500_tickers()
+
+
+def fetch_basic_fundamentals(symbol: str) -> Dict[str, Any]:
+    """Fetch key fundamentals for a single stock.
+
+    For US stocks: yfinance Ticker.info
+    For A-shares (sh/sz prefix): akshare stock_zh_a_spot_em (real-time quote)
+    Returns empty dict on any error.
+    """
+    try:
+        if symbol.startswith(("sh", "sz")):
+            return _fetch_ashare_fundamentals(symbol)
+        return _fetch_us_fundamentals(symbol)
+    except Exception as exc:
+        _logger.warning("Failed to fetch fundamentals for %s: %s", symbol, exc)
+        return {}
+
+
+def _fetch_us_fundamentals(symbol: str) -> Dict[str, Any]:
+    import yfinance as yf
+    info = yf.Ticker(symbol).info
+    return {
+        "pe": info.get("trailingPE"),
+        "pb": info.get("priceToBook"),
+        "roe": info.get("returnOnEquity"),
+        "gross_margin": info.get("grossMargins"),
+        "debt_to_equity": info.get("debtToEquity"),
+        "revenue_growth": info.get("revenueGrowth"),
+        "fcf": info.get("freeCashflow"),
+        "market_cap": info.get("marketCap"),
+    }
+
+
+def _fetch_ashare_fundamentals(symbol: str) -> Dict[str, Any]:
+    """Limited A-share data via AKShare real-time quote (PE/PB/market cap)."""
+    import akshare as ak
+    code = symbol[2:]  # strip sh/sz prefix
+    df = ak.stock_zh_a_spot_em()
+    row = df[df["代码"] == code]
+    if row.empty:
+        return {}
+    r = row.iloc[0]
+    return {
+        "pe": _safe_float(r.get("市盈率-动态")),
+        "pb": _safe_float(r.get("市净率")),
+        "roe": None,
+        "gross_margin": None,
+        "debt_to_equity": None,
+        "revenue_growth": None,
+        "fcf": None,
+        "market_cap": _safe_float(r.get("总市值")),
+    }
+
+
+def _safe_float(val: Any) -> Optional[float]:
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return None
