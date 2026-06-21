@@ -26,8 +26,23 @@ try:
 except ImportError:
     pass
 
-from .session import get_engine, get_session, session_scope
-from .cache import get_redis
+import logging as _logging
+_logger = _logging.getLogger(__name__)
+
+try:
+    from .session import get_engine, get_session, session_scope
+except Exception as _exc:
+    _logger.warning("SQLAlchemy unavailable, DB features disabled: %s", _exc)
+    get_engine = None
+    get_session = None
+    session_scope = None
+
+try:
+    from .cache import get_redis
+except Exception as _exc:
+    _logger.warning("Redis cache unavailable: %s", _exc)
+    def get_redis():
+        return None
 
 # Legacy Supabase client (used by user_data, tracker for user-state persistence).
 # Kept as-is for backward compatibility; unrelated to the new Postgres/Redis layer above.

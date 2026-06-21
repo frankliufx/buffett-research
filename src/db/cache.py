@@ -5,7 +5,10 @@ import logging
 import os
 from typing import Optional
 
-import redis
+try:
+    import redis
+except ImportError as _e:
+    raise ImportError("redis package is required for the cache layer.") from _e
 
 logger = logging.getLogger(__name__)
 

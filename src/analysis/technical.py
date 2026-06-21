@@ -11,7 +11,13 @@
 import math
 import pandas as pd
 import numpy as np
-import ta
+
+try:
+    import ta
+    HAS_TA = True
+except ImportError:
+    ta = None
+    HAS_TA = False
 
 
 def compute_indicators(df: pd.DataFrame, config=None) -> pd.DataFrame:

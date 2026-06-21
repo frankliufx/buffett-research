@@ -5,5 +5,8 @@ secondaryBackgroundColor = "#141419"
 textColor = "#F0F0F2"
 font = "sans serif"
 
+[global]
+developmentMode = false
+
 [server]
 headless = true

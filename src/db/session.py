@@ -2,22 +2,25 @@
 
 Reads connection details from .env (loaded via src.config).
 Provides a context manager `session_scope()` for safe transaction handling.
+
+SQLAlchemy imports are lazy (inside functions) so this module does not crash
+on import when sqlalchemy is unavailable (e.g. Streamlit Cloud without psycopg2).
 """
 from __future__ import annotations
 
 import logging
 import os
 from contextlib import contextmanager
-from typing import Iterator, Optional
+from typing import TYPE_CHECKING, Any, Iterator, Optional
 
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session, sessionmaker
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
+    from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
-_engine: Optional[Engine] = None
-_SessionLocal: Optional[sessionmaker] = None
+_engine: Optional[Any] = None
+_SessionLocal: Optional[Any] = None
 
 
 def _build_dsn() -> str:
@@ -27,8 +30,11 @@ def _build_dsn() -> str:
     )
 
 
-def get_engine() -> Engine:
+def get_engine() -> "Engine":
     """Return a process-wide singleton engine."""
+    from sqlalchemy import create_engine  # lazy import
+    from sqlalchemy.orm import sessionmaker
+
     global _engine, _SessionLocal
     if _engine is None:
         _engine = create_engine(
@@ -45,7 +51,9 @@ def get_engine() -> Engine:
     return _engine
 
 
-def get_session() -> Session:
+def get_session() -> "Session":
+    from sqlalchemy.orm import Session  # noqa: F401 — imported for type resolution
+
     if _SessionLocal is None:
         get_engine()
     assert _SessionLocal is not None
@@ -53,7 +61,7 @@ def get_session() -> Session:
 
 
 @contextmanager
-def session_scope() -> Iterator[Session]:
+def session_scope() -> Iterator[Any]:
     """Context manager for transactional scope. Commits on success, rolls back on error."""
     session = get_session()
     try:

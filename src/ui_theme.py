@@ -777,6 +777,28 @@ def get_global_css():
         border-top: none !important;
     }
 
+    /* 强制导航分组始终展开，禁止折叠动效 */
+    [data-testid="stSidebarNavItems"] li > ul {
+        display: block !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transition: none !important;
+        animation: none !important;
+    }
+    [data-testid="stSidebarNavSectionHeader"] {
+        pointer-events: none !important;
+        cursor: default !important;
+    }
+    [data-testid="stSidebarNavItems"],
+    [data-testid="stSidebarNavItems"] > ul,
+    [data-testid="stSidebarNavItems"] > ul > li {
+        transition: none !important;
+        animation: none !important;
+    }
+
     /* 导航链接 */
     [data-testid="stSidebarNav"] a {
         display: flex !important;
