@@ -308,6 +308,9 @@ with ctrl_col:
 
     selected_ids = []
     for group_name, ids in ANALYST_GROUPS.items():
+        if group_name == "专项分析师":
+            st.markdown("---")
+            st.caption("专项分析师：系统性量化分析，独立投票")
         st.markdown(
             f'<div class="analyst-group-label">{group_name}</div>',
             unsafe_allow_html=True
@@ -318,12 +321,37 @@ with ctrl_col:
                 continue
             checked = st.checkbox(
                 f"{analyst['icon']} {analyst['name_cn']}",
-                value=(aid in ["buffett", "munger", "graham", "lynch", "burry", "damodaran"]),
+                value=(aid in ["buffett", "munger", "graham", "lynch", "burry", "damodaran",
+                               "technical_analyst", "fundamentals_analyst", "valuation_analyst"]),
                 key=f"analyst_{aid}",
                 help=analyst["style"],
             )
             if checked:
                 selected_ids.append(aid)
+
+    st.markdown("---")
+    st.markdown("#### 🔑 数据增强（可选）")
+
+    try:
+        from src.data.financial_datasets import has_fd_key as _hfk
+        _current_fd_key = config.api.financial_datasets_api_key if hasattr(config, 'api') else ""
+    except Exception:
+        _current_fd_key = ""
+        _hfk = lambda k="": False
+
+    fd_key_input = st.text_input(
+        "Financial Datasets API Key",
+        type="password",
+        value=st.session_state.get("fd_api_key_override", _current_fd_key),
+        placeholder="可选，填入后美股获得更丰富数据",
+        key="fd_api_key_input",
+    )
+    if fd_key_input != st.session_state.get("fd_api_key_override", _current_fd_key):
+        st.session_state["fd_api_key_override"] = fd_key_input
+
+    _fd_active = bool(st.session_state.get("fd_api_key_override") or _current_fd_key)
+    if _fd_active:
+        st.caption("✦ Financial Datasets AI 已启用")
 
     st.markdown("---")
 
@@ -452,6 +480,7 @@ with result_col:
                         {sym} &nbsp;·&nbsp; {name_val}
                         &nbsp;·&nbsp; ¥/$ {price_val:.2f}
                         &nbsp;·&nbsp; {len(r['analysts'])} 位分析师
+                        &nbsp;·&nbsp; <span style="color:{'#C9A962' if r.get('data_source') == 'financial_datasets' else '#5A5A6A'}">{'Financial Datasets AI ✦' if r.get('data_source') == 'financial_datasets' else 'yfinance'}</span>
                     </div>
                 </div>
                 <div style="text-align:right">
@@ -638,36 +667,75 @@ with result_col:
         tab_cards, tab_table, tab_data = st.tabs(["📊 分析师详情", "📋 汇总表格", "🔧 原始数据"])
 
         with tab_cards:
-            for analyst in r["analysts"]:
-                asc = sig_colors.get(analyst["signal"], "#C9A962")
-                sig_labels = {"bullish": "BULLISH", "bearish": "BEARISH", "neutral": "NEUTRAL"}
-                sig_label = sig_labels.get(analyst["signal"], "—")
-                conf = analyst["confidence"]
+            legendary = [a for a in r["analysts"] if a.get("group") != "专项分析师"]
+            specialists = [a for a in r["analysts"] if a.get("group") == "专项分析师"]
 
-                st.markdown(f"""
-                <div class="analyst-card" style="border-left-color:{asc}">
-                    <div class="ac-header">
-                        <div class="ac-who">
-                            <div class="ac-icon">{analyst['icon']}</div>
-                            <div>
-                                <div class="ac-name">{analyst['name_cn']}</div>
-                                <div class="ac-style">{analyst['style']}</div>
+            if legendary:
+                st.markdown("**传奇投资人**", help="价值/成长/宏观等流派大师")
+                for analyst in legendary:
+                    asc = sig_colors.get(analyst["signal"], "#C9A962")
+                    sig_labels = {"bullish": "BULLISH", "bearish": "BEARISH", "neutral": "NEUTRAL"}
+                    sig_label = sig_labels.get(analyst["signal"], "—")
+                    conf = analyst["confidence"]
+
+                    st.markdown(f"""
+                    <div class="analyst-card" style="border-left-color:{asc}">
+                        <div class="ac-header">
+                            <div class="ac-who">
+                                <div class="ac-icon">{analyst['icon']}</div>
+                                <div>
+                                    <div class="ac-name">{analyst['name_cn']}</div>
+                                    <div class="ac-style">{analyst['style']}</div>
+                                </div>
+                            </div>
+                            <div class="ac-signal" style="color:{asc};border-color:{asc}">
+                                {sig_label}
                             </div>
                         </div>
-                        <div class="ac-signal" style="color:{asc};border-color:{asc}">
-                            {sig_label}
+                        <div class="ac-reasoning">{analyst['reasoning']}</div>
+                        <div class="ac-conf-row">
+                            <span style="font-size:0.5rem;color:#5A5A6A;width:48px">置信度</span>
+                            <div class="ac-conf-track">
+                                <div class="ac-conf-fill" style="width:{conf}%;background:{asc}"></div>
+                            </div>
+                            <span class="ac-conf-label">{conf}%</span>
                         </div>
                     </div>
-                    <div class="ac-reasoning">{analyst['reasoning']}</div>
-                    <div class="ac-conf-row">
-                        <span style="font-size:0.5rem;color:#5A5A6A;width:48px">置信度</span>
-                        <div class="ac-conf-track">
-                            <div class="ac-conf-fill" style="width:{conf}%;background:{asc}"></div>
+                    """, unsafe_allow_html=True)
+
+            if specialists:
+                st.markdown("---")
+                st.markdown("**专项分析师**", help="系统性量化分析：技术/基本面/估值/情绪")
+                for analyst in specialists:
+                    asc = sig_colors.get(analyst["signal"], "#C9A962")
+                    sig_labels = {"bullish": "BULLISH", "bearish": "BEARISH", "neutral": "NEUTRAL"}
+                    sig_label = sig_labels.get(analyst["signal"], "—")
+                    conf = analyst["confidence"]
+
+                    st.markdown(f"""
+                    <div class="analyst-card" style="border-left-color:{asc}">
+                        <div class="ac-header">
+                            <div class="ac-who">
+                                <div class="ac-icon">{analyst['icon']}</div>
+                                <div>
+                                    <div class="ac-name">{analyst['name_cn']}</div>
+                                    <div class="ac-style">{analyst['style']}</div>
+                                </div>
+                            </div>
+                            <div class="ac-signal" style="color:{asc};border-color:{asc}">
+                                {sig_label}
+                            </div>
                         </div>
-                        <span class="ac-conf-label">{conf}%</span>
+                        <div class="ac-reasoning">{analyst['reasoning']}</div>
+                        <div class="ac-conf-row">
+                            <span style="font-size:0.5rem;color:#5A5A6A;width:48px">置信度</span>
+                            <div class="ac-conf-track">
+                                <div class="ac-conf-fill" style="width:{conf}%;background:{asc}"></div>
+                            </div>
+                            <span class="ac-conf-label">{conf}%</span>
+                        </div>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
         with tab_table:
             rows = []
