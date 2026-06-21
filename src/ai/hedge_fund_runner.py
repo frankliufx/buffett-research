@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 
 def build_data_context(symbol: str, name: str, price: float,
                        fundamentals: dict, normalized: dict,
-                       moat: dict, dcf: dict, tech: dict) -> str:
+                       moat: dict, dcf: dict, tech: dict,
+                       line_items=None, insider_trades=None, news_articles=None) -> str:
     """将现有分析数据构造成大师可读的文本摘要"""
     def _f(val, pct=False):
         if val is None:
@@ -91,7 +92,35 @@ def build_data_context(symbol: str, name: str, price: float,
                 _f(dcf.get("safety_margin_pct"))),
         ])
 
-    return "\n".join(lines)
+    parts = lines
+
+    if line_items:
+        parts.append("\n[财务报表详细数据]")
+        for k, v in line_items.items():
+            if v is not None:
+                if isinstance(v, (int, float)):
+                    parts.append(f"  {k}: {v:,.0f}")
+                else:
+                    parts.append(f"  {k}: {v}")
+
+    if insider_trades:
+        buys = sum(1 for t in insider_trades
+                   if (t.get("transaction_type") or "").lower() in ("buy", "purchase"))
+        sells = sum(1 for t in insider_trades
+                    if (t.get("transaction_type") or "").lower() in ("sell", "sale"))
+        parts.append(f"\n[内幕交易（近期）] 买入:{buys}笔 卖出:{sells}笔")
+
+    if news_articles:
+        parts.append("\n[最新新闻]")
+        for a in news_articles[:8]:
+            title = a.get("title", "")
+            time = a.get("time", "")
+            sentiment = a.get("sentiment", "")
+            time_str = time[:10] if time else ""
+            sentiment_str = f" [{sentiment}]" if sentiment else ""
+            parts.append(f"  [{time_str}] {title}{sentiment_str}")
+
+    return "\n".join(parts)
 
 
 def _call_analyst(analyst: dict, data_context: str, provider: ApiProvider) -> dict:
@@ -140,6 +169,9 @@ def run_hedge_fund(
     analyst_ids: list[str],
     provider: ApiProvider,
     max_workers: int = 6,
+    line_items=None,
+    insider_trades=None,
+    news_articles=None,
 ) -> Optional[dict]:
     """
     并行调用选定的 analysts，返回完整的投票结果。
@@ -163,7 +195,12 @@ def run_hedge_fund(
     if not selected:
         return None
 
-    data_context = build_data_context(symbol, name, price, fundamentals, normalized, moat, dcf, tech)
+    data_context = build_data_context(
+        symbol, name, price, fundamentals, normalized, moat, dcf, tech,
+        line_items=line_items,
+        insider_trades=insider_trades,
+        news_articles=news_articles,
+    )
 
     results = []
     with ThreadPoolExecutor(max_workers=min(max_workers, len(selected))) as executor:
@@ -268,9 +305,40 @@ def run_full_workflow(
         - risk: dict
         - final_decision: dict (来自 portfolio_manager)
     """
+    # ---- Fetch enriched data via provider router ----
+    try:
+        from src.data.provider import (
+            get_enhanced_fundamentals, get_line_items,
+            get_insider_trades, get_news_for_analysts,
+        )
+        from src.config import load_config as _load_cfg
+        try:
+            _fd_key = getattr(_load_cfg().api, "financial_datasets_api_key", "") or ""
+        except Exception:
+            _fd_key = ""
+
+        fundamentals = get_enhanced_fundamentals(symbol, market, fundamentals, _fd_key)
+
+        _line_items = get_line_items(symbol, market, [
+            "capital_expenditure", "depreciation_and_amortization",
+            "free_cash_flow", "dividends_and_equivalents",
+            "research_and_development", "revenue", "net_income",
+        ], _fd_key)
+
+        _insider_trades = get_insider_trades(symbol, market, _fd_key)
+        _news_articles = get_news_for_analysts(symbol, market, _fd_key, limit=10)
+    except Exception:
+        _line_items = {}
+        _insider_trades = []
+        _news_articles = []
+        _fd_key = ""
+
     # ---- Stage 1: 13 大师投票 ----
     hedge = run_hedge_fund(symbol, name, price, fundamentals, normalized, moat, dcf, tech,
-                           analyst_ids, provider, max_workers=max_workers)
+                           analyst_ids, provider, max_workers=max_workers,
+                           line_items=_line_items,
+                           insider_trades=_insider_trades,
+                           news_articles=_news_articles)
     if not hedge:
         return None
     votes = hedge["analysts"]
@@ -320,6 +388,7 @@ def run_full_workflow(
         "news_sentiment": news_sentiment,
         "risk": risk,
         "final_decision": final,
+        "data_source": fundamentals.get("_data_source", "yfinance"),
     }
 
     # ---- Stage 5: 决策落库（容错，不影响 UI 主流程）----
