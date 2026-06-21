@@ -14,11 +14,20 @@ import os
 from decimal import Decimal
 from typing import Optional
 
-from .models import HedgeFundDecision
-from .repository import get_or_create_stock
-from .session import db_available, session_scope
-
 logger = logging.getLogger(__name__)
+
+try:
+    from .models import HedgeFundDecision
+    from .repository import get_or_create_stock
+    from .session import db_available, session_scope
+except Exception as _exc:
+    logger.warning("SQLAlchemy unavailable, decision persistence disabled: %s", _exc)
+    HedgeFundDecision = None  # type: ignore[assignment,misc]
+    get_or_create_stock = None  # type: ignore[assignment]
+    def db_available() -> bool:  # type: ignore[misc]
+        return False
+    def session_scope():  # type: ignore[misc]
+        raise ImportError("SQLAlchemy unavailable")
 
 ALGO_VERSION = "v1.0"
 
