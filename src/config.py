@@ -89,6 +89,8 @@ class ApiProvider(BaseModel):
 class ApiConfig(BaseModel):
     # 高级分析模型（用于 AI 洞察卡片等需要深度分析的场景）
     premium_model: str = "deepseek/deepseek-chat-v3-0324"
+    # Financial Datasets AI — US stocks premium data source
+    financial_datasets_api_key: str = ""
     providers: List[ApiProvider] = [
         ApiProvider(
             name="OpenRouter (默认)",
@@ -252,6 +254,11 @@ def _resolve_api_keys(config: AppConfig):
             for p in config.api.providers:
                 if matcher(p):
                     p.api_key = val
+
+    # Financial Datasets AI
+    fd_key = _get("FINANCIAL_DATASETS_API_KEY")
+    if fd_key:
+        config.api.financial_datasets_api_key = fd_key
 
     # 通用兜底
     fallback = _get("AI_API_KEY")
