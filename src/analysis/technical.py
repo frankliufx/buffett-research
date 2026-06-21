@@ -20,6 +20,15 @@ except ImportError:
     HAS_TA = False
 
 
+def _compute_rsi_numpy(close: pd.Series, window: int = 14) -> pd.Series:
+    """Numpy-only RSI fallback when `ta` is unavailable."""
+    delta = close.diff()
+    gain = delta.clip(lower=0).rolling(window=window, min_periods=window).mean()
+    loss = (-delta.clip(upper=0)).rolling(window=window, min_periods=window).mean()
+    rs = gain / loss.replace(0, float("nan"))
+    return 100 - (100 / (1 + rs))
+
+
 def compute_indicators(df: pd.DataFrame, config=None) -> pd.DataFrame:
     """计算全部技术指标（含增强指标）"""
     if df.empty or len(df) < 20:
@@ -33,40 +42,63 @@ def compute_indicators(df: pd.DataFrame, config=None) -> pd.DataFrame:
     # 均线
     for period in (config.sma_periods if config else [20, 50, 200]):
         if len(df) >= period:
-            df[f"SMA_{period}"] = ta.trend.SMAIndicator(close, window=period).sma_indicator()
+            if HAS_TA:
+                df[f"SMA_{period}"] = ta.trend.SMAIndicator(close, window=period).sma_indicator()
+            else:
+                df[f"SMA_{period}"] = close.rolling(window=period).mean()
 
     # EMA (增强：8/21/55 三周期，用于趋势跟踪策略)
     for ema_period in [8, 12, 21, 26, 55]:
         if len(df) >= ema_period:
-            df[f"EMA_{ema_period}"] = ta.trend.EMAIndicator(close, window=ema_period).ema_indicator()
+            if HAS_TA:
+                df[f"EMA_{ema_period}"] = ta.trend.EMAIndicator(close, window=ema_period).ema_indicator()
+            else:
+                df[f"EMA_{ema_period}"] = close.ewm(span=ema_period, adjust=False).mean()
 
     # RSI
     rsi_period = config.rsi_period if config else 14
-    df["RSI"] = ta.momentum.RSIIndicator(close, window=rsi_period).rsi()
+    if HAS_TA:
+        df["RSI"] = ta.momentum.RSIIndicator(close, window=rsi_period).rsi()
+    else:
+        df["RSI"] = _compute_rsi_numpy(close, window=rsi_period)
 
-    # MACD
-    macd = ta.trend.MACD(close)
-    df["MACD"] = macd.macd()
-    df["MACD_signal"] = macd.macd_signal()
-    df["MACD_hist"] = macd.macd_diff()
+    if HAS_TA:
+        # MACD
+        macd = ta.trend.MACD(close)
+        df["MACD"] = macd.macd()
+        df["MACD_signal"] = macd.macd_signal()
+        df["MACD_hist"] = macd.macd_diff()
 
-    # 布林带
-    bb = ta.volatility.BollingerBands(close)
-    df["BB_upper"] = bb.bollinger_hband()
-    df["BB_middle"] = bb.bollinger_mavg()
-    df["BB_lower"] = bb.bollinger_lband()
+        # 布林带
+        bb = ta.volatility.BollingerBands(close)
+        df["BB_upper"] = bb.bollinger_hband()
+        df["BB_middle"] = bb.bollinger_mavg()
+        df["BB_lower"] = bb.bollinger_lband()
 
-    # ATR (波动率)
-    df["ATR"] = ta.volatility.AverageTrueRange(high, low, close).average_true_range()
+        # ATR (波动率)
+        df["ATR"] = ta.volatility.AverageTrueRange(high, low, close).average_true_range()
 
-    # 成交量均线
+        # ADX 趋势强度
+        if len(df) >= 14:
+            adx_ind = ta.trend.ADXIndicator(high, low, close, window=14)
+            df["ADX"] = adx_ind.adx()
+    else:
+        # Numpy-only Bollinger Bands fallback
+        sma20 = close.rolling(window=20).mean()
+        std20 = close.rolling(window=20).std()
+        df["BB_middle"] = sma20
+        df["BB_upper"] = sma20 + 2 * std20
+        df["BB_lower"] = sma20 - 2 * std20
+        # MACD fallback
+        ema12 = close.ewm(span=12, adjust=False).mean()
+        ema26 = close.ewm(span=26, adjust=False).mean()
+        macd_line = ema12 - ema26
+        df["MACD"] = macd_line
+        df["MACD_signal"] = macd_line.ewm(span=9, adjust=False).mean()
+        df["MACD_hist"] = df["MACD"] - df["MACD_signal"]
+
+    # 成交量均线 (pure pandas — always available)
     df["Volume_SMA_20"] = volume.rolling(window=20).mean()
-
-    # ── 增强指标 ──────────────────────────────────────────────
-    # ADX 趋势强度
-    if len(df) >= 14:
-        adx_ind = ta.trend.ADXIndicator(high, low, close, window=14)
-        df["ADX"] = adx_ind.adx()
 
     return df
 
