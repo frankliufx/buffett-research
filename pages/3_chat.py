@@ -1,8 +1,10 @@
 """AI Advisory — Buffett + Duan Yongping AI Partner"""
 
+import re
 import streamlit as st
 import streamlit.components.v1 as components
 import random
+from datetime import date
 
 from src.config import get_premium_provider, load_config
 from src.ai.summarizer import stream_chat_with_analyst
@@ -100,8 +102,79 @@ with st.sidebar:
         st.rerun()
 
 
+# ── 股票代码识别 ──────────────────────────────────────────────────────────────
+# 常见公司名 → 代码映射（补充识别中文名）
+_NAME_TO_TICKER = {
+    "英伟达": ("NVDA", "us"), "nvidia": ("NVDA", "us"),
+    "苹果": ("AAPL", "us"), "apple": ("AAPL", "us"),
+    "微软": ("MSFT", "us"), "microsoft": ("MSFT", "us"),
+    "谷歌": ("GOOGL", "us"), "google": ("GOOGL", "us"), "alphabet": ("GOOGL", "us"),
+    "亚马逊": ("AMZN", "us"), "amazon": ("AMZN", "us"),
+    "特斯拉": ("TSLA", "us"), "tesla": ("TSLA", "us"),
+    "meta": ("META", "us"), "facebook": ("META", "us"),
+    "伯克希尔": ("BRK-B", "us"), "berkshire": ("BRK-B", "us"),
+    "腾讯": ("00700.HK", "hk"), "tencent": ("00700.HK", "hk"),
+    "阿里巴巴": ("BABA", "us"), "alibaba": ("BABA", "us"),
+    "比亚迪": ("002594", "a_share"), "byd": ("002594", "a_share"),
+    "茅台": ("600519", "a_share"), "贵州茅台": ("600519", "a_share"),
+    "招商银行": ("600036", "a_share"),
+    "宁德时代": ("300750", "a_share"), "catl": ("300750", "a_share"),
+}
+
+def _detect_stocks(text: str) -> list[tuple[str, str]]:
+    """从文本中识别股票代码和市场，返回 [(symbol, market), ...]"""
+    found = []
+    low = text.lower()
+    # 中英文公司名匹配
+    for name, (sym, mkt) in _NAME_TO_TICKER.items():
+        if name in low or name in text:
+            if (sym, mkt) not in found:
+                found.append((sym, mkt))
+    # 美股代码：1-5大写字母（独立单词）
+    for m in re.finditer(r'\b([A-Z]{1,5}(?:-[A-Z])?)\b', text):
+        sym = m.group(1)
+        if sym not in ("AI", "PE", "PB", "ROE", "ETF", "IPO", "DCF", "GDP", "API", "USD", "HK"):
+            if ("us", sym) not in [(s, mk) for s, mk in found]:
+                found.append((sym, "us"))
+    # A股6位数字
+    for m in re.finditer(r'\b([036]\d{5})\b', text):
+        found.append((m.group(1), "a_share"))
+    # 港股 xxxxx.HK
+    for m in re.finditer(r'\b(\d{4,5}\.HK)\b', text, re.IGNORECASE):
+        found.append((m.group(1).upper(), "hk"))
+    return found[:3]  # 最多取前3只
+
+
+def _fetch_live_data(symbol: str, market: str) -> str:
+    """拉取实时行情+基本面，返回格式化文本，失败时返回空字符串"""
+    try:
+        from src.data.price import fetch_quote
+        from src.data.financial import fetch_fundamentals
+        q = fetch_quote(symbol, market)
+        f = fetch_fundamentals(symbol, market)
+        price = q.get("price") or q.get("close")
+        change = q.get("change_pct", 0)
+        lines = [
+            "## {} 实时数据（{}）".format(symbol, date.today().isoformat()),
+            "当前价格: {} | 今日涨跌: {:.2f}%".format(price, float(change or 0)),
+        ]
+        for key, label in [
+            ("pe_ratio", "市盈率PE"), ("pb_ratio", "市净率PB"),
+            ("roe", "ROE"), ("profit_margin", "净利率"),
+            ("gross_margin", "毛利率"), ("market_cap", "市值(亿)"),
+            ("revenue_growth", "营收增长"), ("earnings_growth", "利润增长"),
+            ("debt_to_equity", "负债权益比"), ("free_cashflow", "自由现金流"),
+        ]:
+            val = f.get(key)
+            if val is not None and str(val) not in ("None", "N/A", "nan"):
+                lines.append("{}: {}".format(label, val))
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 # ── Build context ─────────────────────────────────────────────────────────────
-def build_context() -> str:
+def build_context(last_user_msg: str = "") -> str:
     parts = []
 
     # Core knowledge (truncated for context window management)
@@ -111,14 +184,29 @@ def build_context() -> str:
     parts.append(DUAN_YONGPING_CASES[:1500])
     parts.append(EVALUATION_FRAMEWORK)
 
-    # Stock-specific context
+    # ── 实时行情注入 ──────────────────────────────────────────────────────────
+    # 优先从 chat_context_stock（深度分析页跳转过来的股票）取，否则识别最新消息
     ctx = st.session_state.get("chat_context_stock")
     if ctx:
-        parts.append("\n## 当前讨论的股票")
+        parts.append("\n## 当前讨论的股票（已完成深度分析）")
         parts.append("{} ({})，护城河评级: {} ({}分/100)".format(
             ctx["symbol"], ctx["name"], ctx.get("grade", "?"), ctx.get("score", "?")))
         if ctx.get("analysis"):
             parts.append("之前的分析报告:\n{}".format(ctx["analysis"][:2000]))
+        # 补充实时价格
+        live = _fetch_live_data(ctx["symbol"], ctx.get("market", "us"))
+        if live:
+            parts.append(live)
+    elif last_user_msg:
+        stocks = _detect_stocks(last_user_msg)
+        live_blocks = []
+        for sym, mkt in stocks:
+            block = _fetch_live_data(sym, mkt)
+            if block:
+                live_blocks.append(block)
+        if live_blocks:
+            parts.append("\n## 实时市场数据（今日最新，请基于此数据分析，不要使用过时数据）")
+            parts.extend(live_blocks)
 
     # Watchlist context
     watchlist = config.watchlist
@@ -174,7 +262,8 @@ if (st.session_state.chat_history
 
     provider = get_premium_provider(config)
     with st.chat_message("assistant", avatar="🧐"):
-        context = build_context()
+        last_msg = next((m["content"] for m in reversed(st.session_state.chat_history) if m["role"] == "user"), "")
+        context = build_context(last_msg)
         reply = st.write_stream(stream_chat_with_analyst(
             st.session_state.chat_history,
             provider=provider,
@@ -193,7 +282,8 @@ if user_input:
 
     provider = get_premium_provider(config)
     with st.chat_message("assistant", avatar="🧐"):
-        context = build_context()
+        last_msg = next((m["content"] for m in reversed(st.session_state.chat_history) if m["role"] == "user"), "")
+        context = build_context(last_msg)
         reply = st.write_stream(stream_chat_with_analyst(
             st.session_state.chat_history,
             provider=provider,
