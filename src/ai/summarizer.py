@@ -512,13 +512,7 @@ def generate_weekly_report(market_data: str, watchlist_summary: str,
 
 def chat_with_analyst(messages: list, provider: Optional[ApiProvider] = None,
                       context: str = "") -> str:
-    """与 AI 分析师对话
-
-    Args:
-        messages: 对话历史 [{"role": "user"/"assistant", "content": "..."}]
-        provider: API provider
-        context: 当前股票分析数据上下文
-    """
+    """与 AI 分析师对话（非流式，返回完整字符串）"""
     if not provider or not provider.api_key:
         return "请先在「设置」页面配置 API Key 后使用 AI 对话功能。"
 
@@ -533,6 +527,53 @@ def chat_with_analyst(messages: list, provider: Optional[ApiProvider] = None,
     except Exception as e:
         logger.error(f"Chat failed: {e}")
         return "AI 对话出错: {}".format(e)
+
+
+def stream_chat_with_analyst(messages: list, provider: Optional[ApiProvider] = None,
+                              context: str = ""):
+    """与 AI 分析师对话（流式，yield 文字片段供 st.write_stream 消费）"""
+    if not provider or not provider.api_key:
+        yield "请先在「设置」页面配置 API Key 后使用 AI 对话功能。"
+        return
+
+    system = CHAT_SYSTEM_PROMPT
+    if context:
+        system += "\n\n## 当前分析数据\n" + context
+
+    full_messages = [{"role": "system", "content": system}] + messages
+
+    _acquire_rate_token(provider)
+    client_type, client = _create_client(provider)
+
+    try:
+        if client_type == "anthropic":
+            sys_msg = ""
+            chat_msgs = []
+            for m in full_messages:
+                if m["role"] == "system":
+                    sys_msg = m["content"]
+                else:
+                    chat_msgs.append(m)
+            kwargs = {"model": provider.model, "max_tokens": 3000, "messages": chat_msgs}
+            if sys_msg:
+                kwargs["system"] = sys_msg
+            with client.messages.stream(**kwargs) as stream:
+                for chunk in stream.text_stream:
+                    yield chunk
+        else:
+            stream = client.chat.completions.create(
+                model=provider.model,
+                max_tokens=3000,
+                messages=full_messages,
+                stream=True,
+            )
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
+    except Exception as e:
+        logger.error("Stream chat failed: %s", e)
+        yield "\n\nAI 对话出错: {}".format(e)
 
 
 def get_ashare_brief(result, moat: dict, policy_data: dict,
