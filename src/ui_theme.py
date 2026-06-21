@@ -760,12 +760,11 @@ def get_global_css():
         padding-top: 0.5rem;
     }
 
-    /* 导航分组标题 */
-    [data-testid="stSidebarNav"] span[data-testid="stSidebarNavSectionHeader"],
-    [data-testid="stSidebarNav"] p {
+    /* 导航分组标题 — 仅针对分节 header，不影响页面链接文字 */
+    [data-testid="stSidebarNavSectionHeader"] {
         font-size: 0.6rem !important;
         font-weight: 700 !important;
-        letter-spacing: 2.5px !important;
+        letter-spacing: 1.5px !important;
         text-transform: uppercase !important;
         color: %(text_muted)s !important;
         padding: 1rem 1rem 0.3rem !important;
@@ -773,8 +772,20 @@ def get_global_css():
         border-top: 1px solid %(border_light)s;
     }
     /* 第一个分组标题不显示顶部分隔线 */
-    [data-testid="stSidebarNav"] > ul > li:first-child p {
+    [data-testid="stSidebarNav"] > ul > li:first-child [data-testid="stSidebarNavSectionHeader"] {
         border-top: none !important;
+    }
+    /* 页面链接文字：不加字间距，不大写，不加分隔线 */
+    [data-testid="stSidebarNav"] a span,
+    [data-testid="stSidebarNav"] a p {
+        letter-spacing: 0 !important;
+        text-transform: none !important;
+        border-top: none !important;
+        font-size: 0.875rem !important;
+        font-weight: inherit !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        color: inherit !important;
     }
 
     /* 强制导航分组始终展开，禁止折叠动效 */
