@@ -22,6 +22,9 @@ from src.ai.hedge_fund_runner import run_hedge_fund, run_full_workflow
 from src.ui_theme import get_global_css
 
 logging.basicConfig(level=logging.WARNING)
+logger = logging.getLogger(__name__)
+
+MAX_COMPARE_TICKERS = 5
 
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
@@ -787,7 +790,7 @@ with result_col:
     # ── 批量对比运行逻辑 ─────────────────────────────────────────────────────
     if compare_btn and compare_raw.strip():
         raw_tickers = [t.strip().upper() for t in compare_raw.replace("，", ",").split(",")]
-        tickers = [t for t in raw_tickers if t][:5]  # 最多5只
+        tickers = [t for t in raw_tickers if t][:MAX_COMPARE_TICKERS]  # 最多5只
 
         if not tickers:
             st.warning("未解析到有效股票代码")
@@ -834,6 +837,7 @@ with result_col:
                             "weighted_score": None,
                         })
                 except Exception as e:
+                    logger.warning("Compare analysis failed for %s: %s", tk, e)
                     compare_results.append({
                         "symbol": tk,
                         "name": tk,
