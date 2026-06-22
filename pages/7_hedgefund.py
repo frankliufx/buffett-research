@@ -4,6 +4,7 @@
 复用现有数据管道（yfinance），无需第三方 financial datasets API。
 """
 
+import html
 import logging
 import streamlit as st
 import streamlit.components.v1 as _cmp
@@ -858,118 +859,121 @@ with result_col:
     # ── 批量对比结果展示 ─────────────────────────────────────────────────────
     if "hf_compare_results" in st.session_state:
         crs = st.session_state["hf_compare_results"]
-        n_analysts = st.session_state.get("hf_compare_analysts_count", len(selected_ids))
+        n_analysts = st.session_state.get("hf_compare_analysts_count", 0)
 
-        st.markdown("---")
-        st.markdown(f"### 📊 对比结果（{len(crs)} 只股票 · {n_analysts} 位分析师）")
+        if not crs:
+            st.info("暂无对比结果。")
+        else:
+            st.markdown("---")
+            st.markdown(f"### 📊 对比结果（{len(crs)} 只股票 · {n_analysts} 位分析师）")
 
-        _sig_colors = {"bullish": "#00C853", "bearish": "#F44336", "neutral": "#C9A962"}
-        _sig_cn = {"bullish": "看多", "bearish": "看空", "neutral": "中性"}
-        _action_cn = {
-            "bullish": "✦ 优先关注",
-            "neutral": "── 观望",
-            "bearish": "✕ 回避",
-        }
+            _sig_colors = {"bullish": "#00C853", "bearish": "#F44336", "neutral": "#C9A962"}
+            _sig_cn = {"bullish": "看多", "bearish": "看空", "neutral": "中性"}
+            _action_cn = {
+                "bullish": "✦ 优先关注",
+                "neutral": "── 观望",
+                "bearish": "✕ 回避",
+            }
 
-        rows_html = []
-        for rank, cr in enumerate(crs, 1):
-            if cr.get("error"):
+            rows_html = []
+            for rank, cr in enumerate(crs, 1):
+                if cr.get("error"):
+                    rows_html.append(f"""
+                    <tr style="border-bottom:1px solid rgba(201,169,98,0.08)">
+                        <td style="padding:10px 12px;color:#555">{rank}</td>
+                        <td style="padding:10px 12px;color:#E8E8F0;font-weight:700">{html.escape(str(cr['symbol']))}</td>
+                        <td colspan="6" style="padding:10px 12px;color:#F44336;font-size:0.78rem">
+                            {html.escape(str(cr.get('error','分析失败')))}</td>
+                    </tr>""")
+                    continue
+
+                ws = cr.get("weighted_score", 0)
+                cons = cr.get("consensus", {})
+                sig = cons.get("signal", "neutral")
+                sc = _sig_colors.get(sig, "#C9A962")
+                sig_label = _sig_cn.get(sig, "中性")
+                bull = cr.get("bullish_count", 0)
+                bear = cr.get("bearish_count", 0)
+                neut = cr.get("neutral_count", 0)
+                conf = cons.get("confidence", 0)
+                price_str = f"{cr['price']:.2f}" if cr.get("price") is not None else "—"
+                action_str = _action_cn.get(sig, "──")
+
+                bar_w = max(0, min(100, int((ws + 100) / 200 * 100)))
+                bar_color = sc
+
                 rows_html.append(f"""
                 <tr style="border-bottom:1px solid rgba(201,169,98,0.08)">
-                    <td style="padding:10px 12px;color:#555">{rank}</td>
-                    <td style="padding:10px 12px;color:#E8E8F0;font-weight:700">{cr['symbol']}</td>
-                    <td colspan="6" style="padding:10px 12px;color:#F44336;font-size:0.78rem">
-                        {cr.get('error','分析失败')}</td>
+                    <td style="padding:10px 12px;color:#5A5A6A;font-size:0.85rem;
+                         font-family:'Cormorant Garamond',serif">{rank}</td>
+                    <td style="padding:10px 12px">
+                        <div style="font-size:0.9rem;font-weight:700;color:#E8E8F0">{html.escape(str(cr['symbol']))}</div>
+                        <div style="font-size:0.68rem;color:#5A5A6A">{html.escape(str(cr.get('name','')[:16]))}</div>
+                    </td>
+                    <td style="padding:10px 12px;color:{sc};font-size:1.1rem;
+                         font-weight:700;font-family:'Cormorant Garamond',serif">{ws:+.0f}</td>
+                    <td style="padding:10px 12px">
+                        <span style="font-size:0.58rem;font-weight:700;letter-spacing:2px;
+                             color:{sc};border:1px solid {sc};padding:2px 8px;border-radius:2px">
+                            {sig_label}
+                        </span>
+                    </td>
+                    <td style="padding:10px 12px">
+                        <div style="display:flex;height:6px;border-radius:3px;overflow:hidden;width:80px;
+                             background:#1A1A24">
+                            <div style="width:{bar_w}%;background:{bar_color}"></div>
+                        </div>
+                        <div style="font-size:0.55rem;color:#5A5A6A;margin-top:3px">
+                            ▲{bull} ●{neut} ▼{bear}
+                        </div>
+                    </td>
+                    <td style="padding:10px 12px;color:#8A8A98;font-size:0.78rem">{conf}%</td>
+                    <td style="padding:10px 12px;color:#C8C8D8;font-size:0.8rem">{price_str}</td>
+                    <td style="padding:10px 12px;color:{sc};font-size:0.78rem;
+                         font-weight:600">{action_str}</td>
                 </tr>""")
-                continue
 
-            ws = cr.get("weighted_score", 0)
-            cons = cr.get("consensus", {})
-            sig = cons.get("signal", "neutral")
-            sc = _sig_colors.get(sig, "#C9A962")
-            sig_label = _sig_cn.get(sig, "中性")
-            bull = cr.get("bullish_count", 0)
-            bear = cr.get("bearish_count", 0)
-            neut = cr.get("neutral_count", 0)
-            conf = cons.get("confidence", 0)
-            price_str = f"{cr['price']:.2f}" if cr.get("price") else "—"
-            action_str = _action_cn.get(sig, "──")
-
-            bar_w = int((ws + 100) / 200 * 100)
-            bar_color = sc
-
-            rows_html.append(f"""
-            <tr style="border-bottom:1px solid rgba(201,169,98,0.08)">
-                <td style="padding:10px 12px;color:#5A5A6A;font-size:0.85rem;
-                     font-family:'Cormorant Garamond',serif">{rank}</td>
-                <td style="padding:10px 12px">
-                    <div style="font-size:0.9rem;font-weight:700;color:#E8E8F0">{cr['symbol']}</div>
-                    <div style="font-size:0.68rem;color:#5A5A6A">{cr.get('name','')[:16]}</div>
-                </td>
-                <td style="padding:10px 12px;color:{sc};font-size:1.1rem;
-                     font-weight:700;font-family:'Cormorant Garamond',serif">{ws:+.0f}</td>
-                <td style="padding:10px 12px">
-                    <span style="font-size:0.58rem;font-weight:700;letter-spacing:2px;
-                         color:{sc};border:1px solid {sc};padding:2px 8px;border-radius:2px">
-                        {sig_label}
-                    </span>
-                </td>
-                <td style="padding:10px 12px">
-                    <div style="display:flex;height:6px;border-radius:3px;overflow:hidden;width:80px;
-                         background:#1A1A24">
-                        <div style="width:{bar_w}%;background:{bar_color}"></div>
-                    </div>
-                    <div style="font-size:0.55rem;color:#5A5A6A;margin-top:3px">
-                        ▲{bull} ●{neut} ▼{bear}
-                    </div>
-                </td>
-                <td style="padding:10px 12px;color:#8A8A98;font-size:0.78rem">{conf}%</td>
-                <td style="padding:10px 12px;color:#C8C8D8;font-size:0.8rem">{price_str}</td>
-                <td style="padding:10px 12px;color:{sc};font-size:0.78rem;
-                     font-weight:600">{action_str}</td>
-            </tr>""")
-
-        st.markdown(f"""
-        <div style="background:rgba(10,13,20,0.8);border:1px solid rgba(201,169,98,0.15);
-             border-radius:6px;overflow:hidden;margin-top:8px">
-            <table style="width:100%;border-collapse:collapse">
-                <thead>
-                    <tr style="background:rgba(201,169,98,0.07);
-                         border-bottom:1px solid rgba(201,169,98,0.2)">
-                        <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
-                             letter-spacing:3px;color:rgba(201,169,98,0.6)">#</th>
-                        <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
-                             letter-spacing:3px;color:rgba(201,169,98,0.6)">股票</th>
-                        <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
-                             letter-spacing:3px;color:rgba(201,169,98,0.6)">综合分</th>
-                        <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
-                             letter-spacing:3px;color:rgba(201,169,98,0.6)">信号</th>
-                        <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
-                             letter-spacing:3px;color:rgba(201,169,98,0.6)">投票</th>
-                        <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
-                             letter-spacing:3px;color:rgba(201,169,98,0.6)">置信度</th>
-                        <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
-                             letter-spacing:3px;color:rgba(201,169,98,0.6)">价格</th>
-                        <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
-                             letter-spacing:3px;color:rgba(201,169,98,0.6)">建议</th>
-                    </tr>
-                </thead>
-                <tbody>{''.join(rows_html)}</tbody>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
-
-        winner = next((cr for cr in crs if not cr.get("error") and
-                       cr.get("weighted_score") is not None), None)
-        if winner and winner.get("consensus", {}).get("signal") == "bullish":
-            ws_w = winner["weighted_score"]
             st.markdown(f"""
-            <div style="margin-top:12px;padding:12px 16px;
-                 background:rgba(0,200,83,0.06);border:1px solid rgba(0,200,83,0.2);
-                 border-radius:4px;font-size:0.82rem;color:#a8c8a0">
-                🏆 <b style="color:#00C853">{winner['symbol']}</b> 综合分最高（{ws_w:+.0f}），
-                {len(selected_ids)} 位大师中有 {winner.get('bullish_count',0)} 位看多。
+            <div style="background:rgba(10,13,20,0.8);border:1px solid rgba(201,169,98,0.15);
+                 border-radius:6px;overflow:hidden;margin-top:8px">
+                <table style="width:100%;border-collapse:collapse">
+                    <thead>
+                        <tr style="background:rgba(201,169,98,0.07);
+                             border-bottom:1px solid rgba(201,169,98,0.2)">
+                            <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
+                                 letter-spacing:3px;color:rgba(201,169,98,0.6)">#</th>
+                            <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
+                                 letter-spacing:3px;color:rgba(201,169,98,0.6)">股票</th>
+                            <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
+                                 letter-spacing:3px;color:rgba(201,169,98,0.6)">综合分</th>
+                            <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
+                                 letter-spacing:3px;color:rgba(201,169,98,0.6)">信号</th>
+                            <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
+                                 letter-spacing:3px;color:rgba(201,169,98,0.6)">投票</th>
+                            <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
+                                 letter-spacing:3px;color:rgba(201,169,98,0.6)">置信度</th>
+                            <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
+                                 letter-spacing:3px;color:rgba(201,169,98,0.6)">价格</th>
+                            <th style="padding:10px 12px;text-align:left;font-size:0.52rem;
+                                 letter-spacing:3px;color:rgba(201,169,98,0.6)">建议</th>
+                        </tr>
+                    </thead>
+                    <tbody>{''.join(rows_html)}</tbody>
+                </table>
             </div>
             """, unsafe_allow_html=True)
 
-        st.caption(f"对比时间: {datetime.now().strftime('%Y-%m-%d %H:%M')} | 分析师阵容: {n_analysts} 位 | 仅用分析师投票（不含PM决策）")
+            winner = next((cr for cr in crs if not cr.get("error") and
+                           cr.get("weighted_score") is not None), None)
+            if winner and winner.get("consensus", {}).get("signal") == "bullish":
+                ws_w = winner["weighted_score"]
+                st.markdown(f"""
+                <div style="margin-top:12px;padding:12px 16px;
+                     background:rgba(0,200,83,0.06);border:1px solid rgba(0,200,83,0.2);
+                     border-radius:4px;font-size:0.82rem;color:#a8c8a0">
+                    🏆 <b style="color:#00C853">{html.escape(str(winner['symbol']))}</b> 综合分最高（{ws_w:+.0f}），
+                    {len(selected_ids)} 位大师中有 {winner.get('bullish_count',0)} 位看多。
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.caption(f"对比时间: {datetime.now().strftime('%Y-%m-%d %H:%M')} | 分析师阵容: {n_analysts} 位 | 仅用分析师投票（不含PM决策）")
