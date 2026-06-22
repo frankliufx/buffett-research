@@ -269,3 +269,47 @@ def get_recent_decisions(stock_id: int, limit: int = 20) -> list[dict]:
     except Exception as e:
         logger.warning("get_recent_decisions failed: %s", e)
         return []
+
+
+def get_decisions_for_accuracy(min_age_days: int = 30, limit: int = 200) -> list[dict]:
+    """Fetch past decisions old enough to have meaningful price movement.
+
+    Args:
+        min_age_days: Only include decisions at least this many days old.
+        limit: Max rows to return.
+
+    Returns:
+        List of dicts with keys: decision_id, symbol, market, decided_at,
+        price, consensus_signal, votes_payload.
+    """
+    if not db_available():
+        return []
+    try:
+        from datetime import datetime, timezone, timedelta
+        from sqlalchemy import select
+        from .models import Stock
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=min_age_days)
+        with session_scope() as s:
+            rows = s.execute(
+                select(HedgeFundDecision, Stock)
+                .join(Stock, HedgeFundDecision.stock_id == Stock.id)
+                .where(HedgeFundDecision.decided_at <= cutoff)
+                .order_by(HedgeFundDecision.decided_at.desc())
+                .limit(limit)
+            ).all()
+            return [
+                {
+                    "decision_id": r.id,
+                    "symbol": st.symbol,
+                    "market": st.market,
+                    "decided_at": r.decided_at,
+                    "price": float(r.price),
+                    "consensus_signal": r.consensus_signal,
+                    "votes_payload": r.votes_payload or [],
+                }
+                for r, st in rows
+            ]
+    except Exception as e:
+        logger.warning("get_decisions_for_accuracy failed: %s", e)
+        return []
