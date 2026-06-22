@@ -105,8 +105,8 @@ if _sym_markets:
                 p = q.get("price")
                 if p:
                     current_prices["{}:{}".format(mkt, sym)] = float(p)
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.debug("fetch_quote %s:%s failed: %s", mkt, sym, _exc)
 
 stats = compute_track_record(records, current_prices) if records else {}
 
@@ -374,7 +374,10 @@ if _analyst_accuracy:
         '</div>'
     )
 
-    total_decisions = len(_past_decisions)
+    total_decisions = sum(
+        1 for d in _past_decisions
+        if "{}:{}".format(d["market"], d["symbol"]) in _acc_prices
+    )
 
     _html("""
 <div style="padding:48px 48px 40px;border-top:1px solid #1A1A22;background:#06060A;">
