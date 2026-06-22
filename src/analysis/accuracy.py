@@ -60,6 +60,7 @@ def compute_hedge_fund_accuracy(
                     "total": 0,
                     "hits": 0,
                     "_confidence_sum": 0.0,
+                    "_confidence_count": 0,
                     "avg_confidence": 0.0,
                     "hit_rate": 0.0,
                 }
@@ -74,11 +75,16 @@ def compute_hedge_fund_accuracy(
 
             if confidence is not None:
                 rec["_confidence_sum"] += float(confidence)
+                rec["_confidence_count"] += 1
 
     for rec in stats.values():
         total = rec["total"]
         rec["hit_rate"] = rec["hits"] / total if total > 0 else 0.0
-        rec["avg_confidence"] = rec["_confidence_sum"] / total if total > 0 else 0.0
+        rec["avg_confidence"] = (
+            rec["_confidence_sum"] / rec["_confidence_count"]
+            if rec["_confidence_count"] > 0 else 0.0
+        )
         del rec["_confidence_sum"]
+        del rec["_confidence_count"]
 
     return {aid: rec for aid, rec in stats.items() if rec["total"] > 0}

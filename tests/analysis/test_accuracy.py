@@ -82,3 +82,18 @@ def test_missing_price_skips_decision():
     # buffett: only AAPL decision evaluated → 1 total, 1 hit
     assert result["buffett"]["total"] == 1
     assert result["buffett"]["hits"] == 1
+
+
+def test_avg_confidence_excludes_none_confidence_votes():
+    decisions = [{
+        "symbol": "MSFT", "market": "us", "price": 100.0,
+        "consensus_signal": "bullish",
+        "votes_payload": [
+            {"id": "buffett", "name": "Warren Buffett", "signal": "bullish", "confidence": 80},
+            {"id": "buffett", "name": "Warren Buffett", "signal": "bullish", "confidence": None},
+            {"id": "buffett", "name": "Warren Buffett", "signal": "bullish", "confidence": 70},
+        ],
+    }]
+    result = compute_hedge_fund_accuracy(decisions, {"us:MSFT": 110.0})
+    # avg should be (80+70)/2 = 75.0, not (80+0+70)/3 = 50.0
+    assert result["buffett"]["avg_confidence"] == pytest.approx(75.0)
