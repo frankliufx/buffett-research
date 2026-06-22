@@ -16,6 +16,11 @@ from src.tracker import load_user_analysis_history, compute_track_record
 from src.data.price import fetch_quote
 from src.ui_theme import get_global_css, COLORS
 import streamlit.components.v1 as components
+import html as _html_module
+import logging
+from src.db.decisions import get_decisions_for_accuracy
+from src.db.session import db_available
+from src.analysis.accuracy import compute_hedge_fund_accuracy
 
 st.markdown(get_global_css(), unsafe_allow_html=True)
 
@@ -48,6 +53,8 @@ def _score_color(s):
     if s >= 80: return "#3ECF8E"
     if s >= 60: return "#C9A962"
     return "#EF4444"
+
+logger = logging.getLogger(__name__)
 
 def _html(body, height=300):
     page = (
@@ -102,6 +109,27 @@ if _sym_markets:
                 pass
 
 stats = compute_track_record(records, current_prices) if records else {}
+
+# ── AI 大师准确率（DB 可用时加载）─────────────────────────────────────────────
+_analyst_accuracy: dict = {}
+_past_decisions: list = []
+if db_available():
+    try:
+        _past_decisions = get_decisions_for_accuracy(min_age_days=30, limit=300)
+        if _past_decisions:
+            _acc_symbols = list({(d["symbol"], d["market"]) for d in _past_decisions})
+            _acc_prices: dict[str, float] = {}
+            for sym, mkt in _acc_symbols:
+                try:
+                    q = fetch_quote(sym, mkt)
+                    p = q.get("price")
+                    if p is not None:
+                        _acc_prices["{}:{}".format(mkt, sym)] = float(p)
+                except Exception:
+                    pass
+            _analyst_accuracy = compute_hedge_fund_accuracy(_past_decisions, _acc_prices)
+    except Exception as _e:
+        logger.warning("Failed to load analyst accuracy: %s", _e)
 enriched = stats.get("records_with_return", [])
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -291,6 +319,76 @@ else:
 
     if len(filtered) > 50:
         st.caption("显示最近 50 条，共 {} 条记录".format(len(filtered)))
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AI 大师准确率（需 DB 启用）
+# ══════════════════════════════════════════════════════════════════════════════
+if _analyst_accuracy:
+    sorted_analysts = sorted(
+        _analyst_accuracy.items(),
+        key=lambda x: (x[1]["hit_rate"], x[1]["total"]),
+        reverse=True,
+    )
+
+    rows_html = ""
+    for rank, (aid, rec) in enumerate(sorted_analysts, 1):
+        name_safe = _html_module.escape(str(rec.get("name", aid)))
+        total = rec["total"]
+        hits = rec["hits"]
+        hit_rate = rec["hit_rate"]
+        avg_conf = rec["avg_confidence"]
+
+        bar_w = int(hit_rate * 100)
+        bar_color = "#3ECF8E" if hit_rate >= 0.6 else ("#C9A962" if hit_rate >= 0.4 else "#EF4444")
+        rate_color = bar_color
+        rank_color = "#C9A962" if rank == 1 else "#3A3A4A"
+
+        rows_html += (
+            '<div style="display:grid;grid-template-columns:36px 160px 60px 60px 1fr 80px;'
+            'align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid #0E0E16;">'
+            '<div style="font-size:0.72rem;font-weight:700;color:{rank_color};text-align:center;">#{rank}</div>'
+            '<div style="font-size:0.82rem;font-weight:500;color:#C8C8D8;">{name}</div>'
+            '<div style="font-size:0.78rem;color:#5A5A6A;text-align:center;">{hits}/{total}</div>'
+            '<div style="font-size:0.75rem;color:#5A5A6A;text-align:center;">{conf:.0f}%</div>'
+            '<div style="height:4px;background:#0E0E16;border-radius:2px;">'
+            '<div style="width:{bar_w}%;height:100%;background:{bar_color};border-radius:2px;"></div>'
+            '</div>'
+            '<div style="font-size:0.9rem;font-weight:700;color:{rate_color};text-align:right;">{rate:.0f}%</div>'
+            '</div>'
+        ).format(
+            rank=rank, rank_color=rank_color,
+            name=name_safe, hits=hits, total=total,
+            conf=avg_conf, bar_w=bar_w, bar_color=bar_color,
+            rate_color=rate_color, rate=hit_rate * 100,
+        )
+
+    header_html = (
+        '<div style="display:grid;grid-template-columns:36px 160px 60px 60px 1fr 80px;'
+        'align-items:center;gap:16px;padding-bottom:12px;border-bottom:1px solid #1A1A22;">'
+        '<div></div>'
+        '<div style="font-size:0.46rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;">大师</div>'
+        '<div style="font-size:0.46rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;text-align:center;">命中/总计</div>'
+        '<div style="font-size:0.46rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;text-align:center;">平均置信</div>'
+        '<div style="font-size:0.46rem;letter-spacing:3px;color:#3A3A4A;text-transform:uppercase;">准确率</div>'
+        '<div></div>'
+        '</div>'
+    )
+
+    total_decisions = len(_past_decisions)
+
+    _html("""
+<div style="padding:48px 48px 40px;border-top:1px solid #1A1A22;background:#06060A;">
+  <div style="font-size:0.52rem;letter-spacing:5px;color:#C9A962;
+    text-transform:uppercase;font-weight:500;margin-bottom:8px;">AI Master Accuracy</div>
+  <h2 class="serif" style="font-size:1.9rem;font-weight:300;color:#E8E8F0;
+    margin-bottom:8px;letter-spacing:-0.3px;">AI 大师准确率 · 最近 30 天</h2>
+  <p style="font-size:0.72rem;color:#3A3A4A;margin-bottom:28px;">
+    基于 {total} 次决策的历史验证 · 上涨预测在价格上涨时命中，下跌预测在价格下跌时命中
+  </p>
+""".format(total=total_decisions) + header_html + rows_html + "</div>", height=80 + len(sorted_analysts) * 44 + 120)
+
+elif db_available():
+    st.info("暂无足够历史决策数据（需至少 30 天前的记录）。随着使用积累，AI 大师准确率将自动呈现。")
 
 # ── footer note ───────────────────────────────────────────────────────────────
 st.markdown("""
