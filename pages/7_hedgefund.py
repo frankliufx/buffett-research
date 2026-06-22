@@ -369,6 +369,23 @@ with ctrl_col:
     else:
         st.caption(f"已选 {len(selected_ids)} 位分析师，并行运行")
 
+    st.markdown("---")
+    st.markdown("#### 📊 批量对比")
+    compare_raw = st.text_area(
+        "股票代码（逗号分隔，最多5只，与上方同市场）",
+        placeholder="如: AAPL, MSFT, GOOGL",
+        height=72,
+        key="compare_tickers_input",
+    )
+    compare_btn = st.button(
+        "📊 开始对比分析",
+        use_container_width=True,
+        disabled=(not compare_raw.strip() or len(selected_ids) == 0),
+        key="compare_run_btn",
+    )
+    if not compare_raw.strip():
+        st.caption("输入股票代码后开始对比")
+
 # ── 右侧结果区 ────────────────────────────────────────────────────────────────
 with result_col:
     if not run_btn and "hf_result" not in st.session_state:
@@ -766,3 +783,70 @@ with result_col:
             )
 
         st.caption(f"分析时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | 使用模型: {provider.model}")
+
+    # ── 批量对比运行逻辑 ─────────────────────────────────────────────────────
+    if compare_btn and compare_raw.strip():
+        raw_tickers = [t.strip().upper() for t in compare_raw.replace("，", ",").split(",")]
+        tickers = [t for t in raw_tickers if t][:5]  # 最多5只
+
+        if not tickers:
+            st.warning("未解析到有效股票代码")
+        else:
+            compare_results = []
+            progress = st.progress(0, text="正在对比分析...")
+            for i, tk in enumerate(tickers):
+                progress.progress((i) / len(tickers), text=f"分析中: {tk} ({i+1}/{len(tickers)})")
+                try:
+                    q = fetch_quote(tk, market_code) or {}
+                    tk_price = float(q.get("price") or q.get("regularMarketPrice") or 0)
+                    tk_name = q.get("shortName") or q.get("longName") or tk
+                    tk_fund = fetch_fundamentals(tk, market_code) or {}
+                    tk_norm = _normalize_fundamentals(tk_fund)
+                    tk_moat = score_moat(tk_fund, tk_norm, {})
+                    tk_dcf = calc_dcf(tk_price, tk_fund, tk_norm) if tk_price > 0 else {}
+
+                    hf = run_hedge_fund(
+                        symbol=tk,
+                        name=tk_name,
+                        price=tk_price,
+                        fundamentals=tk_fund,
+                        normalized=tk_norm,
+                        moat=tk_moat,
+                        dcf=tk_dcf,
+                        tech={},
+                        analyst_ids=selected_ids,
+                        provider=provider,
+                        max_workers=config.parallel.hedgefund_workers,
+                    )
+                    if hf:
+                        compare_results.append({
+                            "symbol": tk,
+                            "name": tk_name,
+                            "price": tk_price,
+                            **hf,
+                        })
+                    else:
+                        compare_results.append({
+                            "symbol": tk,
+                            "name": tk_name,
+                            "price": tk_price,
+                            "error": "分析失败（API错误）",
+                            "weighted_score": None,
+                        })
+                except Exception as e:
+                    compare_results.append({
+                        "symbol": tk,
+                        "name": tk,
+                        "price": 0,
+                        "error": str(e)[:60],
+                        "weighted_score": None,
+                    })
+            progress.progress(1.0, text="对比完成！")
+
+            # 按 weighted_score 降序排列（None 排末尾）
+            compare_results.sort(
+                key=lambda x: x.get("weighted_score") if x.get("weighted_score") is not None else -999,
+                reverse=True,
+            )
+            st.session_state["hf_compare_results"] = compare_results
+            st.session_state["hf_compare_analysts_count"] = len(selected_ids)
